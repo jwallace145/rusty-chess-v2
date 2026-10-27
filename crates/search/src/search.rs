@@ -5,7 +5,7 @@
 //! at every main-search node, a bound stored from the score against the
 //! original window, never after an abort) and the staged move picker (TT
 //! move, good captures by static exchange, killers, history quiets, bad
-//! captures). No pruning yet.
+//! captures), searched as a principal variation search. No pruning yet.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -341,7 +341,20 @@ impl Searcher {
         let mut quiets_count = 0usize;
         while let Some(m) = picker.next_with(board.position(), &self.history) {
             let undo = board.make_move(m);
-            let score = -self.negamax(board, depth - 1, -beta, -alpha, ply + 1);
+            // Principal variation search: the first move gets the full
+            // window; every later move a null window that only asks whether
+            // it beats alpha, re-searched in full when it does (and might
+            // still be below beta).
+            let score = if index == 0 {
+                -self.negamax(board, depth - 1, -beta, -alpha, ply + 1)
+            } else {
+                let probe = -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1);
+                if probe > alpha && probe < beta && !self.aborted {
+                    -self.negamax(board, depth - 1, -beta, -alpha, ply + 1)
+                } else {
+                    probe
+                }
+            };
             board.unmake_move(m, undo);
             if self.aborted {
                 return 0; // discarded by the caller; nothing is stored
