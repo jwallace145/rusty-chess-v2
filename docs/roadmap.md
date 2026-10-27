@@ -84,7 +84,7 @@ This is the gate that stopped attempt one. Each item is its own PR with the stat
 
 - [x] SPRT on CI: `sprt.yml` on the `sprt` label, node-limited fastchess games against the PR base from our own openings, sticky comment, H0 fails; `sprt-quick` for a two-minute pipeline smoke test (#24)
 - [x] Openings generator in `crates/tools` and a committed `tests/openings/openings.epd`: 300 positions, 8 random plies, within ±60 cp at depth 4, fixed seed (#24)
-- [ ] Transposition table: 16-byte entries in 4-entry buckets, key verification, depth-preferred replacement with aging, mate scores adjusted by ply, TT move searched first, bound derived from the original window at every node, no store after an abort; `Hash` UCI option; `tt_hit` in the iteration records
+- [x] Transposition table: 10-byte entries in 3-entry clusters, key verification, depth-and-age replacement, mate scores adjusted by ply, TT move searched first, bound derived from the original window at every node, no store after an abort; `Hash` UCI option; `tt_hit` in the iteration records. SPRT +197.5 ± 43.4 Elo in 212 games; fail-high-first 0.70 → 0.79, EBF 3.35 → 2.12, signature 68269801 → 14255682 (#26)
 - [ ] Staged move picker: TT move → good captures (MVV-LVA, filtered by SEE) → killers → history quiets → bad captures; every stage shows cutoffs on bench
 - [ ] Two killer slots per ply
 - [ ] Butterfly history with gravity
