@@ -100,11 +100,12 @@ jobs:
           echo "enforced=${ENFORCE:+true}" >> "$GITHUB_OUTPUT"
           cat gate.md
           { echo "## Performance gate"; echo; cat gate.md; } >> "$GITHUB_STEP_SUMMARY"
-      - name: Download the baseline (the latest release's Bench run)
+      - name: Download the baseline (the latest release's telemetry)
         # The comment compares the PR with the latest release, so every PR
-        # answers "is this better than what we shipped?". If the release's
-        # artifact has expired, the latest run on the base branch stands in
-        # and the label says so.
+        # answers "is this better than what we shipped?". The release's
+        # telemetry assets come first; for releases that predate them, the
+        # tagged commit's Bench run; failing both, the latest run on the base
+        # branch, and the label says so.
         if: github.event_name == 'pull_request'
         id: baseline
         env:
@@ -116,6 +117,13 @@ jobs:
           }
           tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
           if [ -n "$tag" ]; then
+            # Releases carry their telemetry as assets (the `telemetry` job in release-please.yml).
+            mkdir -p base
+            if gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir base --pattern 'bench.jsonl' --pattern 'stats.jsonl' --pattern 'perft.jsonl' 2>/dev/null && [ -f base/bench.jsonl ]; then
+              echo "label=$tag" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            rm -rf base
+            # Releases cut before telemetry assets existed: the Bench run of the tagged commit.
             sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha)
             run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow Bench --branch "$BASE_REF" --event push --commit "$sha" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
             if [ -n "$run" ] && download "$run" "$tag"; then exit 0; fi

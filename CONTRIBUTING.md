@@ -106,7 +106,7 @@ In CI the `Bench` job runs the gate with `--env ci`. Speed bars are reported on 
 
 ### The bench comment
 
-Every PR gets one bench comment, posted by the `Bench` job and refreshed in place on every push. It compares the PR's run with the latest release (the Bench run of the tagged commit; if that artifact has expired, the latest run on the base branch, labelled `main@<sha>`): the bench signature, search NPS, perft NPS and suite result, fail-high first and EBF, each with a delta and a marker (🟢 improved, 🔴 regressed, ⚪ unchanged or within noise, 🆕 no baseline). Rows appear only for layers that are measured. The noise thresholds are the `[comment]` section of `perf-targets.toml`; the gate's verdict is one line and its table is folded into the details. `bench-report` in `crates/tools` renders it, so it can also be run locally against two directories of JSON lines:
+Every PR gets one bench comment, posted by the `Bench` job and refreshed in place on every push. It compares the PR's run with the latest release's telemetry assets (`bench.jsonl`, `stats.jsonl`, `perft.jsonl` attached to the GitHub release by the `telemetry` job; for a release that predates them, the tagged commit's Bench run; failing both, the latest run on the base branch, labelled `main@<sha>`): the bench signature, search NPS, perft NPS and suite result, fail-high first and EBF, each with a delta and a marker (🟢 improved, 🔴 regressed, ⚪ unchanged or within noise, 🆕 no baseline). Rows appear only for layers that are measured. The noise thresholds are the `[comment]` section of `perf-targets.toml`; the gate's verdict is one line and its table is folded into the details. `bench-report` in `crates/tools` renders it, so it can also be run locally against two directories of JSON lines:
 
 ```sh
 cargo run --release -p rusty-chess-tools --bin bench-report -- \
@@ -115,6 +115,6 @@ cargo run --release -p rusty-chess-tools --bin bench-report -- \
 
 ## Releases
 
-Release Please opens and maintains a release PR as changes land on `main`. Merging that PR tags a new version (starting at `v0.1.0`), updates `CHANGELOG.md`, bumps every crate's `version` in the workspace (`release-type: rust`), and triggers the `release` job, which builds macOS arm64, macOS x86_64 and Linux x86_64 binaries and attaches them to the GitHub release. Release PRs are authored by `jwallace145-release-bot[bot]` so that CI runs on them.
+Release Please opens and maintains a release PR as changes land on `main`. Merging that PR tags a new version (starting at `v0.1.0`), updates `CHANGELOG.md`, bumps every crate's `version` in the workspace (`release-type: rust`), and triggers the `release` job, which builds macOS arm64, macOS x86_64 and Linux x86_64 binaries and attaches them to the GitHub release, and the `telemetry` job, which benches the Linux build (with and without `stats`, plus the perft suite), attaches `bench.jsonl`, `stats.jsonl` and `perft.jsonl` to the release and writes the bench signature into the release notes. Those assets are the baseline every PR's bench comment compares against. Release PRs are authored by `jwallace145-release-bot[bot]` so that CI runs on them.
 
 Merging the release PR is the human gate for every published build.

@@ -58,7 +58,7 @@ in `perf-targets.toml` that only rises. `perf-gate` compares a run's JSON
 lines to the bars; CI reports speed bars on every PR, enforces them on
 release PRs, and always enforces the efficiency bars. Every PR gets a
 bench comment, refreshed on each push, with the deltas against the latest
-release. See
+release, whose telemetry is attached to the GitHub release as assets. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Phases
