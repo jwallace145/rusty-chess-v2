@@ -221,3 +221,18 @@ fn stats_counters_match_the_result_when_enabled() {
         assert!(summary.fh_first > 0.0 && summary.fh_first <= 1.0);
     }
 }
+
+#[test]
+fn killer_moves_produce_cutoffs_on_a_real_search() {
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(5), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        let killers = summary.cutoffs_by_stage[rusty_chess_search::stats::Stage::Killers as usize];
+        assert!(
+            killers > 0,
+            "the killer stage produced no cutoffs: {:?}",
+            summary.cutoffs_by_stage
+        );
+    }
+}

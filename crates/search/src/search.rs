@@ -16,6 +16,7 @@ use rusty_chess_core::movegen::{MoveList, generate_captures};
 use rusty_chess_core::types::PieceKind;
 
 use crate::board::Board;
+use crate::killers::Killers;
 use crate::movepick::MovePicker;
 use crate::stat;
 use crate::stats::{MAX_PLY, SearchStats, effective_branching_factor};
@@ -103,6 +104,7 @@ pub struct SearchResult {
 pub struct Searcher {
     stop: Arc<AtomicBool>,
     tt: TranspositionTable,
+    killers: Killers,
     stats: SearchStats,
     nodes: u64,
     qnodes: u64,
@@ -120,6 +122,7 @@ impl Searcher {
         Searcher {
             stop,
             tt: TranspositionTable::new(DEFAULT_HASH_MB),
+            killers: Killers::new(),
             stats: SearchStats::new(),
             nodes: 0,
             qnodes: 0,
@@ -178,6 +181,7 @@ impl Searcher {
         let (soft, hard) = time_plan(limits);
         self.hard_deadline = hard.map(|d| self.started + d);
         self.tt.new_search();
+        self.killers.clear();
         board.set_root();
         let fen = board.position().to_fen();
 
@@ -322,7 +326,7 @@ impl Searcher {
             }
         }
 
-        let mut picker = MovePicker::new(tt_move);
+        let mut picker = MovePicker::new(tt_move).with_killers(self.killers.get(ply));
         let mut best = -INFINITY;
         let mut best_move = Move::NULL;
         let mut index = 0usize;
@@ -342,6 +346,9 @@ impl Searcher {
                     if alpha >= beta {
                         stat!(self.stats, fail_high_by_index[index]);
                         stat!(self.stats, cutoffs_by_stage[picker.stage() as usize]);
+                        if !m.is_capture() && !m.is_promotion() {
+                            self.killers.store(ply, m);
+                        }
                         break;
                     }
                 }
