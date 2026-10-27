@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.1.0...v0.2.0) (2026-10-27)
+
+
+### Features
+
+* **ci:** attach bench telemetry to every release and compare prs against it ([#12](https://github.com/jwallace145/rusty-chess-v2/issues/12)) ([32c2a84](https://github.com/jwallace145/rusty-chess-v2/commit/32c2a84c120701f147775ad2e57a26bd5676b4e8))
+* **ci:** post a bench comment with deltas against main on every pr push ([#11](https://github.com/jwallace145/rusty-chess-v2/issues/11)) ([cc1e519](https://github.com/jwallace145/rusty-chess-v2/commit/cc1e5194e17cdaa4994d56d5f85b7a4de2b6a4ff))
+* **core:** add squares, bitboards, leaper tables and magic bitboard sliders ([#13](https://github.com/jwallace145/rusty-chess-v2/issues/13)) ([760ea24](https://github.com/jwallace145/rusty-chess-v2/commit/760ea240cccaa50a893d5fe44c5910c0d5bdff3c))
+* **core:** add the position, make/unmake, legal move generation and perft ([#14](https://github.com/jwallace145/rusty-chess-v2/issues/14)) ([5135719](https://github.com/jwallace145/rusty-chess-v2/commit/513571925fdd6b57fa932c8f410e9d14f02c1986))
+* **tools:** add the perft suite runner and the performance gate ([#10](https://github.com/jwallace145/rusty-chess-v2/issues/10)) ([1cf2e26](https://github.com/jwallace145/rusty-chess-v2/commit/1cf2e26b0b3c1810f6eb7450fedeefcc035033d0))
+
+
+### Documentation
+
+* describe the root package layout and release type that release please needs ([#8](https://github.com/jwallace145/rusty-chess-v2/issues/8)) ([2c0c213](https://github.com/jwallace145/rusty-chess-v2/commit/2c0c213f93dfe4bc980f9e0ee1a13ca17576c3f8))
+
 ## 0.1.0 (2026-10-27)
 
 
