@@ -16,6 +16,7 @@ use rusty_chess_core::movegen::{MoveList, generate_captures};
 use rusty_chess_core::types::PieceKind;
 
 use crate::board::Board;
+use crate::history::History;
 use crate::killers::Killers;
 use crate::movepick::MovePicker;
 use crate::stat;
@@ -105,6 +106,7 @@ pub struct Searcher {
     stop: Arc<AtomicBool>,
     tt: TranspositionTable,
     killers: Killers,
+    history: History,
     stats: SearchStats,
     nodes: u64,
     qnodes: u64,
@@ -123,6 +125,7 @@ impl Searcher {
             stop,
             tt: TranspositionTable::new(DEFAULT_HASH_MB),
             killers: Killers::new(),
+            history: History::new(),
             stats: SearchStats::new(),
             nodes: 0,
             qnodes: 0,
@@ -155,9 +158,11 @@ impl Searcher {
         self.tt.resize(mb);
     }
 
-    /// Clear the transposition table (`ucinewgame`, and between bench positions).
+    /// Clear the transposition table and the history (`ucinewgame`, and
+    /// between bench positions).
     pub fn clear_hash(&mut self) {
         self.tt.clear();
+        self.history.clear();
     }
 
     /// Per mille of the table in use by the current search.
@@ -182,6 +187,7 @@ impl Searcher {
         self.hard_deadline = hard.map(|d| self.started + d);
         self.tt.new_search();
         self.killers.clear();
+        self.history.age();
         board.set_root();
         let fen = board.position().to_fen();
 
@@ -330,7 +336,10 @@ impl Searcher {
         let mut best = -INFINITY;
         let mut best_move = Move::NULL;
         let mut index = 0usize;
-        while let Some(m) = picker.next(board.position()) {
+        // Quiet moves searched at this node, for the history malus.
+        let mut quiets_tried = [Move::NULL; 64];
+        let mut quiets_count = 0usize;
+        while let Some(m) = picker.next_with(board.position(), &self.history) {
             let undo = board.make_move(m);
             let score = -self.negamax(board, depth - 1, -beta, -alpha, ply + 1);
             board.unmake_move(m, undo);
@@ -348,10 +357,20 @@ impl Searcher {
                         stat!(self.stats, cutoffs_by_stage[picker.stage() as usize]);
                         if !m.is_capture() && !m.is_promotion() {
                             self.killers.store(ply, m);
+                            let side = board.position().side_to_move();
+                            let bonus = History::bonus(depth);
+                            self.history.update(side, m, bonus);
+                            for &q in &quiets_tried[..quiets_count] {
+                                self.history.update(side, q, -bonus);
+                            }
                         }
                         break;
                     }
                 }
+            }
+            if !m.is_capture() && !m.is_promotion() && quiets_count < quiets_tried.len() {
+                quiets_tried[quiets_count] = m;
+                quiets_count += 1;
             }
             index += 1;
         }
