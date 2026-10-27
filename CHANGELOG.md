@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.10.0...v0.11.0) (2026-10-27)
+
+
+### Features
+
+* add a lichess bot setup that connects the engine through lichess-bot ([#49](https://github.com/jwallace145/rusty-chess-v2/issues/49)) ([cba4af9](https://github.com/jwallace145/rusty-chess-v2/commit/cba4af93140eb9480dafd92b3b2fb8c9cfced61a))
+* **search:** add late move reductions with a log-based table ([#48](https://github.com/jwallace145/rusty-chess-v2/issues/48)) ([afa0140](https://github.com/jwallace145/rusty-chess-v2/commit/afa0140aad91911ba4e5301f2fbe688d47a6d658))
+* **search:** add null-move pruning with a non-pawn-material guard ([#47](https://github.com/jwallace145/rusty-chess-v2/issues/47)) ([b83e55b](https://github.com/jwallace145/rusty-chess-v2/commit/b83e55b51b901842e24a58c0c5a8c40e55b8c9d6))
+
+
+### Bug Fixes
+
+* **lichess:** pin lichess-bot to a master commit and match its current config keys ([#52](https://github.com/jwallace145/rusty-chess-v2/issues/52)) ([7f781c4](https://github.com/jwallace145/rusty-chess-v2/commit/7f781c4b8a4550e3aeace5327734ba37d20ac487))
+
 ## [0.10.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.9.0...v0.10.0) (2026-10-27)
 
 
