@@ -168,6 +168,13 @@ fn the_comment_is_compact_and_carries_the_gate_in_a_collapsed_section() {
         "{} lines\n{md}",
         md.lines().count()
     );
+    // Everything after the gate line is folded away: the visible part stays short.
+    let visible = md.split("<details>").next().unwrap();
+    assert!(
+        visible.lines().count() <= 12,
+        "{} visible lines\n{visible}",
+        visible.lines().count()
+    );
     assert!(md.contains("<details>") && md.contains("</details>"));
     assert!(md.contains("| Bar | Measured |"));
     assert!(md.contains("v0.1.0") && md.contains("ab807a0"));
