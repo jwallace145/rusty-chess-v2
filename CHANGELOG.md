@@ -17,6 +17,12 @@
 
 * move the ebf gate into phase 4 and mark phase 3 complete ([#45](https://github.com/jwallace145/rusty-chess-v2/issues/45)) ([3570b5c](https://github.com/jwallace145/rusty-chess-v2/commit/3570b5c7fc944f6413ae4907060018eba15ea309))
 
+### Benchmarks
+
+* bench signature 7,143,901, instructions per node 1212, search 14.29M NPS, perft 368.37M NPS (pass (63)), fail-high first 97.5%, EBF 3.86, TT hit 35.7%
+* since v0.8.0: fail-high first -0.0 pt, EBF -0.32, instructions per node +1.0%, search NPS +93.8%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.8.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.7.0...v0.8.0) (2026-10-27)
 
 
