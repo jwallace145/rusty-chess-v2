@@ -1,8 +1,7 @@
 //! The perft suite against the engine's move generator.
 //!
-//! `tests/perft.epd` is the coverage set; `rusty_chess_tools::perft` runs it.
-//! The count check is ignored until legal move generation lands in Phase 1;
-//! the suite itself is checked on every PR so that it never rots.
+//! `tests/perft.epd` is the coverage set; `rusty_chess_tools::perft` runs it
+//! against `rusty_chess_core::movegen::perft`.
 
 use rusty_chess_tools::perft::{Suite, run};
 
@@ -45,17 +44,19 @@ fn no_position_appears_twice() {
     }
 }
 
-/// The real check. Depth is capped so the suite runs in seconds in CI; the
-/// deepest counts are for local runs with `PERFT_MAX_DEPTH`.
+/// The real check. Depth is capped so the suite runs in seconds in a debug
+/// build; `rusty-chess perft --suite tests/perft.epd` runs every depth in
+/// release mode and is what CI measures.
 #[test]
-#[ignore = "Phase 1: enabled when legal move generation lands in rusty-chess-core"]
 fn every_count_matches() {
     let max_depth: u32 = std::env::var("PERFT_MAX_DEPTH")
         .ok()
         .and_then(|d| d.parse().ok())
-        .unwrap_or(5);
-    let report = run(&suite(), max_depth, |_fen, _depth| {
-        Err::<u64, _>("move generation is not implemented yet")
+        .unwrap_or(4);
+    let report = run(&suite(), max_depth, |fen, depth| {
+        let mut pos =
+            rusty_chess_core::position::Position::from_fen(fen).map_err(|e| e.to_string())?;
+        Ok::<u64, String>(rusty_chess_core::movegen::perft(&mut pos, depth))
     });
     for failure in report.failures() {
         eprintln!(

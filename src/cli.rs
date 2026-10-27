@@ -15,9 +15,13 @@ Commands:
                --depth N   depth per position (default 12)
                --hash MB   hash size in MB (default 16)
                --out FILE  write JSON lines telemetry to FILE
-  perft      Count leaf nodes from a position
-               --depth N   depth (default 5)
-               --fen FEN   position (default: the starting position)
+  perft      Count leaf nodes from a position, split by root move
+               --depth N      depth (default 5)
+               --fen FEN      position (default: the starting position)
+             or run the suite and measure move generation speed
+               --suite FILE   an EPD suite such as tests/perft.epd
+               --max-depth N  deepest depth to check (default: every depth in the suite)
+               --out FILE     write a JSON lines perft record to FILE
 
 Options:
   --version  Print the version
@@ -62,10 +66,16 @@ impl Default for BenchArgs {
 /// Arguments to `perft`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PerftArgs {
-    /// Depth.
+    /// Depth, for a single position.
     pub depth: u32,
     /// The position, or `None` for the starting position.
     pub fen: Option<String>,
+    /// An EPD suite to run instead of a single position.
+    pub suite: Option<PathBuf>,
+    /// Deepest depth to check in the suite; `None` for every depth.
+    pub max_depth: Option<u32>,
+    /// Where to write the JSON lines perft record, if anywhere.
+    pub out: Option<PathBuf>,
 }
 
 impl Default for PerftArgs {
@@ -73,6 +83,9 @@ impl Default for PerftArgs {
         Self {
             depth: 5,
             fen: None,
+            suite: None,
+            max_depth: None,
+            out: None,
         }
     }
 }
@@ -132,6 +145,9 @@ fn parse_perft<I: Iterator<Item = String>>(mut args: I) -> Result<PerftArgs, Usa
         match flag.as_str() {
             "--depth" => out.depth = value(&flag, args.next())?,
             "--fen" => out.fen = Some(raw(&flag, args.next())?),
+            "--suite" => out.suite = Some(PathBuf::from(raw(&flag, args.next())?)),
+            "--max-depth" => out.max_depth = Some(value(&flag, args.next())?),
+            "--out" => out.out = Some(PathBuf::from(raw(&flag, args.next())?)),
             other => return Err(UsageError(format!("unknown option `{other}` for perft"))),
         }
     }
@@ -183,6 +199,24 @@ mod tests {
             Ok(Command::Perft(PerftArgs {
                 depth: 2,
                 fen: Some(fen.into()),
+                ..PerftArgs::default()
+            }))
+        );
+        assert_eq!(
+            p(&[
+                "perft",
+                "--suite",
+                "tests/perft.epd",
+                "--max-depth",
+                "4",
+                "--out",
+                "p.jsonl"
+            ]),
+            Ok(Command::Perft(PerftArgs {
+                suite: Some(PathBuf::from("tests/perft.epd")),
+                max_depth: Some(4),
+                out: Some(PathBuf::from("p.jsonl")),
+                ..PerftArgs::default()
             }))
         );
     }

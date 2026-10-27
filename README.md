@@ -29,7 +29,8 @@ cargo build --release
 ./target/release/rusty-chess                 # UCI on stdin/stdout
 ./target/release/rusty-chess bench           # signature and NPS over 50 fixed positions
 ./target/release/rusty-chess bench --depth 12 --hash 16 --out bench.jsonl
-./target/release/rusty-chess perft --depth 5 # Phase 1
+./target/release/rusty-chess perft --depth 5 --fen "<fen>"   # split by root move
+./target/release/rusty-chess perft --suite tests/perft.epd --out perft.jsonl
 ```
 
 Local builds target the host CPU (`.cargo/config.toml`); release CI builds a
@@ -41,7 +42,7 @@ Three layers are measured separately because each one fails differently.
 
 | Layer | Command | Output |
 | --- | --- | --- |
-| Move generation speed | `rusty-chess perft` | perft NPS (bulk counting) |
+| Move generation speed | `rusty-chess perft --suite tests/perft.epd` | every count in the suite, and perft NPS (bulk counting) |
 | Search speed | `rusty-chess bench` | the node **signature** and NPS |
 | Search efficiency | `cargo build --release --features stats`, then `bench` | fail-high-first rate, EBF, TT hit rate, qsearch share, cutoffs by move-picker stage |
 
