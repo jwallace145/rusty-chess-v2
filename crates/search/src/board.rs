@@ -4,7 +4,7 @@
 //! allocates after construction.
 
 use rusty_chess_core::r#move::{Move, MoveFlag};
-use rusty_chess_core::position::{Position, Undo};
+use rusty_chess_core::position::{NullUndo, Position, Undo};
 use rusty_chess_core::types::{Color, PieceKind, Square};
 
 use crate::eval::Eval;
@@ -133,6 +133,21 @@ impl Board {
         self.keys[self.len] = self.pos.key();
         self.len += 1;
         undo
+    }
+
+    /// Pass the turn (null-move pruning); the evaluation terms are unchanged.
+    pub fn make_null_move(&mut self) -> NullUndo {
+        let undo = self.pos.make_null_move();
+        debug_assert!(self.len < MAX_HISTORY, "game too long for the key history");
+        self.keys[self.len] = self.pos.key();
+        self.len += 1;
+        undo
+    }
+
+    /// Take back a null move.
+    pub fn unmake_null_move(&mut self, undo: NullUndo) {
+        self.len -= 1;
+        self.pos.unmake_null_move(undo);
     }
 
     /// Take back `m`.

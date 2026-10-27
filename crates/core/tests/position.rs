@@ -257,3 +257,39 @@ fn promotions_replace_the_pawn() {
     );
     assert_eq!(p.piece_at(Square::B8), None);
 }
+
+#[test]
+fn a_null_move_passes_the_turn_and_unmakes_exactly() {
+    let original = pos("rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
+    let mut p = original.clone();
+    let undo = p.make_null_move();
+    assert_eq!(p.side_to_move(), Color::Black);
+    assert_eq!(p.en_passant(), None, "the en passant right lapses");
+    assert_eq!(p.halfmove_clock(), 1);
+    assert_eq!(p.fullmove_number(), 3);
+    assert_eq!(p.key(), p.recompute_key());
+    assert_ne!(p.key(), original.key());
+    assert_eq!(p.piece_at(Square::E5), original.piece_at(Square::E5));
+    p.unmake_null_move(undo);
+    assert_eq!(p, original);
+    // Black's null move advances the move number.
+    let mut p = pos("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
+    let undo = p.make_null_move();
+    assert_eq!(p.fullmove_number(), 2);
+    p.unmake_null_move(undo);
+    assert_eq!(p.fullmove_number(), 1);
+}
+
+#[test]
+fn non_pawn_material() {
+    assert!(
+        pos("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+            .has_non_pawn_material(Color::White)
+    );
+    let pawns_only = pos("8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1");
+    assert!(!pawns_only.has_non_pawn_material(Color::White));
+    assert!(!pawns_only.has_non_pawn_material(Color::Black));
+    let one_knight = pos("8/k7/3p4/p2P1p2/P2P1P2/8/8/K5N1 w - - 0 1");
+    assert!(one_knight.has_non_pawn_material(Color::White));
+    assert!(!one_knight.has_non_pawn_material(Color::Black));
+}

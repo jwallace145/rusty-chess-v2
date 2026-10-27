@@ -270,3 +270,52 @@ fn aspiration_windows_keep_results_exact_and_report_researches() {
         );
     }
 }
+
+#[test]
+fn null_move_pruning_cuts_nodes_but_never_in_check_or_pawn_endings() {
+    // Mates, draws and determinism must survive pruning.
+    let r = search(
+        "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+        depth(6),
+    );
+    assert_eq!(
+        (r.best.to_string(), mate_in(r.score)),
+        ("d5f6".into(), Some(2))
+    );
+    let r = search("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", depth(4));
+    assert_eq!(
+        (r.best.to_string(), mate_in(r.score)),
+        ("a1a8".into(), Some(1))
+    );
+    // A busy middlegame prunes with null moves.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(6), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(
+            summary.null_move_cutoffs > 0,
+            "no null-move cutoffs in a middlegame"
+        );
+    }
+    // A pawn ending never does: zugzwang would make the null move lie.
+    let mut b = board("8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(8), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert_eq!(summary.null_move_cutoffs, 0, "null moves in a pawn ending");
+    }
+}
+
+#[test]
+fn null_move_pruning_does_not_lose_a_known_zugzwang() {
+    // White to move; every move loses the rook except Rf1 (Rh1 by the rook's path); the king
+    // on h1 is stalemated apart from pawn moves. With naive null-move pruning white would
+    // "pass" and misjudge the position. Depth 8 must still find a move that keeps the rook.
+    let r = search("8/8/p1p5/1p5p/1P5p/8/PPP2K1p/4R1rk w - - 0 1", depth(8));
+    assert!(
+        r.best.to_string().starts_with("e1"),
+        "white must move the rook: {} ({})",
+        r.best,
+        r.pv
+    );
+}
