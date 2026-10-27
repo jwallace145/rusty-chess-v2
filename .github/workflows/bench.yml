@@ -11,8 +11,10 @@ on:
   push:
     branches: [main]
 
+# A body edit re-runs the bench (its `Bench:` claim check reads the body) in
+# its own stream, so it never cancels the run for a push.
 concurrency:
-  group: bench-${{ github.event.pull_request.number || github.sha }}
+  group: bench-${{ github.event.pull_request.number || github.sha }}-${{ github.event.action == 'edited' && 'edited' || 'code' }}
   cancel-in-progress: true
 
 permissions: {}
