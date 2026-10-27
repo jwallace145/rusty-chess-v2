@@ -145,6 +145,11 @@ impl Default for SearchStats {
 
 #[cfg(feature = "stats")]
 impl SearchStats {
+    /// Fresh counters.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Zero every counter.
     pub fn reset(&mut self) {
         *self = Self::default();
@@ -181,6 +186,11 @@ pub struct SearchStats;
 
 #[cfg(not(feature = "stats"))]
 impl SearchStats {
+    /// Fresh counters (nothing, without the `stats` feature).
+    pub fn new() -> Self {
+        SearchStats
+    }
+
     /// Zero every counter (a no-op without the `stats` feature).
     pub fn reset(&mut self) {}
 

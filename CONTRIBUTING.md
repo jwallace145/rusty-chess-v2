@@ -7,7 +7,7 @@ This repo follows the conventions in [docs/repo-conventions.md](docs/repo-conven
 1. Branch from `main`.
 2. Make the change. Keep the code formatted (`cargo fmt`) and run the local checks below.
 3. Open a PR with a typed template (see below). The PR title must be a valid Conventional Commit.
-4. For `feat` and `perf` PRs, fill in the bench signature. CI runs `bench` and uploads `bench.jsonl` and `stats.jsonl` as artifacts; if the PR description carries a `Bench: <nodes>` line, CI checks that it matches.
+4. For `feat` and `perf` PRs, fill in the bench signature. CI runs `bench` and uploads `bench.jsonl` and `stats.jsonl` as artifacts; if the PR description carries a `Bench: <nodes>` line, CI checks that the last one (the "after" value) matches its own run.
 5. Merge with **squash** or **rebase**. Merge commits are disabled and history stays linear.
 
 Direct pushes to `main` are not allowed. The only exception was the initial scaffold commit during bootstrap.

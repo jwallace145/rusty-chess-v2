@@ -14,7 +14,7 @@ fn stats_struct_is_zero_sized_without_the_feature() {
 
 #[test]
 fn stat_macro_compiles_in_both_modes_and_counts_only_with_the_feature() {
-    let mut stats = SearchStats::default();
+    let mut stats = SearchStats::new();
     let ply = 3usize;
     stat!(stats, nodes);
     stat!(stats, nodes, 4);
@@ -45,7 +45,7 @@ fn stat_macro_compiles_in_both_modes_and_counts_only_with_the_feature() {
 
 #[test]
 fn rates_are_zero_not_nan_when_nothing_was_counted() {
-    let stats = SearchStats::default();
+    let stats = SearchStats::new();
     if let Some(s) = stats.summary() {
         assert_eq!(s.fh_first, 0.0);
         assert_eq!(s.tt_hit, 0.0);
@@ -55,7 +55,7 @@ fn rates_are_zero_not_nan_when_nothing_was_counted() {
 
 #[test]
 fn stats_reset_clears_every_counter() {
-    let mut stats = SearchStats::default();
+    let mut stats = SearchStats::new();
     stat!(stats, nodes, 7);
     stat!(stats, null_move_cutoffs);
     stats.reset();

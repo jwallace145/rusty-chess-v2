@@ -293,6 +293,8 @@ fn push_numeric(
         return;
     }
     let (delta, marker) = match (base, head) {
+        // A baseline of zero is "not measured yet" (the layer did not exist), not a value to compare with.
+        (Some(b), Some(h)) if b == 0.0 && h != 0.0 => (String::new(), Marker::New),
         (Some(b), Some(h)) => {
             let (delta, beyond) = match noise {
                 Noise::Relative(pct) => {

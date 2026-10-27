@@ -13,8 +13,11 @@
 min_perft_nps = { local = 100_000_000, ci = 100_000_000 }
 
 [search]
-# `rusty-chess bench`. Roadmap Phase 2 target: 2M NPS with PeSTO eval.
-min_nps = { local = 0, ci = 0 }
+# `rusty-chess bench` at its default depth. Roadmap Phase 2 target: 2M NPS with
+# PeSTO eval. The Phase 2 baseline does about 8M on an M-series laptop; the bar
+# starts at the roadmap figure because Phase 3's transposition table and move
+# picker add per-node work before they pay it back in depth.
+min_nps = { local = 2_000_000, ci = 1_000_000 }
 
 [efficiency]
 # From `bench` built with `--features stats`. Roadmap Phase 3 gate: >= 0.90 and <= 3.0.

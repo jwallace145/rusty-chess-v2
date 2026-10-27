@@ -1,19 +1,20 @@
 //! The deterministic bench.
 //!
-//! Searches every position in [`BENCH_POSITIONS`] to a fixed depth with a
-//! fixed hash size and prints the total node count, the *signature*, and the
-//! NPS. A changed signature means search behaviour changed; a changed NPS
-//! with the same signature is a pure speed change.
-//!
-//! Phase 0 has no search, so every position reports zero nodes. The output
-//! format, the JSON lines records and the CI job that uploads them are the
-//! deliverable; the numbers arrive in Phase 2.
+//! Searches every position in [`BENCH_POSITIONS`] to a fixed depth and
+//! prints the total node count, the *signature*, and the NPS. A changed
+//! signature means search behaviour changed; a changed NPS with the same
+//! signature is a pure speed change. With the `stats` feature the counters
+//! accumulate over the whole run and go into the final record.
 
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
-use rusty_chess_search::stats::SearchStats;
+use rusty_chess_core::position::Position;
+use rusty_chess_search::board::Board;
+use rusty_chess_search::search::{Limits, Searcher};
 use rusty_chess_search::telemetry::{
     BenchRecord, JsonlWriter, Record, SCHEMA_VERSION, SummaryRecord,
 };
@@ -24,40 +25,53 @@ use crate::positions::BENCH_POSITIONS;
 /// Run the bench, printing progress and the summary to `out` and writing JSON
 /// lines to `args.out` if set. Returns the bench record.
 pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
+    rusty_chess_core::attacks::init();
     let mut jsonl = match &args.out {
         Some(path) => Some(JsonlWriter::new(BufWriter::new(File::create(path)?))),
         None => None,
     };
-
-    let mut stats = SearchStats::default();
+    let limits = Limits {
+        depth: Some(args.depth),
+        ..Limits::default()
+    };
+    let mut searcher = Searcher::new(Arc::new(AtomicBool::new(false)));
     let mut total_nodes = 0u64;
     let started = Instant::now();
 
     for (i, fen) in BENCH_POSITIONS.iter().enumerate() {
-        let position_started = Instant::now();
-        // Phase 2 replaces this with a real search to `args.depth`.
-        let (nodes, qnodes, bestmove, score_cp) = (0u64, 0u64, "0000", 0i32);
-        let elapsed_ms = position_started.elapsed().as_millis() as u64;
+        let position = Position::from_fen(fen)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+        let mut board = Board::from_position(position);
+        let mut iterations = Vec::new();
+        let result = searcher.search(&mut board, &limits, &mut |it| {
+            iterations.push(Record::Iter(it.clone()))
+        });
+        let nodes = result.nodes + result.qnodes;
+        let elapsed_ms = result.elapsed.as_millis() as u64;
         total_nodes += nodes;
 
         writeln!(out, "Position {}/{}: {fen}", i + 1, BENCH_POSITIONS.len())?;
         writeln!(
             out,
-            "  nodes {nodes}  time {elapsed_ms} ms  (no search yet)"
+            "  bestmove {} score {} nodes {nodes} time {elapsed_ms} ms",
+            result.best, result.score
         )?;
 
         if let Some(w) = jsonl.as_mut() {
+            for record in &iterations {
+                w.write(record)?;
+            }
             w.write(&Record::Summary(SummaryRecord {
                 v: SCHEMA_VERSION,
                 fen: (*fen).to_string(),
-                depth: args.depth,
-                nodes,
-                qnodes,
-                nps: nps(nodes + qnodes, elapsed_ms),
+                depth: result.depth,
+                nodes: result.nodes,
+                qnodes: result.qnodes,
+                nps: nps(nodes, elapsed_ms),
                 elapsed_ms,
-                bestmove: bestmove.to_string(),
-                score_cp,
-                stats: stats.summary(),
+                bestmove: result.best.to_string(),
+                score_cp: result.score,
+                stats: None,
             }))?;
         }
     }
@@ -71,9 +85,8 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         nodes: total_nodes,
         nps: nps(total_nodes, elapsed_ms),
         elapsed_ms,
-        stats: stats.summary(),
+        stats: searcher.stats().summary(),
     };
-    stats.reset();
 
     writeln!(out, "===========================")?;
     writeln!(out, "Positions       : {}", record.positions)?;
@@ -104,17 +117,7 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for fen in BENCH_POSITIONS {
             assert!(seen.insert(fen), "duplicate position {fen}");
-            let fields: Vec<&str> = fen.split(' ').collect();
-            assert_eq!(fields.len(), 6, "{fen}");
-            let ranks: Vec<&str> = fields[0].split('/').collect();
-            assert_eq!(ranks.len(), 8, "{fen}");
-            for rank in ranks {
-                let squares: u32 = rank.chars().map(|c| c.to_digit(10).unwrap_or(1)).sum();
-                assert_eq!(squares, 8, "{fen}");
-            }
-            assert!(matches!(fields[1], "w" | "b"), "{fen}");
-            assert_eq!(fields[0].matches('K').count(), 1, "{fen}");
-            assert_eq!(fields[0].matches('k').count(), 1, "{fen}");
+            Position::from_fen(fen).unwrap_or_else(|e| panic!("{fen}: {e}"));
         }
     }
 
@@ -127,9 +130,14 @@ mod tests {
     #[test]
     fn bench_without_output_file_prints_the_summary() {
         let mut out = Vec::new();
-        let record = run(&BenchArgs::default(), &mut out).unwrap();
+        let args = BenchArgs {
+            depth: 1,
+            ..BenchArgs::default()
+        };
+        let record = run(&args, &mut out).unwrap();
         let text = String::from_utf8(out).unwrap();
         assert_eq!(record.positions, 50);
+        assert!(record.nodes > 0);
         assert!(text.contains(&format!("Nodes searched  : {}", record.nodes)));
     }
 }

@@ -45,6 +45,88 @@ fn unknown_commands_are_ignored_and_eof_quits() {
 }
 
 #[test]
+fn go_depth_answers_with_info_lines_and_a_legal_bestmove() {
+    let out = run_uci("position startpos moves e2e4 e7e5\ngo depth 3\nquit\n");
+    let lines: Vec<&str> = out.lines().collect();
+    let infos: Vec<&&str> = lines
+        .iter()
+        .filter(|l| l.starts_with("info depth "))
+        .collect();
+    assert_eq!(infos.len(), 3, "{out}");
+    assert!(
+        infos[2].contains(" depth 3 ")
+            && infos[2].contains(" score cp ")
+            && infos[2].contains(" nodes ")
+            && infos[2].contains(" nps ")
+            && infos[2].contains(" pv "),
+        "{}",
+        infos[2]
+    );
+    let best = lines.last().unwrap();
+    assert!(best.starts_with("bestmove "), "{out}");
+    let mv = best.split(' ').nth(1).unwrap();
+    let pos = rusty_chess_core::position::Position::from_fen(
+        "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+    )
+    .unwrap();
+    assert!(pos.parse_uci_move(mv).is_some(), "{mv} is not legal");
+}
+
+#[test]
+fn position_fen_and_mate_scores() {
+    let out = run_uci("position fen 6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1\ngo depth 2\nquit\n");
+    assert!(out.contains(" score mate 1 "), "{out}");
+    assert!(out.trim_end().ends_with("bestmove a1a8"), "{out}");
+}
+
+#[test]
+fn go_with_a_clock_and_go_infinite_with_stop() {
+    let started = std::time::Instant::now();
+    let out = run_uci("position startpos\ngo wtime 1000 btime 1000 winc 0 binc 0\nquit\n");
+    assert!(out.contains("bestmove "), "{out}");
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
+
+    let mut child = bin()
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    stdin
+        .write_all(b"position startpos\ngo infinite\n")
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    stdin.write_all(b"stop\nquit\n").unwrap();
+    let out = child.wait_with_output().unwrap();
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(out.status.success());
+    assert_eq!(
+        text.lines().filter(|l| l.starts_with("bestmove ")).count(),
+        1,
+        "{text}"
+    );
+}
+
+#[test]
+fn ucinewgame_and_the_d_command() {
+    let out = run_uci("ucinewgame\nposition startpos moves e2e4\nd\nquit\n");
+    assert!(
+        out.contains("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"),
+        "{out}"
+    );
+}
+
+#[test]
+fn a_repetition_in_the_game_history_counts() {
+    // After the shuffle the start position is on the board for the third time; the engine must know it is a draw.
+    let out = run_uci(
+        "position fen rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 moves g1f3 g8f6 f3g1\ngo depth 3\nquit\n",
+    );
+    assert!(out.trim_end().ends_with("bestmove f6g8"), "{out}");
+    assert!(out.contains(" score cp 0 "), "{out}");
+}
+
+#[test]
 fn version_flag() {
     let out = bin().arg("--version").output().unwrap();
     assert!(out.status.success());
@@ -90,14 +172,20 @@ fn bench_prints_the_signature_and_writes_jsonl() {
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("Nodes searched  : "), "{text}");
     assert!(text.contains("Nodes/second    : "), "{text}");
+    assert!(text.contains("bestmove "), "{text}");
     assert!(text.contains("Positions       : 50"), "{text}");
 
     let records = rusty_chess_search::telemetry::read_records(std::io::BufReader::new(
         std::fs::File::open(&out_path).unwrap(),
     ))
     .unwrap();
-    // One summary per position, then the bench record last.
-    assert_eq!(records.len(), 51);
+    // Iteration records and one summary per position, then the bench record last.
+    assert!(records.len() > 51, "{}", records.len());
+    let iters = records
+        .iter()
+        .filter(|r| matches!(r, rusty_chess_search::telemetry::Record::Iter(_)))
+        .count();
+    assert_eq!(iters, 50, "one iteration record per position at depth 1");
     match records.last().unwrap() {
         rusty_chess_search::telemetry::Record::Bench(b) => {
             assert_eq!(b.v, 1);
@@ -105,6 +193,7 @@ fn bench_prints_the_signature_and_writes_jsonl() {
             assert_eq!(b.depth, 1);
             assert_eq!(b.hash_mb, 8);
             assert_eq!(b.stats.is_some(), cfg!(feature = "stats"));
+            assert!(b.nodes > 0, "the bench searches now");
             assert!(text.contains(&format!("Nodes searched  : {}", b.nodes)));
         }
         other => panic!("last record should be the bench record, got {other:?}"),
