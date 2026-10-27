@@ -5,7 +5,8 @@
 //! at every main-search node, a bound stored from the score against the
 //! original window, never after an abort) and the staged move picker (TT
 //! move, good captures by static exchange, killers, history quiets, bad
-//! captures), searched as a principal variation search. No pruning yet.
+//! captures), searched as a principal variation search inside aspiration
+//! windows. No pruning yet.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,6 +42,15 @@ pub const MAX_DEPTH: u32 = MAX_PLY as u32 - 1;
 
 /// How often the abort conditions are checked, in nodes.
 const CHECK_EVERY: u64 = 2048;
+
+/// Iterations below this depth are searched with the full window: the
+/// previous score is not yet a useful guess.
+const ASPIRATION_MIN_DEPTH: u32 = 4;
+
+/// The initial half-width of the aspiration window, in centipawns. On the
+/// depth-6 bench, 25 re-searched 37 windows and cost nodes; 50 almost never
+/// failed but saved little; 35 was the best of the settings tried.
+const ASPIRATION_DELTA: i32 = 35;
 
 /// Whether `score` is a mate for either side.
 #[inline]
@@ -220,7 +230,7 @@ impl Searcher {
         let mut prev_total = 0u64;
 
         for depth in 1..=max_depth {
-            let score = self.negamax(board, depth, -INFINITY, INFINITY, 0);
+            let score = self.aspirate(board, depth, best_score);
             if self.aborted {
                 break;
             }
@@ -264,6 +274,40 @@ impl Searcher {
             elapsed: self.started.elapsed(),
             pv,
             iterations,
+        }
+    }
+
+    /// Search `depth` in a window around `guess`, the previous iteration's
+    /// score, widening and re-searching on a fail-high or fail-low. The
+    /// first iterations and mate scores use the full window.
+    fn aspirate(&mut self, board: &mut Board, depth: u32, guess: i32) -> i32 {
+        if depth < ASPIRATION_MIN_DEPTH || is_mate_score(guess) {
+            return self.negamax(board, depth, -INFINITY, INFINITY, 0);
+        }
+        let mut delta = ASPIRATION_DELTA;
+        let mut alpha = (guess - delta).max(-INFINITY);
+        let mut beta = (guess + delta).min(INFINITY);
+        loop {
+            let score = self.negamax(board, depth, alpha, beta, 0);
+            if self.aborted {
+                return score;
+            }
+            if score <= alpha {
+                // Fail low: open downward, keep the upper bound where it was.
+                beta = (alpha + beta) / 2;
+                alpha = (score - delta).max(-INFINITY);
+            } else if score >= beta {
+                // Fail high: open upward.
+                beta = (score + delta).min(INFINITY);
+            } else {
+                return score;
+            }
+            stat!(self.stats, aspiration_researches);
+            delta = delta.saturating_mul(2);
+            if delta >= INFINITY {
+                alpha = -INFINITY;
+                beta = INFINITY;
+            }
         }
     }
 
