@@ -100,21 +100,33 @@ jobs:
           echo "enforced=${ENFORCE:+true}" >> "$GITHUB_OUTPUT"
           cat gate.md
           { echo "## Performance gate"; echo; cat gate.md; } >> "$GITHUB_STEP_SUMMARY"
-      - name: Download the baseline from the latest Bench run on the base branch
+      - name: Download the baseline (the latest release's Bench run)
+        # The comment compares the PR with the latest release, so every PR
+        # answers "is this better than what we shipped?". If the release's
+        # artifact has expired, the latest run on the base branch stands in
+        # and the label says so.
         if: github.event_name == 'pull_request'
         id: baseline
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
+          download() { # <run id> <label>
+            gh run download "$1" --repo "$GITHUB_REPOSITORY" --name bench --dir base && echo "label=$2" >> "$GITHUB_OUTPUT"
+          }
+          tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
+          if [ -n "$tag" ]; then
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha)
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow Bench --branch "$BASE_REF" --event push --commit "$sha" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            if [ -n "$run" ] && download "$run" "$tag"; then exit 0; fi
+            echo "No usable Bench artifact for release $tag (run: ${run:-none}); falling back to the latest run on $BASE_REF."
+          else
+            echo "No release yet; falling back to the latest run on $BASE_REF."
+          fi
           run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow Bench --branch "$BASE_REF" --event push --status success --limit 1 --json databaseId,headSha --jq '.[0] // empty')
           if [ -z "$run" ]; then echo "No successful Bench run on $BASE_REF yet; no baseline."; exit 0; fi
           id=$(jq -r .databaseId <<<"$run"); sha=$(jq -r .headSha <<<"$run")
-          if gh run download "$id" --repo "$GITHUB_REPOSITORY" --name bench --dir base; then
-            echo "label=${BASE_REF}@${sha:0:7}" >> "$GITHUB_OUTPUT"
-          else
-            echo "The baseline artifact from run $id is gone (expired?); no baseline."
-          fi
+          download "$id" "${BASE_REF}@${sha:0:7}" || echo "The baseline artifact from run $id is gone (expired?); no baseline."
       - name: Build the bench comment
         if: github.event_name == 'pull_request'
         env:
