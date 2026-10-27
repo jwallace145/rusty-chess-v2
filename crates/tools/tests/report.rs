@@ -243,3 +243,28 @@ fn a_collapsed_section_explains_each_row_that_is_shown() {
     let md = render(None, &head, &targets(), &meta());
     assert!(!md.contains("**Perft NPS**"), "{md}");
 }
+
+#[test]
+fn a_zero_baseline_reads_as_new_not_as_a_zero_percent_change() {
+    let base = run(0, 0, 0.0, 0.0, None);
+    let head = run(68_269_801, 7_900_000, 0.7, 0.0, None);
+    let md = render(Some(&base), &head, &targets(), &meta());
+    let row = md
+        .lines()
+        .find(|l| l.starts_with("| Search NPS |"))
+        .unwrap();
+    assert!(
+        row.contains("| 0 | 7.90M |") && row.ends_with("| 🆕 |"),
+        "{row}"
+    );
+    let row = md
+        .lines()
+        .find(|l| l.starts_with("| Fail-high first |"))
+        .unwrap();
+    assert!(row.ends_with("| 🆕 |"), "{row}");
+    let row = md
+        .lines()
+        .find(|l| l.starts_with("| Bench signature |"))
+        .unwrap();
+    assert!(row.contains("changed"), "{row}");
+}
