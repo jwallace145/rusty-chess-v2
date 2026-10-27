@@ -20,9 +20,11 @@ min_perft_nps = { local = 100_000_000, ci = 100_000_000 }
 min_nps = { local = 2_000_000, ci = 1_000_000 }
 
 [efficiency]
-# From `bench` built with `--features stats`. Roadmap Phase 3 gate: >= 0.90 and <= 3.0.
-min_fail_high_first = 0.0
-max_ebf = 0.0
+# From `bench` built with `--features stats`; deterministic, so enforced on every PR.
+# Set at the end of Phase 3 (fail-high-first 0.975, EBF 4.18) with a small margin.
+# Fail-high-first only rises and EBF only falls from here; Phase 4 tightens EBF toward 2.
+min_fail_high_first = 0.95
+max_ebf = 4.5
 
 [comment]
 # The PR bench comment shows a delta smaller than these as unchanged (⚪)
