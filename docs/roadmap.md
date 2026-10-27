@@ -54,7 +54,7 @@ The schema is versioned (`"v":1`) so old artifacts stay comparable.
 
 **Coverage suites and performance bars.** Each layer in the table has a coverage suite that only grows and a bar that only rises, both committed. Move generation is covered by `tests/perft.epd` (lines are appended, never removed or changed) and search by the bench positions. The bars live in `perf-targets.toml`, per environment for speed because shared runners are slow and noisy. `perf-gate` in `crates/tools` compares a run's JSON lines to them: speed bars are reported on every PR and enforced on release PRs and `main`, efficiency bars are always enforced, and a PR that lowers a bar fails. A bar is set when its layer first ships and raised whenever the engine clears it, so every release is at least as fast and as efficient as the last.
 
-**CI artifacts.** On every push, CI runs perft, bench, and bench with stats, then uploads `bench.jsonl` and `stats.jsonl` as artifacts. `bench-report` diffs them against the latest release's run and posts one sticky PR comment with the deltas, refreshed on every push; the `[comment]` section of `perf-targets.toml` sets the noise thresholds below which a delta shows as unchanged. NPS on shared runners is noisy, so it is reported but not gated; the node signature and perft are gated.
+**CI artifacts.** On every push, CI runs perft, bench, and bench with stats, then uploads `bench.jsonl` and `stats.jsonl` as artifacts. Every release also carries its own `bench.jsonl`, `stats.jsonl` and `perft.jsonl` as GitHub release assets, written by the `telemetry` job from the shipped Linux build, with the bench signature in the release notes. `bench-report` diffs a PR's run against the latest release's assets and posts one sticky PR comment with the deltas, refreshed on every push; the `[comment]` section of `perf-targets.toml` sets the noise thresholds below which a delta shows as unchanged. NPS on shared runners is noisy, so it is reported but not gated; the node signature and perft are gated.
 
 **Profiling.** Run `samply` or `perf` on `bench` for flamegraphs, and `cargo-show-asm` to inspect hot functions. The release profile uses `lto = "fat"`, `codegen-units = 1`, `panic = "abort"`, and `target-cpu=native` locally.
 
@@ -158,7 +158,7 @@ Each phase starts only after the previous gate holds on bench and stats; Phase 3
 
 ### Phase 5: First release
 
-- Homebrew tap bumped by the `release` job after the Release Please PR merges; release notes carry the bench signature
+- Homebrew tap bumped by the `release` job after the Release Please PR merges (release notes already carry the bench signature and telemetry assets since Phase 0)
 - Optional: a Lichess bot account for real-world games, and submission to CCRL testers
 - **Exit:** `brew install` works on macOS (arm64 and x86\_64) and the engine is publicly rated somewhere.
 
