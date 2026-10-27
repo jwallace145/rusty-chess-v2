@@ -1,11 +1,40 @@
+# The workspace root is also a package: the `rusty-chess` engine binary (UCI
+# front end, `bench` and `perft` subcommands). Release Please's `rust`
+# strategy bumps the root package and every member together, and the root
+# `tests/` and `benches/` directories belong to this package.
+[package]
+name = "rusty-chess"
+version = "0.1.0"
+description = "A UCI chess engine in Rust: classical search measured to be strong before NNUE"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "rusty-chess"
+path = "src/main.rs"
+
+[features]
+# Search statistics counters; forwarded to the search crate.
+stats = ["rusty-chess-search/stats"]
+
+[dependencies]
+rusty-chess-core = { path = "crates/core" }
+rusty-chess-search = { path = "crates/search" }
+
+[lints]
+workspace = true
+
 [workspace]
 resolver = "3"
 # Members are listed explicitly (no globs): Release Please's `rust` strategy
-# reads this list to bump every crate's version together.
+# reads this list to bump every crate's version together with the root.
 members = [
   "crates/core",
   "crates/search",
-  "crates/uci",
   "crates/tools",
 ]
 

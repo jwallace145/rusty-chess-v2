@@ -33,7 +33,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --locked
 cargo test --workspace --locked --features stats
-cargo run --release -p rusty-chess-uci -- bench   # note the signature
+cargo run --release -- bench   # note the signature
 npm ci && npm test
 ```
 

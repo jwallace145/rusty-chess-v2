@@ -1,4 +1,5 @@
-//! The `rusty-chess` binary: a UCI engine with `bench` and `perft` subcommands.
+//! The `rusty-chess` binary (the workspace root package): a UCI engine with
+//! `bench` and `perft` subcommands.
 //!
 //! ```text
 //! rusty-chess                     # UCI loop on stdin/stdout

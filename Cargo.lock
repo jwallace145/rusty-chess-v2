@@ -33,6 +33,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusty-chess"
+version = "0.1.0"
+dependencies = [
+ "rusty-chess-core",
+ "rusty-chess-search",
+]
+
+[[package]]
 name = "rusty-chess-core"
 version = "0.1.0"
 
@@ -47,14 +55,6 @@ dependencies = [
 
 [[package]]
 name = "rusty-chess-tools"
-version = "0.1.0"
-dependencies = [
- "rusty-chess-core",
- "rusty-chess-search",
-]
-
-[[package]]
-name = "rusty-chess-uci"
 version = "0.1.0"
 dependencies = [
  "rusty-chess-core",

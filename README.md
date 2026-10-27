@@ -14,12 +14,12 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 
 | Path | Contents |
 | --- | --- |
+| `src/` | The `rusty-chess` binary (root package): UCI protocol, `bench` and `perft` subcommands. |
 | `crates/core` | Board, bitboards, magics, move generation, Zobrist hashing, make/unmake. No dependencies. |
 | `crates/search` | Search, transposition table, move picker, evaluation, `SearchStats` counters and the JSON lines telemetry writer. |
-| `crates/uci` | UCI protocol and the `rusty-chess` binary with `bench` and `perft` subcommands. |
 | `crates/tools` | Perft suite runner, bench and stats diffing, data generation later. |
-| `crates/*/benches` | Criterion microbenchmarks, per crate. |
-| `tests/` | Perft EPD suite and other position data shared by the crates' tests. |
+| `tests/` | UCI smoke tests, perft EPD suite, mate-in-N positions. |
+| `benches/` | Criterion microbenchmarks for the binary; crates keep their own under `crates/*/benches`. |
 
 ## Building and running
 
