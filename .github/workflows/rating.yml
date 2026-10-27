@@ -1,0 +1,116 @@
+name: Rating
+
+# A strength estimate on the standardized runner: the engine against
+# Stockfish limited to each UCI_Elo level in `[rating]` of perf-targets.toml,
+# at a real time control, from our openings. Runs on every published release
+# (attaching rating.json and rating.md and adding a Strength section to the
+# release notes) and by hand for any tag, branch or SHA.
+#
+# Limited Stockfish is a ballpark scale: good for tracking the engine's
+# strength from release to release, not a substitute for a public rating.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag, branch or SHA to rate
+        required: true
+        default: main
+      games:
+        description: Games per level (blank for the configured number)
+        required: false
+      attach:
+        description: If the ref is a release tag, attach the result to that release
+        type: boolean
+        default: false
+
+concurrency:
+  group: rating-${{ github.event.release.tag_name || inputs.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -C target-cpu=x86-64-v3
+  FASTCHESS_VERSION: v1.8.2-alpha
+
+jobs:
+  rating:
+    name: Rating ladder
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      contents: write # attach to the release and edit its notes
+    env:
+      REF: ${{ github.event.release.tag_name || inputs.ref }}
+      GAMES: ${{ inputs.games }}
+      ATTACH: ${{ github.event_name == 'release' || inputs.attach }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.REF }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the engine and the tools
+        run: |
+          cargo build --release --locked
+          cargo build --release --locked -p rusty-chess-tools --bin rating-report
+      - name: Install Stockfish and fastchess
+        run: |
+          sudo apt-get install -y -qq stockfish > /dev/null
+          SF=$(command -v stockfish || echo /usr/games/stockfish)
+          echo "SF=$SF" >> "$GITHUB_ENV"
+          echo "SF_VERSION=$(echo quit | "$SF" | head -1 | sed 's/ by .*//')" >> "$GITHUB_ENV"
+          curl -sSL -o fastchess.tar "https://github.com/Disservin/fastchess/releases/download/${FASTCHESS_VERSION}/fastchess-linux-x86-64.tar"
+          sha256sum fastchess.tar
+          mkdir -p fc && tar -xf fastchess.tar -C fc
+          FC=$(find fc -type f -perm -u+x -name 'fastchess*' | head -1)
+          echo "FC=$FC" >> "$GITHUB_ENV"
+          echo "CPU=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)" >> "$GITHUB_ENV"
+      - name: Play the ladder
+        run: |
+          RR=target/release/rating-report
+          games=${GAMES:+--games $GAMES}
+          args=$($RR args --config perf-targets.toml $games)
+          hash=$(grep -m1 '^hash_mb' perf-targets.toml | sed 's/[^0-9]//g')
+          mkdir -p logs
+          for level in $($RR levels --config perf-targets.toml); do
+            echo "::group::Stockfish UCI_Elo $level"
+            "$FC" -engine cmd=target/release/rusty-chess name=rusty-chess option.Hash="${hash:-64}" \
+                  -engine cmd="$SF" name="stockfish-$level" option.UCI_LimitStrength=true option.UCI_Elo="$level" \
+                  $args -pgnout file="logs/rating-$level.pgn" 2>&1 | tee "logs/rating-$level.log" | grep -E '^(Results|Elo|Games)' || true
+            echo "::endgroup::"
+          done
+      - name: Estimate the rating
+        run: |
+          target/release/rating-report render --config perf-targets.toml --logs logs ${GAMES:+--games $GAMES} \
+            --version "$REF" --stockfish "$SF_VERSION" --cpu "$CPU" --md rating.md --json rating.json
+          cat rating.md >> "$GITHUB_STEP_SUMMARY"
+          cat rating.md
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: rating
+          path: |
+            rating.md
+            rating.json
+            logs/
+          if-no-files-found: warn
+      - name: Attach to the release and add a Strength section to its notes
+        if: env.ATTACH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$REF" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "$REF is not a release; nothing to attach."; exit 0
+          fi
+          tar -czf "rusty-chess-${REF}-rating.tar.gz" rating.md rating.json logs
+          gh release upload "$REF" rating.json rating.md "rusty-chess-${REF}-rating.tar.gz" --clobber --repo "$GITHUB_REPOSITORY"
+          gh release view "$REF" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          if ! grep -q '^## Strength' notes.md; then
+            { echo; cat rating.md; } >> notes.md
+            gh release edit "$REF" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+          fi

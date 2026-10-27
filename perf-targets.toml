@@ -34,6 +34,18 @@ efficiency_noise_pct = 1.0  # percentage points of fail-high-first, percent of E
 paired_noise_pct = 1.0      # paired speed vs base: the whole 95% interval must clear this
 instructions_noise_pct = 0.5 # instructions per node is deterministic, so a small threshold
 
+[rating]
+# The strength estimate run on every release (and by hand): the engine against
+# Stockfish limited to each UCI_Elo level, at a real time control, from our
+# openings. Each level gives "level + measured Elo difference"; levels combine
+# by inverse variance. Limited Stockfish is a ballpark scale, not CCRL.
+levels = [1500, 1800, 2100, 2400]
+games_per_level = 100   # 50 openings from both sides; about 10 minutes per level
+tc = "10+0.1"
+concurrency = 4
+hash_mb = 64
+openings = "tests/openings/openings.epd"
+
 [sprt]
 # Strength tests on CI (the `sprt` label). Both engines play at a fixed node
 # budget per move, so the verdict does not depend on the runner; NPS is judged

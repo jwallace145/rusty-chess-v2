@@ -124,6 +124,14 @@ Every `feat` that touches search or evaluation must gain Elo. Add the `sprt` lab
 
 A full run is 10–35 minutes of runner time (a clear gain resolves in a few hundred games; "no difference" takes the longest), which is why they are opt-in by label rather than on every push. The `sprt-quick` label plays at most 50 pairs: a two-minute smoke test of the pipeline that never reaches a verdict. A quiet dedicated runner can replace `ubuntu-latest` later without changing anything else.
 
+## Strength estimate: the rating ladder
+
+The `Rating` workflow estimates absolute strength by playing the engine against Stockfish limited to a ladder of `UCI_Elo` levels (`[rating]` in `perf-targets.toml`: 1500, 1800, 2100 and 2400 at 10+0.1, 100 games each, from our openings). Each level gives "level plus the measured Elo difference"; the levels combine by inverse variance into one estimate with a 95% error bar, and a level won or lost in every game only bounds it.
+
+- It runs on every published release, attaching `rating.json`, `rating.md`, the logs and PGNs to the release and adding a Strength section to its notes.
+- Run it by hand for any tag, branch or SHA from the Actions tab, or `gh workflow run Rating -f ref=main`; `attach` puts the result on a release tag's release.
+- It takes 40 to 50 minutes of runner time. Limited Stockfish is a ballpark scale, good for tracking strength between releases; a public rating (a Lichess bot, CCRL) is the real number.
+
 ## Releases
 
 Release Please opens and maintains a release PR as changes land on `main`. Merging that PR tags a new version (starting at `v0.1.0`), updates `CHANGELOG.md`, bumps every crate's `version` in the workspace (`release-type: rust`), and triggers the `release` job, which builds macOS arm64, macOS x86_64 and Linux x86_64 binaries and attaches them to the GitHub release, and the `telemetry` job, which benches the Linux build (with and without `stats`, plus the perft suite), attaches `bench.jsonl`, `stats.jsonl` and `perft.jsonl` to the release and writes the bench signature into the release notes. Those assets are the baseline every PR's bench comment compares against. Release PRs are authored by `jwallace145-release-bot[bot]` so that CI runs on them.

@@ -124,6 +124,38 @@ impl Default for Sprt {
     }
 }
 
+/// How the rating ladder is played: the engine against Stockfish limited to
+/// each `UCI_Elo` level, at a real time control.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Rating {
+    /// Stockfish `UCI_Elo` levels to play against (Stockfish accepts 1320 to 3190).
+    pub levels: Vec<u32>,
+    /// Games per level, played as pairs from each opening.
+    pub games_per_level: u32,
+    /// Time control for both engines, in fastchess's `moves/seconds+increment` form.
+    pub tc: String,
+    /// Games played at once.
+    pub concurrency: u32,
+    /// Our engine's hash size.
+    pub hash_mb: u32,
+    /// The openings file.
+    pub openings: String,
+}
+
+impl Default for Rating {
+    fn default() -> Self {
+        Self {
+            levels: vec![1500, 1800, 2100, 2400],
+            games_per_level: 100,
+            tc: "10+0.1".into(),
+            concurrency: 4,
+            hash_mb: 64,
+            openings: "tests/openings/openings.epd".into(),
+        }
+    }
+}
+
 /// The committed bars.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Targets {
@@ -139,6 +171,9 @@ pub struct Targets {
     /// SPRT settings.
     #[serde(default)]
     pub sprt: Sprt,
+    /// Rating ladder settings.
+    #[serde(default)]
+    pub rating: Rating,
 }
 
 impl Targets {
