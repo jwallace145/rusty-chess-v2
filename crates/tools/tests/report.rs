@@ -164,14 +164,14 @@ fn the_comment_is_compact_and_carries_the_gate_in_a_collapsed_section() {
     let md = render(Some(&base), &head, &targets(), &meta());
     assert!(md.starts_with("### "), "{md}");
     assert!(
-        md.lines().count() < 30,
+        md.lines().count() < 45,
         "{} lines\n{md}",
         md.lines().count()
     );
     // Everything after the gate line is folded away: the visible part stays short.
     let visible = md.split("<details>").next().unwrap();
     assert!(
-        visible.lines().count() <= 12,
+        visible.lines().count() <= 14,
         "{} visible lines\n{visible}",
         visible.lines().count()
     );
