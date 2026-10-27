@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.9.0...v0.10.0) (2026-10-27)
+
+
+### Features
+
+* **search:** search each iteration in an aspiration window around the previous score ([#46](https://github.com/jwallace145/rusty-chess-v2/issues/46)) ([619a192](https://github.com/jwallace145/rusty-chess-v2/commit/619a192623b1aa46b3359cf444cc36169cf6e501))
+
+### Benchmarks
+
+* bench signature 7,082,718, instructions per node 1215, search 11.30M NPS, perft 281.40M NPS (pass (63)), fail-high first 97.5%, EBF 3.90, TT hit 35.6%
+* since v0.9.0: fail-high first +0.0 pt, EBF +0.03, instructions per node +0.3%, search NPS −20.9%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.9.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.8.0...v0.9.0) (2026-10-27)
 
 
