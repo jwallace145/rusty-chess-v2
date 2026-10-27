@@ -4,9 +4,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
 
-# One run per PR; a new push cancels the previous run.
+# One run per PR per kind of event; a new push cancels the previous run for
+# that push stream. A body or title edit (`edited`) gets its own stream so it
+# can never cancel a run that is checking the code: Release Please pushes and
+# edits in the same second, and a cancelled check run blocks the merge.
 concurrency:
-  group: ci-${{ github.event.pull_request.number }}
+  group: ci-${{ github.event.pull_request.number }}-${{ github.event.action == 'edited' && 'edited' || 'code' }}
   cancel-in-progress: true
 
 permissions: {}
@@ -25,7 +28,7 @@ jobs:
     # merged under a lowercase Conventional Commit title instead, so the
     # commit that lands on main still conforms. A skipped job satisfies the
     # required status check.
-    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    if: github.event.pull_request.user.login != 'dependabot[bot]' && github.event.action != 'edited'
     permissions:
       contents: read
     steps:
@@ -80,9 +83,12 @@ jobs:
           subjectPatternError: |
             The subject "{subject}" must start with a lowercase letter.
 
+  # The code jobs skip on `edited`: a title or body edit cannot change what
+  # they check, and a skipped job satisfies the required status check.
   fmt:
     name: Format
     runs-on: ubuntu-latest
+    if: github.event.action != 'edited'
     permissions:
       contents: read
     steps:
@@ -95,6 +101,7 @@ jobs:
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
+    if: github.event.action != 'edited'
     permissions:
       contents: read
     steps:
@@ -108,6 +115,7 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    if: github.event.action != 'edited'
     permissions:
       contents: read
     steps:
