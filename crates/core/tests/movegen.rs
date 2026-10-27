@@ -167,3 +167,43 @@ fn perft_divide_sums_to_perft() {
     assert_eq!(divide.iter().map(|(_, n)| n).sum::<u64>(), 2039);
     assert_eq!(perft(&mut p, 0), 1);
 }
+
+#[test]
+fn captures_and_quiets_partition_the_legal_moves() {
+    use rusty_chess_core::movegen::{generate_captures, generate_quiets};
+    for fen in [
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3",
+        "8/8/8/2k5/3Pp3/8/8/4K3 b - d3 0 1",
+        "1n2k3/P7/8/8/8/8/8/4K3 w - - 0 1",
+        "4k3/8/8/8/8/3n4/8/4K2r w - - 0 1",
+    ] {
+        let p = pos(fen);
+        let mut all = MoveList::new();
+        p.legal_moves(&mut all);
+        let mut captures = MoveList::new();
+        generate_captures(&p, &mut captures);
+        let mut quiets = MoveList::new();
+        generate_quiets(&p, &mut quiets);
+        assert_eq!(captures.len() + quiets.len(), all.len(), "{fen}");
+        let mut seen: Vec<String> = captures
+            .iter()
+            .chain(quiets.iter())
+            .map(|m| m.to_string())
+            .collect();
+        seen.sort();
+        let mut expected: Vec<String> = all.iter().map(|m| m.to_string()).collect();
+        expected.sort();
+        assert_eq!(seen, expected, "{fen}");
+        // Captures hold every capture and every promotion; quiets hold the rest.
+        assert!(
+            captures.iter().all(|m| m.is_capture() || m.is_promotion()),
+            "{fen}"
+        );
+        assert!(
+            quiets.iter().all(|m| !m.is_capture() && !m.is_promotion()),
+            "{fen}"
+        );
+    }
+}

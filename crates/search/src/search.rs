@@ -2,21 +2,23 @@
 //! quiescence search.
 //!
 //! Phase 2 gave the baseline; Phase 3 adds the transposition table (probed
-//! at every main-search node, its move searched first, a bound stored from
-//! the score against the original window, never after an abort). No killers
-//! or history yet, no pruning.
+//! at every main-search node, a bound stored from the score against the
+//! original window, never after an abort) and the staged move picker (TT
+//! move, good captures by static exchange, killers, history quiets, bad
+//! captures). No pruning yet.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use rusty_chess_core::r#move::Move;
-use rusty_chess_core::movegen::MoveList;
+use rusty_chess_core::movegen::{MoveList, generate_captures};
 use rusty_chess_core::types::PieceKind;
 
 use crate::board::Board;
+use crate::movepick::MovePicker;
 use crate::stat;
-use crate::stats::{MAX_PLY, SearchStats, Stage, effective_branching_factor};
+use crate::stats::{MAX_PLY, SearchStats, effective_branching_factor};
 use crate::telemetry::{IterRecord, SCHEMA_VERSION};
 use crate::tt::{Bound, TranspositionTable};
 
@@ -320,22 +322,11 @@ impl Searcher {
             }
         }
 
-        let mut moves = MoveList::new();
-        board.position().legal_moves(&mut moves);
-        if moves.is_empty() {
-            return if board.position().in_check() {
-                -(MATE - ply as i32)
-            } else {
-                0
-            };
-        }
-        let mut scores = [0i32; rusty_chess_core::movegen::MAX_MOVES];
-        score_moves(board, &moves, &mut scores, tt_move);
-
+        let mut picker = MovePicker::new(tt_move);
         let mut best = -INFINITY;
         let mut best_move = Move::NULL;
-        for index in 0..moves.len() {
-            let m = pick_next(&mut moves, &mut scores, index);
+        let mut index = 0usize;
+        while let Some(m) = picker.next(board.position()) {
             let undo = board.make_move(m);
             let score = -self.negamax(board, depth - 1, -beta, -alpha, ply + 1);
             board.unmake_move(m, undo);
@@ -350,18 +341,20 @@ impl Searcher {
                     self.update_pv(ply, m);
                     if alpha >= beta {
                         stat!(self.stats, fail_high_by_index[index]);
-                        let stage = if m == tt_move {
-                            Stage::TtMove
-                        } else if m.is_capture() {
-                            Stage::GoodCaptures
-                        } else {
-                            Stage::HistoryQuiets
-                        };
-                        stat!(self.stats, cutoffs_by_stage[stage as usize]);
+                        stat!(self.stats, cutoffs_by_stage[picker.stage() as usize]);
                         break;
                     }
                 }
             }
+            index += 1;
+        }
+        if index == 0 && best == -INFINITY {
+            // No legal moves at all: mate or stalemate.
+            return if board.position().in_check() {
+                -(MATE - ply as i32)
+            } else {
+                0
+            };
         }
 
         // The bound follows from the score against the original window.
@@ -391,16 +384,10 @@ impl Searcher {
             alpha = stand_pat;
         }
 
-        let mut moves = MoveList::new();
-        board.position().legal_moves(&mut moves);
         let mut captures = MoveList::new();
-        for &m in moves.iter() {
-            if m.is_capture() {
-                captures.push(m);
-            }
-        }
+        generate_captures(board.position(), &mut captures);
         let mut scores = [0i32; rusty_chess_core::movegen::MAX_MOVES];
-        score_moves(board, &captures, &mut scores, Move::NULL);
+        score_moves(board, &captures, &mut scores);
 
         let mut best = stand_pat;
         for index in 0..captures.len() {
@@ -477,16 +464,12 @@ fn nps(nodes: u64, elapsed: Duration) -> u64 {
     (nodes * 1000).checked_div(ms).unwrap_or(0)
 }
 
-/// The transposition table move first, then most valuable victim, least
-/// valuable attacker; promotions count the promoted piece; quiets score zero.
-fn score_moves(board: &Board, moves: &MoveList, scores: &mut [i32], tt_move: Move) {
+/// Quiescence ordering: most valuable victim, least valuable attacker;
+/// promotions count the promoted piece.
+fn score_moves(board: &Board, moves: &MoveList, scores: &mut [i32]) {
     const VALUE: [i32; 6] = [100, 320, 330, 500, 900, 0];
     let pos = board.position();
     for (i, &m) in moves.iter().enumerate() {
-        if m == tt_move {
-            scores[i] = 1_000_000;
-            continue;
-        }
         let mut s = 0;
         if m.is_capture() {
             let victim = if m.is_en_passant() {
