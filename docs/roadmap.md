@@ -42,6 +42,7 @@ The goal is a single-threaded Rust UCI engine whose classical search is measurab
 | Search speed | Paired NPS ratio against the base on one runner; instructions per node (cachegrind, chip-independent); absolute NPS with the CPU model, informational | `speed-report paired`, `speed-report instructions`, `rusty-chess bench` | `search.min_nps` 2M local, 1M CI (absolute, release PRs) |
 | Search efficiency | Fail-high-first, EBF, TT hit rate, qsearch share, cutoffs by stage | `bench` with `--features stats` | `efficiency.min_fail_high_first`, `max_ebf` (set at the Phase 3 gate) |
 | Strength | Elo against the PR's base at a fixed node budget per move | fastchess SPRT on CI, `sprt` label | H1 accepted, or the PR does not merge |
+| Absolute strength | Rating against Stockfish `UCI_Elo` levels at 10+0.1 | the `Rating` workflow, on every release | Tracked per release (a ballpark until a public rating in Phase 5) |
 
 - **Stats counters** (`--features stats`, every increment a macro that compiles to nothing otherwise): nodes and qsearch nodes per ply; TT probes, hits, cutoffs, collisions; fail-highs by move index (index 0 is fail-high-first); cutoffs by move-picker stage; null-move cutoffs, LMR reductions and re-searches, futility skips.
 - **JSON lines** (`"v":1`): one `iter` record per iteration, one `summary` per search, one `bench` and one `perft` record per run. The schema doubles as a future API response shape.
@@ -110,6 +111,7 @@ This is the gate that stopped attempt one. Each item is its own PR with the stat
 
 ### Phase 5: First release
 
+- [ ] A rating ladder against limited Stockfish on every release, attached with the logs and PGNs, as a ballpark between public ratings
 - [ ] Homebrew tap bumped by the `release` job after the Release Please PR merges (release notes already carry the signature and telemetry since Phase 0)
 - [ ] Optional: a Lichess bot account; submission to CCRL testers
 - [ ] **Exit:** `brew install` works on macOS arm64 and x86_64; the engine is publicly rated somewhere

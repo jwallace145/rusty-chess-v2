@@ -59,8 +59,67 @@ pub struct SprtResult {
     pub verdict: Verdict,
 }
 
-/// Parse the last result block in a fastchess log.
+/// The result of a match, with or without an SPRT.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MatchResult {
+    /// Elo difference of the first engine over the second; may be infinite
+    /// when one side scored everything.
+    pub elo: f64,
+    /// Its 95% error bar.
+    pub elo_error: f64,
+    /// Likelihood of superiority, in percent (NaN when undefined).
+    pub los: f64,
+    /// Games played.
+    pub games: u32,
+    /// Wins for the first engine.
+    pub wins: u32,
+    /// Losses for the first engine.
+    pub losses: u32,
+    /// Draws.
+    pub draws: u32,
+    /// The pentanomial counts, if reported.
+    pub pentanomial: Option<[u32; 5]>,
+}
+
+impl MatchResult {
+    /// The first engine's score in `0.0..=1.0`.
+    pub fn score(&self) -> f64 {
+        if self.games == 0 {
+            0.5
+        } else {
+            (self.wins as f64 + 0.5 * self.draws as f64) / self.games as f64
+        }
+    }
+}
+
+/// Parse the last result block of any fastchess match log.
+pub fn parse_match(log: &str) -> Result<MatchResult, String> {
+    parse_any(log).map(|(m, _, _)| m)
+}
+
+/// Parse the last result block in a fastchess SPRT log.
 pub fn parse(log: &str) -> Result<SprtResult, String> {
+    let (m, llr, verdict) = parse_any(log)?;
+    let (llr, llr_lower, llr_upper) = llr.ok_or("no `LLR:` line in the log")?;
+    Ok(SprtResult {
+        elo: m.elo,
+        elo_error: m.elo_error,
+        los: m.los,
+        games: m.games,
+        wins: m.wins,
+        losses: m.losses,
+        draws: m.draws,
+        llr,
+        llr_lower,
+        llr_upper,
+        pentanomial: m.pentanomial,
+        verdict,
+    })
+}
+
+type Parsed = (MatchResult, Option<(f64, f64, f64)>, Verdict);
+
+fn parse_any(log: &str) -> Result<Parsed, String> {
     let mut elo = None;
     let mut los = None;
     let mut games = None;
@@ -136,21 +195,20 @@ pub fn parse(log: &str) -> Result<SprtResult, String> {
     let (elo, elo_error) = elo.ok_or("no `Elo:` line in the log")?;
     let los = los.ok_or("no `LOS:` line in the log")?;
     let (games, wins, losses, draws) = games.ok_or("no `Games:` line in the log")?;
-    let (llr, llr_lower, llr_upper) = llr.ok_or("no `LLR:` line in the log")?;
-    Ok(SprtResult {
-        elo,
-        elo_error,
-        los,
-        games,
-        wins,
-        losses,
-        draws,
+    Ok((
+        MatchResult {
+            elo,
+            elo_error,
+            los,
+            games,
+            wins,
+            losses,
+            draws,
+            pentanomial: penta,
+        },
         llr,
-        llr_lower,
-        llr_upper,
-        pentanomial: penta,
         verdict,
-    })
+    ))
 }
 
 /// Labels for the comment.
