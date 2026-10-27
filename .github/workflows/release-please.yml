@@ -1,0 +1,92 @@
+name: Release
+
+# Merges to main accumulate changes in a Release Please PR. Merging that PR is
+# the deliberate, human-reviewed act that tags a version, writes CHANGELOG.md,
+# bumps every crate's version in the workspace, and publishes binaries.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      # A GitHub App token (not GITHUB_TOKEN) so that release PRs are authored
+      # by jwallace145-release-bot[bot] and CI runs on them.
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+      - uses: googleapis/release-please-action@v5
+        id: rp
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  release:
+    name: Release binaries (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: write # attach binaries to the GitHub release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            cpu: apple-m1
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            cpu: x86-64-v3
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            cpu: x86-64-v3
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      # A portable CPU baseline instead of the `target-cpu=native` that
+      # .cargo/config.toml uses for local builds, so installed binaries run
+      # on every machine of that architecture.
+      RUSTFLAGS: -C target-cpu=${{ matrix.cpu }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build
+        run: cargo build --release --locked -p rusty-chess-uci --target ${{ matrix.target }}
+      - name: Smoke test (the binary prints its version)
+        if: matrix.target != 'x86_64-apple-darwin' # cross-compiled on an arm64 runner
+        run: target/${{ matrix.target }}/release/rusty-chess --version
+      - name: Package
+        id: package
+        run: |
+          name="rusty-chess-${TAG}-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          cp "target/${{ matrix.target }}/release/rusty-chess" LICENSE README.md "dist/$name/"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          (cd dist && shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256")
+          echo "archive=dist/$name.tar.gz" >> "$GITHUB_OUTPUT"
+      - name: Attach to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" "${{ steps.package.outputs.archive }}" "${{ steps.package.outputs.archive }}.sha256" --clobber --repo "${{ github.repository }}"
