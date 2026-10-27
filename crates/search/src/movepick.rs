@@ -3,14 +3,13 @@
 //! Moves come out in the order most likely to cut off: the transposition
 //! table move, captures with non-negative static exchange value ordered by
 //! victim then attacker, killers, the remaining quiets ordered by history,
-//! and finally the losing captures. Each move is scored once. Killers and
-//! history are wired in by their own PRs; until then those stages yield
-//! nothing and plain generation order respectively.
+//! and finally the losing captures. Each move is scored once.
 
 use rusty_chess_core::r#move::Move;
 use rusty_chess_core::movegen::{MAX_MOVES, MoveList, generate_captures, generate_quiets};
 use rusty_chess_core::position::Position;
 
+use crate::history::{EMPTY, History};
 use crate::see::{SEE_VALUE, see};
 pub use crate::stats::Stage;
 
@@ -25,6 +24,7 @@ pub struct MovePicker {
     bad_captures: MoveList,
     bad_index: usize,
     quiets: MoveList,
+    quiet_scores: [i32; MAX_MOVES],
     quiet_index: usize,
     killers: [Move; 2],
     killer_index: usize,
@@ -55,6 +55,7 @@ impl MovePicker {
             bad_captures: MoveList::new(),
             bad_index: 0,
             quiets: MoveList::new(),
+            quiet_scores: [0; MAX_MOVES],
             quiet_index: 0,
             killers: [Move::NULL; 2],
             killer_index: 0,
@@ -73,8 +74,14 @@ impl MovePicker {
         self.stage
     }
 
-    /// The next move, or `None` when every legal move has been yielded.
+    /// The next move, or `None` when every legal move has been yielded,
+    /// ordering quiets without history.
     pub fn next(&mut self, pos: &Position) -> Option<Move> {
+        self.next_with(pos, &EMPTY)
+    }
+
+    /// The next move, ordering the remaining quiets by `history`.
+    pub fn next_with(&mut self, pos: &Position, history: &History) -> Option<Move> {
         loop {
             match self.state {
                 State::TtMove => {
@@ -122,11 +129,15 @@ impl MovePicker {
                     self.state = State::GenerateQuiets;
                 }
                 State::GenerateQuiets => {
+                    let side = pos.side_to_move();
+                    for (i, &m) in self.quiets.iter().enumerate() {
+                        self.quiet_scores[i] = history.get(side, m);
+                    }
                     self.state = State::Quiets;
                 }
                 State::Quiets => {
                     while self.quiet_index < self.quiets.len() {
-                        let m = self.quiets.as_slice()[self.quiet_index];
+                        let m = self.pick_best_quiet();
                         self.quiet_index += 1;
                         if m == self.tt_move || self.killers.contains(&m) {
                             continue;
@@ -176,6 +187,22 @@ impl MovePicker {
             let promo = m.promotion().map_or(0, |k| SEE_VALUE[k.index()]);
             self.capture_scores[i] = 10 * victim - attacker + promo;
         }
+    }
+
+    /// Swap the best-scored remaining quiet into the current index.
+    #[inline]
+    fn pick_best_quiet(&mut self) -> Move {
+        let index = self.quiet_index;
+        let slice = self.quiets.as_mut_slice();
+        let mut best = index;
+        for i in index + 1..slice.len() {
+            if self.quiet_scores[i] > self.quiet_scores[best] {
+                best = i;
+            }
+        }
+        slice.swap(index, best);
+        self.quiet_scores.swap(index, best);
+        slice[index]
     }
 
     /// Swap the best-scored remaining capture into the current index.

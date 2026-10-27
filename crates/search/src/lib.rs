@@ -9,6 +9,7 @@
 
 pub mod board;
 pub mod eval;
+pub mod history;
 pub mod killers;
 pub mod movepick;
 pub mod search;
