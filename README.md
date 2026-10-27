@@ -65,6 +65,8 @@ bench comment, refreshed on each push, with the deltas against the latest
 release, whose telemetry is attached to the GitHub release as assets. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+Every release's numbers, with the full history, are in [docs/benchmarks.md](docs/benchmarks.md).
+
 ## Phases
 
 | Phase | Gate |

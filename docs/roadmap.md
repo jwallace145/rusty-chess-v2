@@ -76,7 +76,7 @@ The goal is a single-threaded Rust UCI engine whose classical search is measurab
 - [x] UCI `position`, `go` with every limit, `stop`, `ucinewgame`, `d`; search on a worker thread; simple time management (#19)
 - [x] Repetition and fifty-move detection (#18)
 - [x] **Exit:** legal games (in-repo self-play test plus UCI games), signature `68269801` at depth 6 identical across builds and runs, `iter` and `summary` records on every search
-- [x] Baseline numbers to beat: search NPS 7–11M, fail-high-first 0.70, EBF 3.35, qsearch share 0.92
+- [x] Baseline numbers to beat: search NPS 7–11M, fail-high-first 0.70, EBF 7.00 (bench-wide; an earlier 3.35 was one position's), qsearch share 0.92
 
 ### Phase 3: Move ordering and the transposition table — in progress (the critical gate)
 
@@ -84,7 +84,8 @@ This is the gate that stopped attempt one. Each item is its own PR with the stat
 
 - [x] SPRT on CI: `sprt.yml` on the `sprt` label, node-limited fastchess games against the PR base from our own openings, sticky comment, H0 fails; `sprt-quick` for a two-minute pipeline smoke test (#24)
 - [x] Openings generator in `crates/tools` and a committed `tests/openings/openings.epd`: 300 positions, 8 random plies, within ±60 cp at depth 4, fixed seed (#24)
-- [x] Transposition table: 10-byte entries in 3-entry clusters, key verification, depth-and-age replacement, mate scores adjusted by ply, TT move searched first, bound derived from the original window at every node, no store after an abort; `Hash` UCI option; `tt_hit` in the iteration records. SPRT +197.5 ± 43.4 Elo in 212 games; fail-high-first 0.70 → 0.79, EBF 3.35 → 2.12, signature 68269801 → 14255682 (#26)
+- [x] Transposition table: 10-byte entries in 3-entry clusters, key verification, depth-and-age replacement, mate scores adjusted by ply, TT move searched first, bound derived from the original window at every node, no store after an abort; `Hash` UCI option; `tt_hit` in the iteration records. SPRT +197.5 ± 43.4 Elo in 212 games; fail-high-first 0.70 → 0.79, EBF 7.00 → 4.62 (bench-wide), signature 68269801 → 14255682 (#26)
+- [ ] Benchmark history: every release records its numbers in `docs/benchmarks.md`, its CHANGELOG entry, and its release notes with deltas against the previous release
 - [ ] Staged move picker: TT move → good captures (MVV-LVA, filtered by SEE) → killers → history quiets → bad captures; every stage shows cutoffs on bench
 - [ ] Two killer slots per ply
 - [ ] Butterfly history with gravity
@@ -174,6 +175,7 @@ Ship it as a Homebrew-installable UCI binary first. Release CI builds macOS arm6
 - **2026-10-27** Release Please force-pushes and edits its PR in the same second; a shared concurrency group cancelled one of the two CI runs and the cancelled check run blocked the merge. Edits and pushes now have separate streams and code jobs skip on edits (#21).
 - **2026-10-27** A stacked PR whose base was squash-merged shows a conflict if it touched the same lines again; rebase it onto `main` before merging. Merge stacks bottom-up.
 - **2026-10-27** The PR templates list "Bench before" then "Bench after"; CI checks the last `Bench:` line in the body (#19).
+- **2026-10-27** The bench comment's EBF row showed the last bench position's EBF, not the bench's: Phase 2 read 3.35 but was 7.00, the transposition table read 2.12 but was 4.62. EBF is now the sum of every search's final-iteration nodes over the sum of its previous iteration's. The EBF ≤ 3 gate was never met; it still needs killers, history and, realistically, Phase 4's pruning to hold at depth 6.
 - **2026-10-27** SPRT run time is set by the hypotheses, not by how good the change is: each game contributes at most the evidence that separates `elo0` from `elo1`, so a 200-Elo gain still needs ~200 games with `elo1 = 10`, and two identical engines take the longest (H0 with zero signal). Keep `elo1` modest to catch small real gains; use `sprt-quick` to test plumbing.
 - **2026-10-27** Identical deterministic engines produce mirror-image game pairs: Elo exactly 0 with a zero error bar and an undefined LOS. Rendered as `n/a` rather than `NaN`.
 - **2026-10-27** The v1 post-mortem's three recurring bugs (root window, aborted scores, bounded scores stored as exact) are rules in `AGENTS.md`; its two missing guards (eval symmetry, allocation counter) are tests (#20, #22).

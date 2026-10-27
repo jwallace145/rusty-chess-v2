@@ -202,12 +202,21 @@ pub struct Measured {
     pub bench_config: Option<(u32, u32, u32)>,
     /// Fail-high-first rate, from the last `bench` record with stats.
     pub fail_high_first: Option<f64>,
-    /// Effective branching factor, from the last `iter` record that has one.
+    /// Transposition table hit rate, from the last `bench` record with stats.
+    pub tt_hit: Option<f64>,
+    /// Effective branching factor over the whole run: the nodes of every
+    /// search's final iteration divided by the nodes of its previous one,
+    /// summed over searches. One position's EBF says little; this is the
+    /// bench's.
     pub ebf: Option<f64>,
+    ebf_final: u64,
+    ebf_prev: u64,
+    current: Option<(u32, u64, u64)>, // (depth, total nodes, previous iteration's total)
 }
 
 impl Measured {
-    /// Take measurements from `records`; later records win.
+    /// Take measurements from `records`; later records win, and the EBF
+    /// accumulates over every search in them.
     pub fn absorb(&mut self, records: &[Record]) {
         for record in records {
             match record {
@@ -218,20 +227,42 @@ impl Measured {
                     self.perft_max_depth = Some(p.max_depth);
                 }
                 Record::Bench(b) => {
+                    self.flush_search();
                     self.signature = Some(b.nodes);
                     self.search_nps = Some(b.nps);
                     self.bench_config = Some((b.positions, b.depth, b.hash_mb));
                     if let Some(stats) = &b.stats {
                         self.fail_high_first = Some(stats.fh_first);
+                        self.tt_hit = Some(stats.tt_hit);
                     }
                 }
                 Record::Iter(i) => {
-                    if i.ebf.is_some() {
-                        self.ebf = i.ebf;
-                    }
+                    let total = i.nodes + i.qnodes;
+                    // Depth 1 (or a depth that did not increase) starts a new search.
+                    self.current = match self.current {
+                        Some((depth, prev_total, _)) if i.depth > depth => {
+                            Some((i.depth, total, prev_total))
+                        }
+                        _ => {
+                            self.flush_search();
+                            Some((i.depth, total, 0))
+                        }
+                    };
                 }
-                Record::Summary(_) => {}
+                Record::Summary(_) => self.flush_search(),
             }
+        }
+        self.flush_search();
+    }
+
+    /// Fold the search in progress into the EBF sums.
+    fn flush_search(&mut self) {
+        if let Some((_, total, prev)) = self.current.take()
+            && prev > 0
+        {
+            self.ebf_final += total;
+            self.ebf_prev += prev;
+            self.ebf = Some(self.ebf_final as f64 / self.ebf_prev as f64);
         }
     }
 }

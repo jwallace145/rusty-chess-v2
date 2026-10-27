@@ -4,6 +4,7 @@
 #![warn(missing_docs)]
 
 pub mod gate;
+pub mod history;
 pub mod openings;
 pub mod perft;
 pub mod report;

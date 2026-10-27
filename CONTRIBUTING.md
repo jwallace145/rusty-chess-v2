@@ -129,3 +129,11 @@ A full run is 10–35 minutes of runner time (a clear gain resolves in a few hun
 Release Please opens and maintains a release PR as changes land on `main`. Merging that PR tags a new version (starting at `v0.1.0`), updates `CHANGELOG.md`, bumps every crate's `version` in the workspace (`release-type: rust`), and triggers the `release` job, which builds macOS arm64, macOS x86_64 and Linux x86_64 binaries and attaches them to the GitHub release, and the `telemetry` job, which benches the Linux build (with and without `stats`, plus the perft suite), attaches `bench.jsonl`, `stats.jsonl` and `perft.jsonl` to the release and writes the bench signature into the release notes. Those assets are the baseline every PR's bench comment compares against. Release PRs are authored by `jwallace145-release-bot[bot]` so that CI runs on them.
 
 Merging the release PR is the human gate for every published build.
+
+### Benchmark history
+
+Every release records its numbers so improvements are preserved across versions:
+
+- When the Release Please PR opens or updates, the `Release benchmarks` workflow builds the code that will ship with the release CPU baseline, runs the bench, the stats bench and the perft suite, and commits two things to the release PR with the release bot's token: a row in [docs/benchmarks.md](docs/benchmarks.md) and a `### Benchmarks` section under the version's heading in `CHANGELOG.md`, with deltas against the previous release. Review them with the rest of the release PR. Release Please still writes everything else in the changelog; the workflow only adds that section, and records a version once.
+- When the release is cut, the `telemetry` job attaches the raw `bench.jsonl`, `stats.jsonl` and `perft.jsonl` and appends a Benchmarks table with deltas to the release notes.
+- `bench-history` in `crates/tools` does the rendering; `cargo run -p rusty-chess-tools --bin bench-history -- notes --version X --dir run --prev-dir prev --prev-version Y` previews it locally.

@@ -17,6 +17,10 @@ name = "perf-gate"
 path = "src/bin/perf_gate.rs"
 
 [[bin]]
+name = "bench-history"
+path = "src/bin/bench_history.rs"
+
+[[bin]]
 name = "bench-report"
 path = "src/bin/bench_report.rs"
 
