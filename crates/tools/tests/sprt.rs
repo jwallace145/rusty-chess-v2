@@ -113,3 +113,21 @@ fn settings_parse_from_the_targets_file_and_become_fastchess_arguments() {
             && args.contains("-openings file=tests/openings/openings.epd format=epd order=random")
     );
 }
+
+#[test]
+fn a_balanced_result_renders_los_as_not_available() {
+    let log = LOG.replace("LOS: 99.99 %", "LOS: nan %");
+    let r = parse(&log).unwrap();
+    assert!(r.los.is_nan());
+    let md = render(
+        &r,
+        &Sprt::default(),
+        &Meta {
+            head_label: "a".into(),
+            base_label: "b".into(),
+            fastchess: "v".into(),
+            openings: 1,
+        },
+    );
+    assert!(md.contains("| n/a |"), "{md}");
+}

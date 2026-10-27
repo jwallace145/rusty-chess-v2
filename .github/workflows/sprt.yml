@@ -71,13 +71,15 @@ jobs:
           echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
       - name: Build the SPRT comment
         id: report
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set +e
           openings=$(grep -c . tests/openings/openings.epd)
           override=""
           if [ "${{ contains(github.event.pull_request.labels.*.name, 'sprt-quick') && !contains(github.event.pull_request.labels.*.name, 'sprt') }}" = "true" ]; then override="--max-rounds 50"; fi
           cargo run --release --locked -p rusty-chess-tools --bin sprt-report -- render --config perf-targets.toml $override --log sprt.log \
-            --head "${GITHUB_SHA:0:7}" --base "$base_label" --fastchess "$FASTCHESS_VERSION" --openings "$openings" > sprt.md
+            --head "${HEAD_SHA:0:7}" --base "$base_label" --fastchess "$FASTCHESS_VERSION" --openings "$openings" > sprt.md
           echo "status=$?" >> "$GITHUB_OUTPUT"
           cat sprt.md
           { echo "## SPRT"; echo; cat sprt.md; } >> "$GITHUB_STEP_SUMMARY"
