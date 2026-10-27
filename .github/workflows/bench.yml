@@ -1,0 +1,85 @@
+name: Bench
+
+# Runs `rusty-chess bench` in release mode, with and without the `stats`
+# feature, on every PR and on every push to main. Uploads bench.jsonl and
+# stats.jsonl as artifacts. Gates only on the node signature: NPS on shared
+# runners is noisy, so it is reported but never compared.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+concurrency:
+  group: bench-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
+  # Setting RUSTFLAGS also replaces the `target-cpu=native` from
+  # .cargo/config.toml, which is what we want on shared runners.
+  RUSTFLAGS: -D warnings
+
+jobs:
+  bench:
+    name: Bench
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release binaries, with and without stats
+        run: |
+          cargo build --release --locked -p rusty-chess-uci
+          cargo build --release --locked -p rusty-chess-uci --features stats --target-dir target/stats
+      - name: Bench
+        id: bench
+        run: |
+          target/release/rusty-chess bench --out bench.jsonl | tee bench.log
+          target/stats/release/rusty-chess bench --out stats.jsonl > stats.log
+          nodes=$(sed -n 's/^Nodes searched  : //p' bench.log)
+          nps=$(sed -n 's/^Nodes\/second    : //p' bench.log)
+          stats_nodes=$(sed -n 's/^Nodes searched  : //p' stats.log)
+          echo "nodes=$nodes" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Bench"
+            echo
+            echo "- Bench: \`$nodes\`"
+            echo "- NPS: \`$nps\` (shared runner; not comparable between runs)"
+            echo "- Bench with stats: \`$stats_nodes\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$nodes" != "$stats_nodes" ]; then
+            echo "::error::the stats build searched $stats_nodes nodes but the release build searched $nodes; counters must not change search behaviour"
+            exit 1
+          fi
+      - name: Check the Bench line in the PR description
+        if: github.event_name == 'pull_request'
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          NODES: ${{ steps.bench.outputs.nodes }}
+        run: |
+          # `Bench: 12345` or `Bench: `12345``; the template placeholder `Bench: <nodes>` is not a claim.
+          claimed=$(printf '%s\n' "$BODY" | grep -oE 'Bench: *`?[0-9]+' | head -1 | grep -oE '[0-9]+$' || true)
+          if [ -z "$claimed" ]; then
+            echo "No Bench line in the PR description; nothing to check (CI measured $NODES)."
+          elif [ "$claimed" = "$NODES" ]; then
+            echo "PR description claims Bench: $claimed and CI measured $NODES."
+          else
+            echo "::error::PR description claims Bench: $claimed but CI measured $NODES"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bench
+          path: |
+            bench.jsonl
+            stats.jsonl
+            bench.log
+            stats.log
+          if-no-files-found: error
