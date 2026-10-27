@@ -140,7 +140,7 @@ Each phase starts only after the previous gate holds on bench and stats; Phase 3
 - Negamax alpha-beta, iterative deepening, quiescence search (captures only)
 - Tapered PeSTO piece-square tables, updated incrementally in make/unmake
 - UCI, simple time management, repetition and 50-move detection
-- **Exit:** legal games under fastchess with no crashes, a stable bench signature, and stats JSON on every search. This is the Elo baseline that every later SPRT run measures against.
+- **Exit:** legal games under fastchess with no crashes, a stable bench signature, and stats JSON on every search. This is the Elo baseline that every later SPRT run measures against. Held as of the first search: `tests/selfplay.rs` plays engine-against-engine games through the library with every move checked, three 50 ms self-play games over UCI (driven by python-chess outside the repo) were legal and ended in checkmate, the bench signature at depth 6 is deterministic, and every search writes `iter` and `summary` records.
 
 ### Phase 3: Move ordering and transposition table (the critical gate)
 

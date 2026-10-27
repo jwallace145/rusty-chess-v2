@@ -43,7 +43,7 @@ fn main() -> ExitCode {
             println!("{}", cli::USAGE);
             Ok(())
         }
-        Command::Uci => uci::run(io::stdin().lock(), io::stdout().lock()),
+        Command::Uci => uci::run(io::stdin().lock(), io::stdout()).map(drop),
         Command::Bench(args) => bench::run(&args, &mut io::stdout().lock()).map(drop),
         Command::Perft(args) => match perft::run(&args, &mut io::stdout().lock()) {
             Ok(true) => Ok(()),
