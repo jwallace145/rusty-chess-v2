@@ -111,7 +111,7 @@ impl Searcher {
     pub fn new(stop: Arc<AtomicBool>) -> Searcher {
         Searcher {
             stop,
-            stats: SearchStats::default(),
+            stats: SearchStats::new(),
             nodes: 0,
             qnodes: 0,
             started: Instant::now(),
