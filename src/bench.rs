@@ -35,6 +35,7 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         ..Limits::default()
     };
     let mut searcher = Searcher::new(Arc::new(AtomicBool::new(false)));
+    searcher.set_hash_mb(args.hash_mb as usize);
     let mut total_nodes = 0u64;
     let started = Instant::now();
 
@@ -42,6 +43,7 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         let position = Position::from_fen(fen)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
         let mut board = Board::from_position(position);
+        searcher.clear_hash(); // every position is searched cold, so the signature is reproducible
         let mut iterations = Vec::new();
         let result = searcher.search(&mut board, &limits, &mut |it| {
             iterations.push(Record::Iter(it.clone()))
