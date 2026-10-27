@@ -49,9 +49,10 @@ pub const STAGES: usize = 5;
 /// stat!(stats, fail_high_by_index[i], 1); // indexed, += n
 /// ```
 ///
-/// Without the feature the stats value and the index expression are still
-/// *named* (so that nothing becomes an unused variable) but never evaluated
-/// for effect.
+/// Without the feature the stats value is still borrowed mutably and the
+/// index expression is still named, so that callers declare the same `mut`
+/// bindings in both modes and nothing becomes an unused variable; neither is
+/// evaluated for effect.
 #[macro_export]
 macro_rules! stat {
     ($stats:expr, $field:ident) => {
@@ -67,7 +68,7 @@ macro_rules! stat {
         }
         #[cfg(not(feature = "stats"))]
         {
-            let _ = &$stats;
+            let _ = &mut $stats;
         }
     }};
     ($stats:expr, $field:ident [ $idx:expr ], $n:expr) => {{
@@ -80,7 +81,7 @@ macro_rules! stat {
         }
         #[cfg(not(feature = "stats"))]
         {
-            let _ = (&$stats, &$idx);
+            let _ = (&mut $stats, &$idx);
         }
     }};
 }

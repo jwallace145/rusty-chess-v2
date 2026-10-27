@@ -91,11 +91,7 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
 }
 
 fn nps(nodes: u64, elapsed_ms: u64) -> u64 {
-    if elapsed_ms == 0 {
-        0
-    } else {
-        nodes * 1000 / elapsed_ms
-    }
+    (nodes * 1000).checked_div(elapsed_ms).unwrap_or(0)
 }
 
 #[cfg(test)]
