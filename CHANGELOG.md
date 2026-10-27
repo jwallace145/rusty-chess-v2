@@ -7,6 +7,12 @@
 
 * **search:** add two killer moves per ply ([#33](https://github.com/jwallace145/rusty-chess-v2/issues/33)) ([83807d9](https://github.com/jwallace145/rusty-chess-v2/commit/83807d912288ac51c5f36c3e4323768d00070280))
 
+### Benchmarks
+
+* bench signature 8,986,067, search 8.75M NPS, perft 203.09M NPS (pass (63)), fail-high first 96.8%, EBF 4.33, TT hit 33.7%
+* since v0.5.0: fail-high first +11.2 pt, EBF -0.41, search NPS −30.7%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.5.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.4.0...v0.5.0) (2026-10-27)
 
 
