@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.8.0...v0.9.0) (2026-10-27)
+
+
+### Features
+
+* **search:** search non-first moves with a null window (principal variation search) ([#44](https://github.com/jwallace145/rusty-chess-v2/issues/44)) ([1879cc4](https://github.com/jwallace145/rusty-chess-v2/commit/1879cc41b44b4ba02127c410a33593a0dae34219))
+
+
+### Bug Fixes
+
+* **ci:** rate older refs by building only the engine from them ([#42](https://github.com/jwallace145/rusty-chess-v2/issues/42)) ([240056c](https://github.com/jwallace145/rusty-chess-v2/commit/240056c829e6dc7a0bce02f203438f88d5ff279c))
+
+
+### Documentation
+
+* move the ebf gate into phase 4 and mark phase 3 complete ([#45](https://github.com/jwallace145/rusty-chess-v2/issues/45)) ([3570b5c](https://github.com/jwallace145/rusty-chess-v2/commit/3570b5c7fc944f6413ae4907060018eba15ea309))
+
 ## [0.8.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.7.0...v0.8.0) (2026-10-27)
 
 
