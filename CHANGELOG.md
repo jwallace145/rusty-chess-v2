@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.4.0...v0.5.0) (2026-10-27)
+
+
+### Features
+
+* **ci:** record benchmark history in the changelog, release notes and docs per release ([#30](https://github.com/jwallace145/rusty-chess-v2/issues/30)) ([7b2aeb1](https://github.com/jwallace145/rusty-chess-v2/commit/7b2aeb131cbe5fc49f1ced85235febd7762e0d15))
+* **search:** add a staged move picker with see-filtered captures ([#29](https://github.com/jwallace145/rusty-chess-v2/issues/29)) ([be646b5](https://github.com/jwallace145/rusty-chess-v2/commit/be646b5d6a04159e77dc6e0d188d4c6fc647a4d4))
+
+
+### Bug Fixes
+
+* **ci:** stop the release benchmark loop and commit the ignored raw benchmark data ([#32](https://github.com/jwallace145/rusty-chess-v2/issues/32)) ([9487c3b](https://github.com/jwallace145/rusty-chess-v2/commit/9487c3bd7260f2c4a92a4edbda3b196a5e9a1af0))
+
 ## [0.4.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.3.0...v0.4.0) (2026-10-27)
 
 
