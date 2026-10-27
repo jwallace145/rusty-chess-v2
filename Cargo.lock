@@ -83,6 +83,7 @@ dependencies = [
  "rusty-chess-core",
  "rusty-chess-search",
  "serde",
+ "serde_json",
  "toml",
 ]
 

@@ -1,6 +1,9 @@
 # Local git hooks. Install once with `pre-commit install --hook-type commit-msg --hook-type pre-commit`.
 # CI is the authoritative check; these hooks exist so that mistakes are caught
 # before they are pushed.
+# Recorded benchmark data is kept byte for byte as measured.
+exclude: ^benchmarks/
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

@@ -146,3 +146,63 @@ fn targets_only_ratchet_up() {
     assert!(raised.is_ratchet_from(&old).is_ok());
     assert!(old.is_ratchet_from(&old).is_ok());
 }
+
+fn iter(depth: u32, nodes: u64) -> Record {
+    Record::Iter(rusty_chess_search::telemetry::IterRecord {
+        v: 1,
+        fen: String::new(),
+        depth,
+        nodes,
+        qnodes: 0,
+        nps: 0,
+        ebf: None,
+        fh_first: None,
+        tt_hit: None,
+        score_cp: 0,
+        pv: String::new(),
+    })
+}
+
+fn summary() -> Record {
+    Record::Summary(rusty_chess_search::telemetry::SummaryRecord {
+        v: 1,
+        fen: String::new(),
+        depth: 0,
+        nodes: 0,
+        qnodes: 0,
+        nps: 0,
+        elapsed_ms: 0,
+        bestmove: String::new(),
+        score_cp: 0,
+        stats: None,
+    })
+}
+
+#[test]
+fn ebf_aggregates_the_final_iterations_of_every_search_not_the_last_one() {
+    let mut m = Measured::default();
+    // Search A: 10 → 30 → 90 (final ratio 3). Search B: 10 → 100 → 1000 (final ratio 10).
+    m.absorb(&[
+        iter(1, 10),
+        iter(2, 30),
+        iter(3, 90),
+        summary(),
+        iter(1, 10),
+        iter(2, 100),
+        iter(3, 1000),
+        summary(),
+    ]);
+    let ebf = m.ebf.unwrap();
+    assert!(
+        (ebf - (90.0 + 1000.0) / (30.0 + 100.0)).abs() < 1e-9,
+        "{ebf}"
+    );
+    // Without summaries, a depth-1 record still starts a new search.
+    let mut m = Measured::default();
+    m.absorb(&[iter(1, 10), iter(2, 30), iter(1, 10), iter(2, 50)]);
+    assert!((m.ebf.unwrap() - 80.0 / 20.0).abs() < 1e-9);
+    // A depth-1-only run has no EBF.
+    let mut m = Measured::default();
+    m.absorb(&[iter(1, 10), summary(), iter(1, 12), summary()]);
+    assert_eq!(m.ebf, None);
+}

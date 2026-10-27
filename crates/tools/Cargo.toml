@@ -17,6 +17,10 @@ name = "perf-gate"
 path = "src/bin/perf_gate.rs"
 
 [[bin]]
+name = "bench-history"
+path = "src/bin/bench_history.rs"
+
+[[bin]]
 name = "bench-report"
 path = "src/bin/bench_report.rs"
 
@@ -32,6 +36,7 @@ path = "src/bin/sprt_report.rs"
 rusty-chess-core = { path = "../core" }
 rusty-chess-search = { path = "../search" }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 toml = "0.9"
 
 [lints]
