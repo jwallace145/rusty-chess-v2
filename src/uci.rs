@@ -13,7 +13,7 @@ use std::time::Duration;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::search::{Limits, Searcher, mate_in};
+use rusty_chess_search::search::{DEFAULT_HASH_MB, Limits, Searcher, mate_in};
 use rusty_chess_search::telemetry::IterRecord;
 
 /// Read commands until `quit` or end of input, writing replies to `out`.
@@ -33,13 +33,21 @@ where
                 let mut o = out.lock().unwrap();
                 writeln!(o, "id name rusty-chess {}", env!("CARGO_PKG_VERSION"))?;
                 writeln!(o, "id author {}", env!("CARGO_PKG_AUTHORS"))?;
-                writeln!(o, "option name Hash type spin default 16 min 1 max 4096")?;
+                writeln!(
+                    o,
+                    "option name Hash type spin default {DEFAULT_HASH_MB} min 1 max 4096"
+                )?;
                 writeln!(o, "uciok")?;
             }
             Some("isready") => writeln!(out.lock().unwrap(), "readyok")?,
             Some("ucinewgame") => {
                 engine.stop();
                 engine.board = Board::from_position(Position::startpos());
+                engine.searcher_mut().clear_hash();
+            }
+            Some("setoption") => {
+                engine.stop();
+                engine.set_option(words)?;
             }
             Some("position") => {
                 engine.stop();
@@ -73,7 +81,10 @@ struct Engine<W: Write + Send + 'static> {
     board: Board,
     out: Arc<Mutex<W>>,
     stop_flag: Arc<AtomicBool>,
-    worker: Option<JoinHandle<()>>,
+    /// The searcher owns the transposition table, which persists across moves
+    /// of a game; it moves into the worker thread for each search and back.
+    searcher: Option<Searcher>,
+    worker: Option<JoinHandle<Searcher>>,
     infinite: bool,
 }
 
@@ -83,6 +94,7 @@ impl<W: Write + Send + 'static> Engine<W> {
             board: Board::from_position(Position::startpos()),
             out,
             stop_flag: Arc::new(AtomicBool::new(false)),
+            searcher: Some(Searcher::new(Arc::new(AtomicBool::new(false)))),
             worker: None,
             infinite: false,
         }
@@ -92,7 +104,9 @@ impl<W: Write + Send + 'static> Engine<W> {
     fn stop(&mut self) {
         if let Some(handle) = self.worker.take() {
             self.stop_flag.store(true, Ordering::Relaxed);
-            let _ = handle.join();
+            if let Ok(searcher) = handle.join() {
+                self.searcher = Some(searcher);
+            }
             self.stop_flag.store(false, Ordering::Relaxed);
         }
     }
@@ -102,8 +116,50 @@ impl<W: Write + Send + 'static> Engine<W> {
         if self.infinite {
             self.stop();
         } else if let Some(handle) = self.worker.take() {
-            let _ = handle.join();
+            if let Ok(searcher) = handle.join() {
+                self.searcher = Some(searcher);
+            }
         }
+    }
+
+    /// The searcher, with any running search stopped first.
+    fn searcher_mut(&mut self) -> &mut Searcher {
+        self.stop();
+        self.searcher
+            .get_or_insert_with(|| Searcher::new(Arc::new(AtomicBool::new(false))))
+    }
+
+    fn set_option<'a>(&mut self, words: impl Iterator<Item = &'a str>) -> io::Result<()> {
+        let words: Vec<&str> = words.collect();
+        // `setoption name <name> value <value>`
+        let name = words.iter().position(|w| *w == "name").map(|i| {
+            words[i + 1..]
+                .iter()
+                .take_while(|w| **w != "value")
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(" ")
+        });
+        let value = words
+            .iter()
+            .position(|w| *w == "value")
+            .and_then(|i| words.get(i + 1))
+            .copied();
+        match (name.as_deref(), value) {
+            (Some("Hash"), Some(v)) => match v.parse::<usize>() {
+                Ok(mb) if (1..=4096).contains(&mb) => self.searcher_mut().set_hash_mb(mb),
+                _ => writeln!(
+                    self.out.lock().unwrap(),
+                    "info string Hash must be 1..4096 MB, got {v}"
+                )?,
+            },
+            (Some(other), _) => writeln!(
+                self.out.lock().unwrap(),
+                "info string unknown option {other}"
+            )?,
+            _ => {}
+        }
+        Ok(())
     }
 
     fn set_position<'a>(&mut self, mut words: impl Iterator<Item = &'a str>) -> io::Result<()> {
@@ -171,13 +227,18 @@ impl<W: Write + Send + 'static> Engine<W> {
         let mut board = self.board.clone();
         let out = self.out.clone();
         let stop = self.stop_flag.clone();
+        let mut searcher = self
+            .searcher
+            .take()
+            .unwrap_or_else(|| Searcher::new(stop.clone()));
+        searcher.set_stop_flag(stop);
         self.worker = Some(std::thread::spawn(move || {
-            let mut searcher = Searcher::new(stop);
             let result = searcher.search(&mut board, &limits, &mut |it: &IterRecord| {
                 let _ = writeln!(out.lock().unwrap(), "{}", info_line(it));
             });
             let _ = writeln!(out.lock().unwrap(), "bestmove {}", result.best);
             let _ = out.lock().unwrap().flush();
+            searcher
         }));
     }
 }
