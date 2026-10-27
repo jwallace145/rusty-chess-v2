@@ -94,11 +94,43 @@ pub fn empty_document() -> String {
         "# Benchmark history\n\n\
 Every release, measured on a standardized `ubuntu-latest` runner from the shipped build (`x86-64-v3`). \
 Rows are written by the `Release benchmarks` workflow into the Release Please PR, so each one is reviewed before its release is cut. \
+Each release's raw data (`bench.jsonl`, `stats.jsonl`, `perft.jsonl`, logs and `summary.json`) is attached to its [GitHub release](https://github.com/jwallace145/rusty-chess-v2/releases) as files and as one tarball, and kept in [benchmarks/](../benchmarks/) at each tag. \
 The bench is 50 positions at a fixed depth with a fixed hash; the perft suite is `tests/perft.epd`. \
 NPS varies between runner instances by up to 2x, so compare signatures and efficiency first and NPS only for large changes. \
 What each column means is explained in [CONTRIBUTING.md](../CONTRIBUTING.md#coverage-suites-and-performance-bars).\n\n\
 {TABLE_HEADER}\n{TABLE_RULE}\n"
     )
+}
+
+/// One release's headline numbers as JSON, attached to the release as
+/// `summary.json` for historical analysis without parsing JSON lines.
+pub fn summary_json(version: &str, date: &str, m: &Measured) -> String {
+    let value = serde_json::json!({
+        "v": 1,
+        "version": format!("v{version}"),
+        "date": date,
+        "runner": "ubuntu-latest",
+        "target_cpu": "x86-64-v3",
+        "bench": {
+            "positions": m.bench_config.map(|c| c.0),
+            "depth": m.bench_config.map(|c| c.1),
+            "hash_mb": m.bench_config.map(|c| c.2),
+            "signature": m.signature,
+            "nps": m.search_nps,
+        },
+        "efficiency": {
+            "fail_high_first": m.fail_high_first,
+            "ebf": m.ebf,
+            "tt_hit": m.tt_hit,
+        },
+        "perft": {
+            "positions": m.perft_positions,
+            "max_depth": m.perft_max_depth,
+            "failures": m.perft_failures,
+            "nps": m.perft_nps,
+        },
+    });
+    serde_json::to_string_pretty(&value).expect("summary serializes")
 }
 
 /// The `### Benchmarks` section for a version's changelog entry.

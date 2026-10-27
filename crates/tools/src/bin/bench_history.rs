@@ -4,6 +4,7 @@
 //! bench-history record --version 0.5.0 --date 2026-10-27 --dir run \
 //!     [--prev-dir prev --prev-version 0.4.0] [--benchmarks docs/benchmarks.md] [--changelog CHANGELOG.md]
 //! bench-history notes --version 0.5.0 --dir run [--prev-dir prev --prev-version 0.4.0]
+//! bench-history summary --version 0.5.0 --date 2026-10-27 --dir run
 //! ```
 //!
 //! `record` adds the version's row to the history document and its section
@@ -63,6 +64,11 @@ fn run(args: Vec<String>) -> Result<(), String> {
     match command.as_str() {
         "notes" => {
             print!("{}", history::release_notes(&version, &m, prev_ref));
+            Ok(())
+        }
+        "summary" => {
+            let date = date.ok_or("`--date` is required")?;
+            println!("{}", history::summary_json(&version, &date, &m));
             Ok(())
         }
         "record" => {

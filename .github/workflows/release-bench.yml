@@ -1,9 +1,12 @@
 name: Release benchmarks
 
 # Records a release's benchmarks into its Release Please PR before it is
-# cut: a row in docs/benchmarks.md and a `### Benchmarks` section under the
-# version's heading in CHANGELOG.md, with deltas against the previous
-# release. Measured from the build that will ship, on the same runner class
+# cut. One run per version, and everything comes from it: the raw files
+# under benchmarks/v<version>/ (bench.jsonl, stats.jsonl, perft.jsonl, their
+# logs and summary.json), a row in docs/benchmarks.md, and a `### Benchmarks`
+# section under the version's heading in CHANGELOG.md with deltas against the
+# previous release. The release job attaches that same directory to the
+# GitHub release. Measured from the build that will ship, on the same runner class
 # and CPU baseline as the release binaries. The commit is pushed with the
 # release bot's token so CI runs on it, and the PR is reviewed and merged
 # by a human as before. Release Please rewrites its branch whenever main
@@ -48,7 +51,7 @@ jobs:
         run: |
           version=$(jq -r '."."' .release-please-manifest.json)
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          if grep -q "^| v$version |" docs/benchmarks.md; then
+          if [ -f "benchmarks/v$version/bench.jsonl" ]; then
             echo "v$version is already recorded; nothing to do."
             echo "recorded=true" >> "$GITHUB_OUTPUT"
           fi
@@ -61,24 +64,28 @@ jobs:
         run: |
           cargo build --release --locked
           cargo build --release --locked --features stats --target-dir target/stats
-          mkdir -p run
-          target/release/rusty-chess bench --out run/bench.jsonl > run/bench.log
-          target/stats/release/rusty-chess bench --out run/stats.jsonl > run/stats.log
-          target/release/rusty-chess perft --suite tests/perft.epd --out run/perft.jsonl > run/perft.log
-          tail -3 run/bench.log; tail -3 run/perft.log
+          run="benchmarks/v${{ steps.version.outputs.version }}"
+          mkdir -p "$run"
+          target/release/rusty-chess bench --out "$run/bench.jsonl" > "$run/bench.log"
+          target/stats/release/rusty-chess bench --out "$run/stats.jsonl" > "$run/stats.log"
+          target/release/rusty-chess perft --suite tests/perft.epd --out "$run/perft.jsonl" > "$run/perft.log"
+          tail -3 "$run/bench.log"; tail -3 "$run/perft.log"
       - name: Record into docs/benchmarks.md and CHANGELOG.md
         if: steps.version.outputs.recorded != 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          args=(--version "$VERSION" --date "$(date -u +%F)" --dir run)
+          run="benchmarks/v$VERSION"
+          date=$(date -u +%F)
+          args=(--version "$VERSION" --date "$date" --dir "$run")
           prev=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName // empty')
           if [ -n "$prev" ] && gh release download "$prev" --repo "$GITHUB_REPOSITORY" --dir prev --pattern '*.jsonl' 2>/dev/null; then
             args+=(--prev-dir prev --prev-version "$prev")
           fi
           cargo run --release --locked -p rusty-chess-tools --bin bench-history -- record "${args[@]}"
-          git diff --stat
+          cargo run --release --locked -p rusty-chess-tools --bin bench-history -- summary --version "$VERSION" --date "$date" --dir "$run" > "$run/summary.json"
+          git status --short
       - name: Commit to the release PR
         if: steps.version.outputs.recorded != 'true'
         env:
@@ -86,10 +93,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
-          if git diff --quiet; then echo "nothing to commit"; exit 0; fi
+          if [ -z "$(git status --porcelain)" ]; then echo "nothing to commit"; exit 0; fi
           user_id=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
-          git add docs/benchmarks.md CHANGELOG.md
+          git add "benchmarks/v${VERSION}" docs/benchmarks.md CHANGELOG.md
           git commit -m "docs: record v${VERSION} benchmarks"
           git push origin "HEAD:${GITHUB_HEAD_REF}"

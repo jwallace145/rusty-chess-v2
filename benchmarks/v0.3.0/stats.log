@@ -1,0 +1,107 @@
+Position 1/50: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+  bestmove b1c3 score 0 nodes 387669 time 55 ms
+Position 2/50: r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1
+  bestmove e2a6 score -27 nodes 944719 time 116 ms
+Position 3/50: 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1
+  bestmove b4f4 score 92 nodes 46909 time 6 ms
+Position 4/50: r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1
+  bestmove c4c5 score -429 nodes 361084 time 40 ms
+Position 5/50: rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8
+  bestmove d7c8q score 532 nodes 445960 time 50 ms
+Position 6/50: r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10
+  bestmove c3d5 score 68 nodes 1318876 time 173 ms
+Position 7/50: r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3
+  bestmove b1c3 score 9 nodes 1843376 time 282 ms
+Position 8/50: rnbqkb1r/pp2pppp/2p2n2/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 0 4
+  bestmove c4d5 score 0 nodes 1088193 time 180 ms
+Position 9/50: rnbqkb1r/ppp1pppp/5n2/3p4/3P1B2/8/PPP1PPPP/RN1QKBNR w KQkq - 2 3
+  bestmove b1c3 score 3 nodes 1625554 time 245 ms
+Position 10/50: r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5
+  bestmove d2d3 score 7 nodes 10022075 time 1519 ms
+Position 11/50: rnbqkb1r/pppppp1p/5np1/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3
+  bestmove b1c3 score 13 nodes 2044451 time 290 ms
+Position 12/50: rnbqk2r/ppppppbp/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 2 4
+  bestmove e2e4 score 8 nodes 4273796 time 628 ms
+Position 13/50: rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2
+  bestmove e4d5 score 7 nodes 431649 time 71 ms
+Position 14/50: r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 4 7
+  bestmove c3d5 score 11 nodes 3331835 time 499 ms
+Position 15/50: r2q1rk1/ppp2ppp/2np1n2/2b1p1B1/2B1P1b1/2NP1N2/PPP2PPP/R2Q1RK1 w - - 6 8
+  bestmove g5f6 score 21 nodes 1073042 time 144 ms
+Position 16/50: 2r3k1/pp3ppp/3p4/3P4/1nP5/8/P4PPP/2R3K1 w - - 0 25
+  bestmove c1e1 score -387 nodes 202021 time 20 ms
+Position 17/50: 8/8/4k3/8/2K5/8/8/8 w - - 0 1
+  bestmove c4d3 score -17 nodes 11550 time 1 ms
+Position 18/50: 8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1
+  bestmove a1b1 score 99 nodes 3366 time 0 ms
+Position 19/50: 8/5pk1/6p1/8/8/6P1/5PK1/8 w - - 0 1
+  bestmove g2f3 score 4 nodes 7035 time 0 ms
+Position 20/50: 4k3/8/8/8/8/8/4P3/4K3 w - - 0 1
+  bestmove e1d2 score 111 nodes 7446 time 0 ms
+Position 21/50: 8/3k4/8/8/8/8/3P4/3K4 w - - 0 1
+  bestmove d1e1 score 100 nodes 11650 time 1 ms
+Position 22/50: r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4
+  bestmove b1c3 score 13 nodes 2329112 time 355 ms
+Position 23/50: rnbqkbnr/pp2pppp/2p5/3p4/4P3/2N5/PPPP1PPP/R1BQKBNR w KQkq d6 0 3
+  bestmove g1f3 score 19 nodes 667146 time 93 ms
+Position 24/50: r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq d3 0 3
+  bestmove e5d4 score -13 nodes 649120 time 94 ms
+Position 25/50: rnbqkb1r/ppp2ppp/4pn2/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq d6 0 4
+  bestmove c4d5 score -2 nodes 1631884 time 275 ms
+Position 26/50: rnbqk2r/ppp1bppp/4pn2/3p4/2PP4/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 2 5
+  bestmove e2e3 score 6 nodes 3201397 time 553 ms
+Position 27/50: r1b1kb1r/2pp1ppp/1np1q3/p3P3/2P5/1P6/PB1NQPPP/R3KB1R b KQkq - 0 11
+  bestmove c8b7 score -71 nodes 7236615 time 1087 ms
+Position 28/50: 2rq1rk1/pp1bppbp/2np1np1/8/3NP3/1BN1BP2/PPPQ2PP/2KR3R w - - 0 12
+  bestmove d4c6 score 3 nodes 1020646 time 147 ms
+Position 29/50: r1bq1rk1/pp2bppp/2n1pn2/3p4/2PP4/2N1PN2/PP3PPP/R1BQKB1R w KQ - 0 8
+  bestmove f1e2 score 51 nodes 1853234 time 296 ms
+Position 30/50: 4rrk1/pp1n3p/3q2pQ/2p1pb2/2PP4/2P3N1/P2B2PP/4RRK1 b - - 7 19
+  bestmove f5d3 score 9 nodes 981603 time 117 ms
+Position 31/50: r3r1k1/2p2ppp/p1p1bn2/8/1q2P3/2NPQN2/PPP3PP/R4RK1 b - - 2 15
+  bestmove b4b2 score 36 nodes 3578861 time 485 ms
+Position 32/50: r1bbk1nr/pp3p1p/2n5/1N4p1/2Np1P2/8/PPP2PPP/2KR1B1R w kq - 0 13
+  bestmove b5d4 score -56 nodes 412689 time 50 ms
+Position 33/50: 3r1rk1/p5pp/bpp1pp2/8/q1PP1P2/b3P3/P2NQRPP/1R2B1K1 b - - 6 22
+  bestmove a3b4 score 64 nodes 2781197 time 385 ms
+Position 34/50: r1q2rk1/2p1bppp/2Pp4/p6b/Q1PNp3/4B3/PP1R1PPP/2K4R w - - 2 18
+  bestmove h2h3 score 21 nodes 5146273 time 774 ms
+Position 35/50: 4k2r/1pb2ppp/1p2p3/1R1p4/3P4/2r1PN2/P4PPP/1R4K1 b - - 3 22
+  bestmove e8e7 score 115 nodes 2464268 time 325 ms
+Position 36/50: 3q2k1/pb3p1p/4pbp1/2r5/PpN2N2/1P2P2P/5PP1/Q2R2K1 b - - 4 26
+  bestmove d8e7 score 45 nodes 779758 time 109 ms
+Position 37/50: 6k1/6p1/6Pp/ppp5/3pn2P/1P3K2/1PP2P2/3N4 b - - 0 1
+  bestmove e4d6 score -75 nodes 38614 time 4 ms
+Position 38/50: 3b4/5kp1/1p1p1p1p/pP1PpP1P/P1P1P3/3KN3/8/8 w - - 0 1
+  bestmove d3c2 score 44 nodes 13653 time 1 ms
+Position 39/50: 2K5/p7/7P/5pR1/8/5k2/r7/8 w - - 0 1
+  bestmove h6h7 score 86 nodes 170022 time 21 ms
+Position 40/50: 8/6pk/1p6/8/PP3p1p/5P2/4KP1q/3Q4 w - - 0 1
+  bestmove d1d4 score 42 nodes 398985 time 56 ms
+Position 41/50: 7k/3p2pp/4q3/8/4Q3/5Kp1/P6b/8 w - - 0 1
+  bestmove e4e6 score -599 nodes 81524 time 12 ms
+Position 42/50: 8/2p5/8/2kPKp1p/2p4P/2P5/3P4/8 w - - 0 1
+  bestmove d5d6 score 59 nodes 3752 time 0 ms
+Position 43/50: 8/1p3pp1/7p/5P1P/2k3P1/8/2K2P2/8 w - - 0 1
+  bestmove f2f4 score -19 nodes 64626 time 5 ms
+Position 44/50: 8/pp2r1k1/2p1p3/3pP2p/1P1P1P1P/P5KR/8/8 w - - 0 1
+  bestmove g3f3 score 13 nodes 83846 time 8 ms
+Position 45/50: 8/3p4/p1bk3p/Pp6/1Kp1PpPp/2P2P1P/2P5/5B2 b - - 0 1
+  bestmove c6b7 score 48 nodes 28583 time 4 ms
+Position 46/50: 5k2/7R/4P2p/5K2/p1r2P1p/8/8/8 b - - 0 1
+  bestmove a4a3 score 10 nodes 105912 time 13 ms
+Position 47/50: 6k1/6p1/P6p/r1N5/5p2/7P/1b3PP1/4R1K1 w - - 0 1
+  bestmove c5d3 score 139 nodes 224491 time 25 ms
+Position 48/50: 1r3k2/4q3/2Pp3b/3Bp3/2Q2p2/1p1P2P1/1P2KP2/3N4 w - - 0 1
+  bestmove d1c3 score -7 nodes 438088 time 59 ms
+Position 49/50: 6k1/4pp1p/3p2p1/P1pPb3/R7/1r2P1PP/3B1P2/6K1 w - - 0 1
+  bestmove a5a6 score 21 nodes 2389171 time 273 ms
+Position 50/50: 8/3p3B/5p2/5P2/p7/PP5b/k7/6K1 w - - 0 1
+  bestmove b3a4 score 25 nodes 12475 time 1 ms
+===========================
+Positions       : 50
+Depth           : 6
+Hash (MB)       : 16
+Total time (ms) : 9969
+Nodes searched  : 68269801
+Nodes/second    : 6848209

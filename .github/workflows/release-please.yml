@@ -93,11 +93,13 @@ jobs:
 
   telemetry:
     name: Release telemetry
-    # Benches the release on the Linux runner with the same portable CPU
-    # baseline the shipped binary uses, attaches bench.jsonl, stats.jsonl
-    # and perft.jsonl to the GitHub release (they never expire, unlike
-    # workflow artifacts), and writes the bench signature into the release
-    # notes. The PR bench comment compares against these assets.
+    # Attaches the release's benchmark data to the GitHub release, where it
+    # never expires: the raw bench.jsonl, stats.jsonl and perft.jsonl with
+    # their logs, a summary.json, and one tarball of all of it. The data is
+    # the run recorded in the release PR under benchmarks/<tag>/, the same
+    # run the CHANGELOG section and docs/benchmarks.md were derived from, so
+    # every published number has its raw data attached. If that directory is
+    # missing, the release is measured here instead, the same way.
     runs-on: ubuntu-latest
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -111,38 +113,32 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build release binaries, with and without stats
+      - name: Use the benchmarks recorded in the release PR, or measure now
         run: |
-          cargo build --release --locked
-          cargo build --release --locked --features stats --target-dir target/stats
-      - name: Bench, stats bench and perft suite
-        id: bench
-        run: |
-          target/release/rusty-chess bench --out bench.jsonl | tee bench.log
-          target/stats/release/rusty-chess bench --out stats.jsonl > stats.log
-          # The perft suite arrives with Phase 1; until then the subcommand reports that and exits 3.
-          if target/release/rusty-chess perft --suite tests/perft.epd --out perft.jsonl > perft.log 2>&1; then
-            echo "perft suite recorded"
+          if [ -f "benchmarks/$TAG/bench.jsonl" ]; then
+            echo "Using the run recorded in the release PR: benchmarks/$TAG"
+            cp -r "benchmarks/$TAG" run
           else
-            echo "perft suite not available in this release; see perft.log"
-            rm -f perft.jsonl
+            echo "::warning::benchmarks/$TAG was not recorded in the release PR; measuring now"
+            cargo build --release --locked
+            cargo build --release --locked --features stats --target-dir target/stats
+            mkdir -p run
+            target/release/rusty-chess bench --out run/bench.jsonl > run/bench.log
+            target/stats/release/rusty-chess bench --out run/stats.jsonl > run/stats.log
+            target/release/rusty-chess perft --suite tests/perft.epd --out run/perft.jsonl > run/perft.log
+            cargo run --release --locked -p rusty-chess-tools --bin bench-history -- summary --version "$TAG" --date "$(date -u +%F)" --dir run > run/summary.json
           fi
-          echo "nodes=$(sed -n 's/^Nodes searched  : //p' bench.log)" >> "$GITHUB_OUTPUT"
-          echo "nps=$(sed -n 's/^Nodes\/second    : //p' bench.log)" >> "$GITHUB_OUTPUT"
-          echo "perft_nps=$(sed -n 's/^Nodes\/second    : //p' perft.log)" >> "$GITHUB_OUTPUT"
-          echo "perft_checks=$(sed -n 's/^Checks          : //p' perft.log)" >> "$GITHUB_OUTPUT"
-      - name: Attach the telemetry to the GitHub release
+          ls -l run
+      - name: Attach the benchmark data to the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          files="bench.jsonl stats.jsonl bench.log stats.log perft.log"
-          [ -f perft.jsonl ] && files="$files perft.jsonl"
-          gh release upload "$TAG" $files --clobber --repo "${{ github.repository }}"
+          tar -czf "rusty-chess-${TAG}-benchmarks.tar.gz" -C run .
+          gh release upload "$TAG" run/* "rusty-chess-${TAG}-benchmarks.tar.gz" --clobber --repo "${{ github.repository }}"
       - name: Add the benchmarks, with deltas against the previous release, to the release notes
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p run && cp bench.jsonl stats.jsonl run/ && { cp perft.jsonl run/ 2>/dev/null || true; }
           # The previous release is the newest one that is not this one.
           prev=$(gh release list --repo "${{ github.repository }}" --exclude-drafts --json tagName --jq "[.[].tagName | select(. != \"$TAG\")][0] // empty")
           args=(--version "$TAG" --dir run)

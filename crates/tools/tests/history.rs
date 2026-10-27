@@ -135,3 +135,15 @@ fn release_notes_show_deltas_against_the_previous_release() {
         "{first}"
     );
 }
+
+#[test]
+fn the_summary_is_machine_readable_json() {
+    let m = measured(14_942_735, 11_100_000, 0.856, 4.74);
+    let text = rusty_chess_tools::history::summary_json("0.5.0", "2026-10-28", &m);
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(v["version"], "v0.5.0");
+    assert_eq!(v["bench"]["signature"], 14_942_735);
+    assert_eq!(v["bench"]["depth"], 6);
+    assert_eq!(v["efficiency"]["ebf"], 4.74);
+    assert_eq!(v["perft"]["failures"], 0);
+}
