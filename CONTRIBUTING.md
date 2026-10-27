@@ -106,11 +106,11 @@ In CI the `Bench` job runs the gate with `--env ci`. Speed bars are reported on 
 
 ### The bench comment
 
-Every PR gets one bench comment, posted by the `Bench` job and refreshed in place on every push. It compares the PR's run with the latest successful Bench run on the base branch: the bench signature, search NPS, perft NPS and suite result, fail-high first and EBF, each with a delta and a marker (🟢 improved, 🔴 regressed, ⚪ unchanged or within noise, 🆕 no baseline). Rows appear only for layers that are measured. The noise thresholds are the `[comment]` section of `perf-targets.toml`; the gate's verdict is one line and its table is folded into the details. `bench-report` in `crates/tools` renders it, so it can also be run locally against two directories of JSON lines:
+Every PR gets one bench comment, posted by the `Bench` job and refreshed in place on every push. It compares the PR's run with the latest release (the Bench run of the tagged commit; if that artifact has expired, the latest run on the base branch, labelled `main@<sha>`): the bench signature, search NPS, perft NPS and suite result, fail-high first and EBF, each with a delta and a marker (🟢 improved, 🔴 regressed, ⚪ unchanged or within noise, 🆕 no baseline). Rows appear only for layers that are measured. The noise thresholds are the `[comment]` section of `perf-targets.toml`; the gate's verdict is one line and its table is folded into the details. `bench-report` in `crates/tools` renders it, so it can also be run locally against two directories of JSON lines:
 
 ```sh
 cargo run --release -p rusty-chess-tools --bin bench-report -- \
-  --targets perf-targets.toml --head runs/pr --base runs/main --base-label main@abc1234
+  --targets perf-targets.toml --head runs/pr --base runs/v0.1.0 --base-label v0.1.0
 ```
 
 ## Releases

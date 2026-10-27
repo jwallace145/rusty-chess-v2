@@ -62,7 +62,7 @@ fn targets() -> Targets {
 
 fn meta() -> Meta {
     Meta {
-        base_label: Some("main@2c0c213".into()),
+        base_label: Some("v0.1.0".into()),
         head_label: "ab807a0".into(),
         gate_passed: Some(true),
         gate_table: Some("| Bar | Measured |\n| --- | ---: |\n".into()),
@@ -170,7 +170,7 @@ fn the_comment_is_compact_and_carries_the_gate_in_a_collapsed_section() {
     );
     assert!(md.contains("<details>") && md.contains("</details>"));
     assert!(md.contains("| Bar | Measured |"));
-    assert!(md.contains("main@2c0c213") && md.contains("ab807a0"));
+    assert!(md.contains("v0.1.0") && md.contains("ab807a0"));
     assert!(md.contains("Performance gate: **pass**"));
     assert!(md.contains("±10%") && md.contains("±1.0 pt"));
     let mut failed = meta();

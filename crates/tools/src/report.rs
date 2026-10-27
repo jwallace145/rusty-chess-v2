@@ -1,6 +1,6 @@
 //! The PR bench comment: one compact Markdown table comparing the PR's run
-//! with the latest run on the base branch, a one-line gate verdict, and the
-//! details folded away.
+//! with the latest release (or, failing that, the latest run on the base
+//! branch), a one-line gate verdict, and the details folded away.
 //!
 //! Rows appear only for what was measured on at least one side, so the
 //! comment grows with the engine instead of starting bloated. Each row ends
@@ -14,7 +14,8 @@ use crate::gate::{Measured, Targets};
 /// Labels and context for the comment.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Meta {
-    /// How the baseline is identified, e.g. `main@2c0c213`; `None` if there is none.
+    /// How the baseline is identified: a release tag such as `v0.1.0`, or
+    /// `main@2c0c213` when falling back to the base branch; `None` if there is none.
     pub base_label: Option<String>,
     /// How the PR run is identified, e.g. the head SHA.
     pub head_label: String,
@@ -154,7 +155,7 @@ pub fn render(base: Option<&Measured>, head: &Measured, targets: &Targets, meta:
     if meta.base_label.is_none() {
         let _ = writeln!(
             out,
-            "_no baseline: there is no successful Bench run on the base branch yet_"
+            "_no baseline: no release or base-branch Bench run to compare with yet_"
         );
     }
     let _ = writeln!(out);
@@ -174,7 +175,7 @@ pub fn render(base: Option<&Measured>, head: &Measured, targets: &Targets, meta:
         "- Base: {} · PR: `{}`",
         meta.base_label
             .as_deref()
-            .map_or("none".to_string(), |l| format!("latest Bench run on `{l}`")),
+            .map_or("none".to_string(), |l| format!("`{l}`")),
         meta.head_label
     );
     let _ = writeln!(
