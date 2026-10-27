@@ -8,6 +8,10 @@ name: Rating
 #
 # Limited Stockfish is a ballpark scale: good for tracking the engine's
 # strength from release to release, not a substitute for a public rating.
+#
+# Only the engine is built from the ref being rated. The tools, the ladder
+# settings and the openings come from this workflow's own commit, so every
+# version, old releases included, is rated on the same ladder.
 
 on:
   release:
@@ -50,14 +54,18 @@ jobs:
       ATTACH: ${{ github.event_name == 'release' || inputs.attach }}
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.REF }}
+          path: engine-src
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Build the engine and the tools
+      - name: Build the engine from the rated ref, and the tools from this commit
         run: |
-          cargo build --release --locked
+          cargo build --release --locked --manifest-path engine-src/Cargo.toml --target-dir target/engine
+          mkdir -p engine && cp target/engine/release/rusty-chess engine/rusty-chess
           cargo build --release --locked -p rusty-chess-tools --bin rating-report
+          echo "Rating $(cd engine-src && git describe --tags --always) with the ladder from $(git rev-parse --short HEAD)"
       - name: Install Stockfish and fastchess
         run: |
           sudo apt-get install -y -qq stockfish > /dev/null
@@ -79,7 +87,7 @@ jobs:
           mkdir -p logs
           for level in $($RR levels --config perf-targets.toml); do
             echo "::group::Stockfish UCI_Elo $level"
-            "$FC" -engine cmd=target/release/rusty-chess name=rusty-chess option.Hash="${hash:-64}" \
+            "$FC" -engine cmd=engine/rusty-chess name=rusty-chess option.Hash="${hash:-64}" \
                   -engine cmd="$SF" name="stockfish-$level" option.UCI_LimitStrength=true option.UCI_Elo="$level" \
                   $args -pgnout file="logs/rating-$level.pgn" 2>&1 | tee "logs/rating-$level.log" | grep -E '^(Results|Elo|Games)' || true
             echo "::endgroup::"
