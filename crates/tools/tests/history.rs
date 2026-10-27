@@ -15,6 +15,7 @@ fn measured(signature: u64, nps: u64, fh: f64, ebf: f64) -> Measured {
             positions: 50,
             depth: 6,
             hash_mb: 16,
+            cpu: None,
             nodes: signature,
             nps,
             elapsed_ms: 1000,
@@ -60,7 +61,7 @@ fn rows_are_inserted_newest_first_and_only_once() {
     );
     assert_eq!(
         a,
-        "| v0.4.0 | 2026-10-27 | 14,255,682 | 6.85M | 250.00M | pass (63) | 78.7% | 4.62 | 30.0% |"
+        "| v0.4.0 | 2026-10-27 | 14,255,682 | 6.85M | 250.00M | pass (63) | 78.7% | 4.62 | 30.0% | — |"
     );
     let doc = upsert_row(&doc, "0.4.0", &a).unwrap();
     let b = row(

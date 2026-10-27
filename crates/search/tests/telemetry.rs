@@ -78,6 +78,7 @@ fn records_round_trip_through_a_reader() {
             positions: 50,
             depth: 12,
             hash_mb: 16,
+            cpu: None,
             nodes: 12_345_678,
             nps: 2_000_000,
             elapsed_ms: 6_172,

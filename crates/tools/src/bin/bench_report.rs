@@ -17,7 +17,13 @@ use rusty_chess_search::telemetry::read_records;
 use rusty_chess_tools::gate::{Measured, Targets};
 use rusty_chess_tools::report::{Meta, render};
 
-const FILES: [&str; 3] = ["bench.jsonl", "stats.jsonl", "perft.jsonl"];
+const FILES: [&str; 5] = [
+    "bench.jsonl",
+    "stats.jsonl",
+    "perft.jsonl",
+    "instructions.jsonl",
+    "speed.jsonl",
+];
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {

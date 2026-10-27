@@ -16,8 +16,8 @@ use std::fmt::Write as _;
 use crate::gate::Measured;
 
 /// The marker line under which rows are kept in `docs/benchmarks.md`.
-pub const TABLE_HEADER: &str = "| Version | Date | Bench signature | Search NPS | Perft NPS | Perft suite | Fail-high first | EBF | TT hit |";
-const TABLE_RULE: &str = "|:--|:--|--:|--:|--:|:-:|--:|--:|--:|";
+pub const TABLE_HEADER: &str = "| Version | Date | Bench signature | Search NPS | Perft NPS | Perft suite | Fail-high first | EBF | TT hit | Instr / node |";
+const TABLE_RULE: &str = "|:--|:--|--:|--:|--:|:-:|--:|--:|--:|--:|";
 
 /// The headline numbers of one run, formatted for tables.
 struct Cells {
@@ -28,6 +28,7 @@ struct Cells {
     fh_first: String,
     ebf: String,
     tt_hit: String,
+    instructions: String,
 }
 
 fn cells(m: &Measured) -> Cells {
@@ -52,6 +53,9 @@ fn cells(m: &Measured) -> Cells {
             .tt_hit
             .filter(|&t| t > 0.0)
             .map_or("—".into(), |t| format!("{:.1}%", t * 100.0)),
+        instructions: m
+            .instructions_per_node
+            .map_or("—".into(), |i| format!("{i:.0}")),
     }
 }
 
@@ -59,8 +63,15 @@ fn cells(m: &Measured) -> Cells {
 pub fn row(version: &str, date: &str, m: &Measured) -> String {
     let c = cells(m);
     format!(
-        "| v{version} | {date} | {} | {} | {} | {} | {} | {} | {} |",
-        c.signature, c.search_nps, c.perft_nps, c.perft_suite, c.fh_first, c.ebf, c.tt_hit
+        "| v{version} | {date} | {} | {} | {} | {} | {} | {} | {} | {} |",
+        c.signature,
+        c.search_nps,
+        c.perft_nps,
+        c.perft_suite,
+        c.fh_first,
+        c.ebf,
+        c.tt_hit,
+        c.instructions
     )
 }
 
@@ -111,6 +122,7 @@ pub fn summary_json(version: &str, date: &str, m: &Measured) -> String {
         "date": date,
         "runner": "ubuntu-latest",
         "target_cpu": "x86-64-v3",
+        "cpu": m.cpu,
         "bench": {
             "positions": m.bench_config.map(|c| c.0),
             "depth": m.bench_config.map(|c| c.1),
@@ -118,6 +130,7 @@ pub fn summary_json(version: &str, date: &str, m: &Measured) -> String {
             "signature": m.signature,
             "nps": m.search_nps,
         },
+        "instructions_per_node": m.instructions_per_node,
         "efficiency": {
             "fail_high_first": m.fail_high_first,
             "ebf": m.ebf,
@@ -141,8 +154,15 @@ pub fn changelog_section(m: &Measured, prev: Option<(&str, &Measured)>) -> Strin
     let _ = writeln!(out);
     let _ = writeln!(
         out,
-        "* bench signature {}, search {} NPS, perft {} NPS ({}), fail-high first {}, EBF {}, TT hit {}",
-        c.signature, c.search_nps, c.perft_nps, c.perft_suite, c.fh_first, c.ebf, c.tt_hit
+        "* bench signature {}, instructions per node {}, search {} NPS, perft {} NPS ({}), fail-high first {}, EBF {}, TT hit {}",
+        c.signature,
+        c.instructions,
+        c.search_nps,
+        c.perft_nps,
+        c.perft_suite,
+        c.fh_first,
+        c.ebf,
+        c.tt_hit
     );
     if let Some((prev_version, p)) = prev {
         let mut deltas = Vec::new();
@@ -153,6 +173,14 @@ pub fn changelog_section(m: &Measured, prev: Option<(&str, &Measured)>) -> Strin
         }
         if let (Some(a), Some(b)) = (p.ebf, m.ebf) {
             deltas.push(format!("EBF {:+.2}", b - a));
+        }
+        if let (Some(a), Some(b)) = (p.instructions_per_node, m.instructions_per_node)
+            && a > 0.0
+        {
+            deltas.push(format!(
+                "instructions per node {}",
+                fmt_pct((b - a) / a * 100.0)
+            ));
         }
         if let (Some(a), Some(b)) = (p.search_nps, m.search_nps)
             && a > 0
@@ -205,7 +233,14 @@ pub fn release_notes(version: &str, m: &Measured, prev: Option<(&str, &Measured)
     let mut out = String::new();
     let _ = writeln!(out, "## Benchmarks");
     let _ = writeln!(out);
-    let rows: [NotesRow; 6] = [
+    let rows: [NotesRow; 7] = [
+        (
+            "Instructions / node",
+            m.instructions_per_node,
+            prev.and_then(|(_, p)| p.instructions_per_node),
+            |v| format!("{v:.0}"),
+            true,
+        ),
         (
             "Bench signature",
             m.signature.map(|v| v as f64),
@@ -283,7 +318,7 @@ pub fn release_notes(version: &str, m: &Measured, prev: Option<(&str, &Measured)
     let _ = writeln!(out);
     let _ = writeln!(
         out,
-        "Measured on `ubuntu-latest` (`x86-64-v3`); NPS is not comparable across runner instances. Raw telemetry is attached below; the full history is in [docs/benchmarks.md](../../blob/main/docs/benchmarks.md)."
+        "Measured on `ubuntu-latest` (`x86-64-v3`). Instructions per node is the same on any x86-64 machine; NPS depends on the runner's CPU and is not comparable across runner instances. Raw telemetry is attached below; the full history is in [docs/benchmarks.md](../../blob/main/docs/benchmarks.md)."
     );
     out
 }

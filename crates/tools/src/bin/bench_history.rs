@@ -98,7 +98,12 @@ fn run(args: Vec<String>) -> Result<(), String> {
 
 fn load(dir: &Path) -> Result<Measured, String> {
     let mut m = Measured::default();
-    for name in ["bench.jsonl", "stats.jsonl", "perft.jsonl"] {
+    for name in [
+        "bench.jsonl",
+        "stats.jsonl",
+        "perft.jsonl",
+        "instructions.jsonl",
+    ] {
         let path = dir.join(name);
         match File::open(&path) {
             Ok(f) => m.absorb(
