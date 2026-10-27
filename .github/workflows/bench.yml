@@ -118,7 +118,7 @@ jobs:
           tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
           if [ -n "$tag" ]; then
             sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha)
-            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow Bench --branch "$BASE_REF" --event push --commit "$sha" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow Bench --event push --commit "$sha" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
             if [ -n "$run" ] && download "$run" "$tag"; then exit 0; fi
             echo "No usable Bench artifact for release $tag (run: ${run:-none}); falling back to the latest run on $BASE_REF."
           else
