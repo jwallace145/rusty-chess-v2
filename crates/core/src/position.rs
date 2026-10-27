@@ -168,6 +168,14 @@ pub struct Undo {
     key: u64,
 }
 
+impl Undo {
+    /// The piece the move captured, if any (for en passant, the pawn).
+    #[inline]
+    pub fn captured(&self) -> Option<Piece> {
+        self.captured
+    }
+}
+
 /// A FEN that could not be parsed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FenError(pub String);
