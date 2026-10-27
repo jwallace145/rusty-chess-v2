@@ -104,7 +104,7 @@ const PAWN: [[u64; 64]; 2] = {
 
 /// `BETWEEN[a][b]`: the squares strictly between `a` and `b` if they share
 /// a rank, file or diagonal; otherwise empty.
-const BETWEEN: [[u64; 64]; 64] = {
+static BETWEEN: [[u64; 64]; 64] = {
     let mut t = [[0; 64]; 64];
     let mut a = 0;
     while a < 64 {
@@ -128,7 +128,7 @@ const BETWEEN: [[u64; 64]; 64] = {
 
 /// `LINE[a][b]`: the whole rank, file or diagonal through `a` and `b`
 /// (both included), or empty if they do not share one.
-const LINE: [[u64; 64]; 64] = {
+static LINE: [[u64; 64]; 64] = {
     let mut t = [[0; 64]; 64];
     let mut a = 0;
     while a < 64 {
