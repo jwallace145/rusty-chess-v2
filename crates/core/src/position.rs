@@ -176,6 +176,14 @@ impl Undo {
     }
 }
 
+/// What `make_null_move` needs back to `unmake_null_move`.
+#[derive(Clone, Copy, Debug)]
+pub struct NullUndo {
+    en_passant: Option<Square>,
+    halfmove: u16,
+    key: u64,
+}
+
 /// A FEN that could not be parsed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FenError(pub String);
@@ -606,6 +614,45 @@ impl Position {
             self.fullmove += 1;
         }
         undo
+    }
+
+    /// Pass the turn without moving (for null-move pruning). The en passant
+    /// right lapses and the clocks advance as for a quiet move.
+    pub fn make_null_move(&mut self) -> NullUndo {
+        let undo = NullUndo {
+            en_passant: self.en_passant,
+            halfmove: self.halfmove,
+            key: self.key,
+        };
+        if let Some(ep) = self.en_passant.take() {
+            self.key ^= zobrist::EP[ep.file() as usize];
+        }
+        self.halfmove += 1;
+        if self.side == Color::Black {
+            self.fullmove += 1;
+        }
+        self.side = !self.side;
+        self.key ^= zobrist::SIDE;
+        undo
+    }
+
+    /// Take back a null move.
+    pub fn unmake_null_move(&mut self, undo: NullUndo) {
+        self.side = !self.side;
+        if self.side == Color::Black {
+            self.fullmove -= 1;
+        }
+        self.en_passant = undo.en_passant;
+        self.halfmove = undo.halfmove;
+        self.key = undo.key;
+    }
+
+    /// Whether `color` has any piece besides pawns and the king. Null-move
+    /// pruning is unsafe without one: zugzwang is common in pawn endings.
+    #[inline]
+    pub fn has_non_pawn_material(&self, color: Color) -> bool {
+        (self.by_color(color) & !(self.by_kind(PieceKind::Pawn) | self.by_kind(PieceKind::King)))
+            .is_nonempty()
     }
 
     /// Take back `m`, the last move played, with the `Undo` it returned.

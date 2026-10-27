@@ -6,7 +6,7 @@
 //! original window, never after an abort) and the staged move picker (TT
 //! move, good captures by static exchange, killers, history quiets, bad
 //! captures), searched as a principal variation search inside aspiration
-//! windows. No pruning yet.
+//! windows, with null-move pruning.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -46,6 +46,12 @@ const CHECK_EVERY: u64 = 2048;
 /// Iterations below this depth are searched with the full window: the
 /// previous score is not yet a useful guess.
 const ASPIRATION_MIN_DEPTH: u32 = 4;
+
+/// Null-move pruning needs at least this much depth to be worth a try.
+const NULL_MOVE_MIN_DEPTH: u32 = 3;
+
+/// Base depth reduction of the null-move search; `depth / 4` is added.
+const NULL_MOVE_REDUCTION: u32 = 2;
 
 /// The initial half-width of the aspiration window, in centipawns. On the
 /// depth-6 bench, 25 re-searched 37 windows and cost nodes; 50 almost never
@@ -282,13 +288,13 @@ impl Searcher {
     /// first iterations and mate scores use the full window.
     fn aspirate(&mut self, board: &mut Board, depth: u32, guess: i32) -> i32 {
         if depth < ASPIRATION_MIN_DEPTH || is_mate_score(guess) {
-            return self.negamax(board, depth, -INFINITY, INFINITY, 0);
+            return self.negamax(board, depth, -INFINITY, INFINITY, 0, false);
         }
         let mut delta = ASPIRATION_DELTA;
         let mut alpha = (guess - delta).max(-INFINITY);
         let mut beta = (guess + delta).min(INFINITY);
         loop {
-            let score = self.negamax(board, depth, alpha, beta, 0);
+            let score = self.negamax(board, depth, alpha, beta, 0, false);
             if self.aborted {
                 return score;
             }
@@ -335,6 +341,7 @@ impl Searcher {
         mut alpha: i32,
         beta: i32,
         ply: usize,
+        null_ok: bool,
     ) -> i32 {
         self.pv_len[ply] = 0;
         if ply > 0 && (board.is_repetition() || board.is_fifty_moves()) {
@@ -352,6 +359,8 @@ impl Searcher {
         if self.should_abort() {
             return 0;
         }
+
+        let in_check = board.position().in_check();
 
         // Transposition table: a cutoff when the stored depth suffices and
         // the bound agrees with the window (never at the root, which needs a
@@ -376,6 +385,41 @@ impl Searcher {
             }
         }
 
+        // Null-move pruning: if passing the turn still fails high at a
+        // reduced depth, this node almost certainly does too. Not in check,
+        // not twice in a row, not without a piece to move (zugzwang), and
+        // only when the static evaluation already clears beta.
+        if null_ok
+            && ply > 0
+            && depth >= NULL_MOVE_MIN_DEPTH
+            && !in_check
+            && !is_mate_score(beta)
+            && board
+                .position()
+                .has_non_pawn_material(board.position().side_to_move())
+            && board.evaluate() >= beta
+        {
+            let reduction = NULL_MOVE_REDUCTION + depth / 4;
+            let undo = board.make_null_move();
+            let score = -self.negamax(
+                board,
+                depth.saturating_sub(1 + reduction),
+                -beta,
+                -beta + 1,
+                ply + 1,
+                false,
+            );
+            board.unmake_null_move(undo);
+            if self.aborted {
+                return 0;
+            }
+            if score >= beta {
+                stat!(self.stats, null_move_cutoffs);
+                // A mate found after a null move is not a real mate.
+                return if is_mate_score(score) { beta } else { score };
+            }
+        }
+
         let mut picker = MovePicker::new(tt_move).with_killers(self.killers.get(ply));
         let mut best = -INFINITY;
         let mut best_move = Move::NULL;
@@ -390,11 +434,11 @@ impl Searcher {
             // it beats alpha, re-searched in full when it does (and might
             // still be below beta).
             let score = if index == 0 {
-                -self.negamax(board, depth - 1, -beta, -alpha, ply + 1)
+                -self.negamax(board, depth - 1, -beta, -alpha, ply + 1, true)
             } else {
-                let probe = -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1);
+                let probe = -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, true);
                 if probe > alpha && probe < beta && !self.aborted {
-                    -self.negamax(board, depth - 1, -beta, -alpha, ply + 1)
+                    -self.negamax(board, depth - 1, -beta, -alpha, ply + 1, true)
                 } else {
                     probe
                 }
@@ -433,11 +477,7 @@ impl Searcher {
         }
         if index == 0 && best == -INFINITY {
             // No legal moves at all: mate or stalemate.
-            return if board.position().in_check() {
-                -(MATE - ply as i32)
-            } else {
-                0
-            };
+            return if in_check { -(MATE - ply as i32) } else { 0 };
         }
 
         // The bound follows from the score against the original window.
