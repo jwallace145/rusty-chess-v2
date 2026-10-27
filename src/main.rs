@@ -10,6 +10,7 @@
 
 mod bench;
 mod cli;
+mod perft;
 mod positions;
 mod uci;
 
@@ -20,8 +21,8 @@ use cli::Command;
 
 /// Exit code for a usage error (bad arguments).
 const EXIT_USAGE: u8 = 2;
-/// Exit code for a subcommand that is not implemented in this phase.
-const EXIT_UNIMPLEMENTED: u8 = 3;
+/// Exit code when the perft suite does not match.
+const EXIT_PERFT_MISMATCH: u8 = 3;
 
 fn main() -> ExitCode {
     let command = match cli::parse(std::env::args().skip(1)) {
@@ -44,14 +45,11 @@ fn main() -> ExitCode {
         }
         Command::Uci => uci::run(io::stdin().lock(), io::stdout().lock()),
         Command::Bench(args) => bench::run(&args, &mut io::stdout().lock()).map(drop),
-        Command::Perft(args) => {
-            eprintln!(
-                "rusty-chess: perft (depth {}, {}) is not implemented yet: move generation arrives in Phase 1",
-                args.depth,
-                args.fen.as_deref().unwrap_or("startpos")
-            );
-            return ExitCode::from(EXIT_UNIMPLEMENTED);
-        }
+        Command::Perft(args) => match perft::run(&args, &mut io::stdout().lock()) {
+            Ok(true) => Ok(()),
+            Ok(false) => return ExitCode::from(EXIT_PERFT_MISMATCH),
+            Err(e) => Err(e),
+        },
     };
 
     match result {

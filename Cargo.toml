@@ -24,8 +24,6 @@ stats = ["rusty-chess-search/stats"]
 [dependencies]
 rusty-chess-core = { path = "crates/core" }
 rusty-chess-search = { path = "crates/search" }
-
-[dev-dependencies]
 rusty-chess-tools = { path = "crates/tools" }
 
 [lints]

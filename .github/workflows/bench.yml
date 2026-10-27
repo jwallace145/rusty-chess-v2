@@ -44,6 +44,7 @@ jobs:
         run: |
           target/release/rusty-chess bench --out bench.jsonl | tee bench.log
           target/stats/release/rusty-chess bench --out stats.jsonl > stats.log
+          target/release/rusty-chess perft --suite tests/perft.epd --out perft.jsonl | tee perft.log
           nodes=$(sed -n 's/^Nodes searched  : //p' bench.log)
           nps=$(sed -n 's/^Nodes\/second    : //p' bench.log)
           stats_nodes=$(sed -n 's/^Nodes searched  : //p' stats.log)
@@ -125,7 +126,7 @@ jobs:
             rm -rf base
             # Releases cut before telemetry assets existed: the Bench run of the tagged commit.
             sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha)
-            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow Bench --branch "$BASE_REF" --event push --commit "$sha" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow Bench --event push --commit "$sha" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
             if [ -n "$run" ] && download "$run" "$tag"; then exit 0; fi
             echo "No usable Bench artifact for release $tag (run: ${run:-none}); falling back to the latest run on $BASE_REF."
           else
@@ -168,6 +169,8 @@ jobs:
             stats.jsonl
             bench.log
             stats.log
+            perft.jsonl
+            perft.log
             gate.md
             comment.md
           if-no-files-found: error
