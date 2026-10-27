@@ -1,0 +1,23 @@
+[package]
+name = "rusty-chess-search"
+version = "0.1.0"
+description = "Search, transposition table, move picker, evaluation and search telemetry"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rusty_chess_search"
+
+[features]
+# Search statistics counters. Off by default: every `stat!` compiles to nothing.
+stats = []
+
+[dependencies]
+rusty-chess-core = { path = "../core" }
+
+[lints]
+workspace = true

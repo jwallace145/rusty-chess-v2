@@ -1,0 +1,4 @@
+# Local builds target the host CPU. CI release builds override RUSTFLAGS with
+# a portable baseline (x86-64-v3 / apple-m1) so installed binaries run anywhere.
+[build]
+rustflags = ["-C", "target-cpu=native"]

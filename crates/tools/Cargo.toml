@@ -1,0 +1,20 @@
+[package]
+name = "rusty-chess-tools"
+version = "0.1.0"
+description = "Developer tools: perft suite runner, bench and stats diffing, data generation"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rusty_chess_tools"
+
+[dependencies]
+rusty-chess-core = { path = "../core" }
+rusty-chess-search = { path = "../search" }
+
+[lints]
+workspace = true
