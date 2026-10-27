@@ -67,6 +67,8 @@ release, whose telemetry is attached to the GitHub release as assets. See
 
 Every release's numbers, with the full history, are in [docs/benchmarks.md](docs/benchmarks.md).
 
+To play it or watch it on Lichess, see [lichess/README.md](lichess/README.md).
+
 ## Phases
 
 | Phase | Gate |

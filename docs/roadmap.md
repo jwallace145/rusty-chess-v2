@@ -116,7 +116,8 @@ Each item is its own PR with an SPRT run; the first intermediate gate is the EBF
 
 - [ ] A rating ladder against limited Stockfish on every release, attached with the logs and PGNs, as a ballpark between public ratings
 - [ ] Homebrew tap bumped by the `release` job after the Release Please PR merges (release notes already carry the signature and telemetry since Phase 0)
-- [ ] Optional: a Lichess bot account; submission to CCRL testers
+- [ ] Lichess bot account: `lichess/run.sh` connects the engine through lichess-bot; the account, token and upgrade are the owner's steps (see `lichess/README.md`). Pulled forward from optional: the rating it earns is the real-world number
+- [ ] Optional: submission to CCRL testers
 - [ ] **Exit:** `brew install` works on macOS arm64 and x86_64; the engine is publicly rated somewhere
 
 ### Phase 6: NNUE
