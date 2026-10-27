@@ -164,9 +164,16 @@ fn the_comment_is_compact_and_carries_the_gate_in_a_collapsed_section() {
     let md = render(Some(&base), &head, &targets(), &meta());
     assert!(md.starts_with("### "), "{md}");
     assert!(
-        md.lines().count() < 30,
+        md.lines().count() < 45,
         "{} lines\n{md}",
         md.lines().count()
+    );
+    // Everything after the gate line is folded away: the visible part stays short.
+    let visible = md.split("<details>").next().unwrap();
+    assert!(
+        visible.lines().count() <= 14,
+        "{} visible lines\n{visible}",
+        visible.lines().count()
     );
     assert!(md.contains("<details>") && md.contains("</details>"));
     assert!(md.contains("| Bar | Measured |"));
@@ -191,4 +198,48 @@ fn perft_failures_are_called_out() {
         row.contains("3 failures") && row.ends_with("| 🔴 |"),
         "{row}"
     );
+}
+
+#[test]
+fn a_collapsed_section_explains_each_row_that_is_shown() {
+    let base = run(1, 2_000_000, 0.9, 2.2, Some(100_000_000));
+    let head = run(1, 2_000_000, 0.9, 2.2, Some(100_000_000));
+    let md = render(Some(&base), &head, &targets(), &meta());
+    // Two collapsed sections: details, then the explainer; neither is open by default.
+    assert_eq!(md.matches("<details>").count(), 2, "{md}");
+    assert!(!md.contains("<details open"), "{md}");
+    let explainer = md
+        .split("<summary>What these numbers mean</summary>")
+        .nth(1)
+        .unwrap_or_else(|| panic!("no explainer\n{md}"));
+    for row in [
+        "Bench signature",
+        "Search NPS",
+        "Perft NPS",
+        "Perft suite",
+        "Fail-high first",
+        "EBF",
+    ] {
+        assert!(
+            explainer.contains(&format!("**{row}**")),
+            "explainer lacks {row}\n{explainer}"
+        );
+    }
+    assert!(
+        explainer.contains("🟢")
+            && explainer.contains("🔴")
+            && explainer.contains("⚪")
+            && explainer.contains("🆕")
+    );
+    assert!(explainer.contains("perf-targets.toml"));
+    assert!(
+        md.lines().count() < 50,
+        "{} lines\n{md}",
+        md.lines().count()
+    );
+
+    // Rows that are not shown are not explained.
+    let head = run(1, 2_000_000, 0.9, 2.2, None);
+    let md = render(None, &head, &targets(), &meta());
+    assert!(!md.contains("**Perft NPS**"), "{md}");
 }

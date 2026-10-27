@@ -191,7 +191,46 @@ pub fn render(base: Option<&Measured>, head: &Measured, targets: &Targets, meta:
     }
     let _ = writeln!(out);
     let _ = writeln!(out, "</details>");
+
+    // What each shown row means, for a reader who has not seen the roadmap.
+    let _ = writeln!(out);
+    let _ = writeln!(out, "<details><summary>What these numbers mean</summary>");
+    let _ = writeln!(out);
+    for r in &rows {
+        let _ = writeln!(out, "- **{}**: {}", r.name, explain(r.name));
+    }
+    let _ = writeln!(
+        out,
+        "- **Markers**: 🟢 improved or 🔴 regressed beyond the noise threshold, ⚪ unchanged or within it, 🆕 nothing to compare with. Thresholds and the bars the gate enforces live in `perf-targets.toml`; speed bars are enforced on release PRs, efficiency bars always, and a bar may never be lowered."
+    );
+    let _ = writeln!(out);
+    let _ = writeln!(out, "</details>");
     out
+}
+
+/// One sentence per row, for the explainer section.
+fn explain(name: &str) -> &'static str {
+    match name {
+        "Bench signature" => {
+            "total nodes searched over the fixed bench positions (`src/positions.rs`) at a fixed depth and hash size. Deterministic: a different number means search behaviour changed (`feat`); the same number with a different NPS is a pure speed change (`perf`)."
+        }
+        "Search NPS" => {
+            "nodes per second of that bench in a release build. Speed only; strength is measured by SPRT, not here."
+        }
+        "Perft NPS" => {
+            "leaf nodes per second over the perft suite (`tests/perft.epd`) with bulk counting: raw move generation and make/unmake speed."
+        }
+        "Perft suite" => {
+            "every position and depth in `tests/perft.epd` must match its known leaf-node count; a failure is a move generation bug."
+        }
+        "Fail-high first" => {
+            "share of beta cutoffs produced by the first move searched, from the `--features stats` build. Move ordering quality; the Phase 3 gate is 90%."
+        }
+        "EBF" => {
+            "effective branching factor between iterative-deepening iterations: how many moves per node the search effectively looks at. Lower is better; the Phase 4 target is about 2."
+        }
+        _ => "",
+    }
 }
 
 fn push_signature(rows: &mut Vec<Row>, base: Option<&Measured>, head: &Measured) {

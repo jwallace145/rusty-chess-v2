@@ -129,6 +129,8 @@ jobs:
           fi
           echo "nodes=$(sed -n 's/^Nodes searched  : //p' bench.log)" >> "$GITHUB_OUTPUT"
           echo "nps=$(sed -n 's/^Nodes\/second    : //p' bench.log)" >> "$GITHUB_OUTPUT"
+          echo "perft_nps=$(sed -n 's/^Nodes\/second    : //p' perft.log)" >> "$GITHUB_OUTPUT"
+          echo "perft_checks=$(sed -n 's/^Checks          : //p' perft.log)" >> "$GITHUB_OUTPUT"
       - name: Attach the telemetry to the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -141,6 +143,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           NODES: ${{ steps.bench.outputs.nodes }}
           NPS: ${{ steps.bench.outputs.nps }}
+          PERFT_NPS: ${{ steps.bench.outputs.perft_nps }}
+          PERFT_CHECKS: ${{ steps.bench.outputs.perft_checks }}
         run: |
           gh release view "$TAG" --repo "${{ github.repository }}" --json body --jq .body > notes.md
           {
@@ -149,6 +153,7 @@ jobs:
             echo
             echo "- Bench: \`$NODES\`"
             echo "- NPS: \`$NPS\` (ubuntu-latest, x86-64-v3; not comparable across runners)"
+            if [ -n "$PERFT_NPS" ]; then echo "- Perft: \`$PERFT_NPS\` NPS, $PERFT_CHECKS"; fi
             echo "- Telemetry: \`bench.jsonl\`, \`stats.jsonl\`$([ -f perft.jsonl ] && echo ', `perft.jsonl`') attached below"
           } >> notes.md
           gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file notes.md
