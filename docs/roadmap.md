@@ -63,16 +63,19 @@ The schema is versioned (`"v":1`) so old artifacts stay comparable.
 Use a Cargo workspace so the core library can later be reused by the CLI, an API server, and NNUE training tools without dependency bloat.
 
 ```
-engine/
+rusty-chess-v2/
+  Cargo.toml   # root package `rusty-chess` (the binary) plus the [workspace]
+  src/         # UCI protocol + binary entry point (bench, perft subcommands)
   crates/
     core/      # board, bitboards, magics, movegen, zobrist, make/unmake (no deps)
-    search/    # search, TT, move picker, eval, SearchStats
-    uci/       # UCI protocol + binary entry point (bench, perft subcommands)
+    search/    # search, TT, move picker, eval, SearchStats, JSON lines telemetry
     tools/     # perft suite runner, stats diff script, datagen later
   benches/     # Criterion: movegen, make/unmake, eval, TT probe
   tests/       # perft EPD suite, UCI smoke tests, mate-in-N positions
-  .github/workflows/  # ci.yml (perft, bench, artifacts), release.yml
+  .github/workflows/  # ci.yml, bench.yml (artifacts), release-please.yml (release job)
 ```
+
+The workspace root is itself a package, the `rusty-chess` binary, rather than a virtual workspace. Release Please's `rust` strategy runs its package updater on the root `Cargo.toml` after bumping every member, and fails on a root without `[package]`; the root `benches/` and `tests/` directories need a root package anyway. Members are listed explicitly (no globs) and each carries its own `version`, which the strategy bumps together with the root and `Cargo.lock`. Path dependencies between crates carry no `version` field.
 
 | Tool | Purpose |
 | --- | --- |
@@ -103,7 +106,7 @@ The repo follows the standard conventions document in full; nothing in this plan
 - **Commit types for engine work:** `perf` for speed changes with an unchanged bench signature, `feat` for search or eval changes that change the signature, `fix` for correctness (perft, TT, mate scores). A `feat` whose SPRT failed does not merge.
 - **PR template additions:** `feat.md` gains a "Bench signature before / after" line and an "SPRT result" line (Elo, LOS, games); `perf.md` is added with the same bench line plus NPS before/after on a quiet machine.
 - **CI jobs beyond the baseline:** `test` (perft suite, unit tests), `bench` (uploads `bench.jsonl` and `stats.jsonl`, gates on node signature and perft only), and `release` (builds macOS arm64/x86\_64 and Linux x86\_64 binaries, runs `needs: release-please` and `if: release_created`, attaches binaries to the GitHub release, then bumps the Homebrew tap formula).
-- **Release type:** `release-type: rust` so Release Please bumps `Cargo.toml` versions across the workspace. The merged Release Please PR is the human gate for every published build.
+- **Release type:** `release-type: rust` so Release Please bumps the root package, every workspace member's `Cargo.toml` and `Cargo.lock` together. This requires the workspace root to be a package (see the layout above); `release-type: simple` with an annotated version line would leave `Cargo.lock` stale and break `--locked` builds on the release PR. The merged Release Please PR is the human gate for every published build.
 - **`AGENTS.md`** restates the four agent rules and adds two: never change search or eval without a bench run, and never claim an Elo gain without an SPRT result in the PR.
 
 ## Phased roadmap
@@ -118,7 +121,7 @@ Each phase starts only after the previous gate holds on bench and stats; Phase 3
 
 - `chore: initial scaffold` pushed directly to `main` (the only direct push): workspace, release profile, `README.md`, `LICENSE`
 - Conventions PR: commitlint, `pre-commit` hook, PR templates (including `perf.md`), `AGENTS.md`, `CONTRIBUTING.md`, Dependabot, and `ci.yml` with commitlint, pr-title, fmt, clippy, and test jobs
-- Release Please PR: manifest config with `release-type: rust`, the `release-please.yml` workflow, and the `release` job stub
+- Release Please PR: manifest config with `release-type: rust` over a root package, the `release-please.yml` workflow, and the `release` job that builds macOS arm64, macOS x86_64 and Linux x86_64 binaries and attaches them to the GitHub release
 - Apply merge settings and the `main` ruleset with `gh api`; verify a multi-line commit fails CI and a bad PR title fails
 - `stats` feature with no-op macros, the JSON lines writer, and `bench` / `perft` subcommands, even before they do much
 - **Exit:** CI uploads a (trivial) `bench.jsonl` artifact on every PR, and the first Release Please PR has cut `v0.1.0`.
