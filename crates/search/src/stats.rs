@@ -21,7 +21,7 @@ pub const MAX_MOVE_INDEX: usize = 64;
 
 /// Move-picker stages, in the order they are searched. Cutoffs are counted
 /// per stage so that a weak stage shows up directly.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(usize)]
 pub enum Stage {
     /// The move from the transposition table.

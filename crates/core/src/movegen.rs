@@ -107,8 +107,39 @@ impl Position {
     }
 }
 
+/// Which moves to generate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GenType {
+    /// Every legal move.
+    All,
+    /// Captures (en passant included) and promotions.
+    Captures,
+    /// Everything else: non-capturing, non-promoting moves and castling.
+    Quiets,
+}
+
 /// Generate every legal move for the side to move.
+#[inline]
 pub fn generate(pos: &Position, list: &mut MoveList) {
+    generate_with(pos, list, GenType::All);
+}
+
+/// Generate the legal captures and promotions.
+#[inline]
+pub fn generate_captures(pos: &Position, list: &mut MoveList) {
+    generate_with(pos, list, GenType::Captures);
+}
+
+/// Generate the legal quiet moves, castling included.
+#[inline]
+pub fn generate_quiets(pos: &Position, list: &mut MoveList) {
+    generate_with(pos, list, GenType::Quiets);
+}
+
+/// Generate the legal moves of `kind`. `Captures` and `Quiets` partition `All`.
+pub fn generate_with(pos: &Position, list: &mut MoveList, kind: GenType) {
+    let want_captures = kind != GenType::Quiets;
+    let want_quiets = kind != GenType::Captures;
     let us = pos.side_to_move();
     let them = !us;
     let ours = pos.by_color(us);
@@ -121,11 +152,14 @@ pub fn generate(pos: &Position, list: &mut MoveList) {
     // itself removed so that sliders x-ray through it.
     let occ_no_king = occ ^ king_bb;
     for to in attacks::king_attacks(king) & !ours {
-        if (pos.attackers_to(to, occ_no_king) & theirs).is_empty() {
+        let capture = theirs.contains(to);
+        if (if capture { want_captures } else { want_quiets })
+            && (pos.attackers_to(to, occ_no_king) & theirs).is_empty()
+        {
             list.push(Move::new(
                 king,
                 to,
-                if theirs.contains(to) {
+                if capture {
                     MoveFlag::Capture
                 } else {
                     MoveFlag::Quiet
@@ -157,6 +191,13 @@ pub fn generate(pos: &Position, list: &mut MoveList) {
         }
     }
     let targets = !ours & check_mask;
+    // Which destination squares each kind wants.
+    let wanted = match kind {
+        GenType::All => Bitboard::ALL,
+        GenType::Captures => theirs,
+        GenType::Quiets => !theirs,
+    };
+    let targets = targets & wanted;
 
     // Knights: a pinned knight can never move.
     for from in pos.pieces(us, PieceKind::Knight) & !pinned {
@@ -190,37 +231,49 @@ pub fn generate(pos: &Position, list: &mut MoveList) {
     let single = pawns.shift(us) & !occ;
     let double = (single & double_rank).shift(us) & !occ;
     for to in single & check_mask {
+        let promotion = promo_rank.contains(to);
+        if !(if promotion {
+            want_captures
+        } else {
+            want_quiets
+        }) {
+            continue;
+        }
         let from = to.offset(0, -up).expect("pawn push origin");
         if pinned.contains(from) && !attacks::line(king, from).contains(to) {
             continue;
         }
-        if promo_rank.contains(to) {
+        if promotion {
             push_promotions(list, from, to, false);
         } else {
             list.push(Move::new(from, to, MoveFlag::Quiet));
         }
     }
-    for to in double & check_mask {
-        let from = to.offset(0, -2 * up).expect("double push origin");
-        if pinned.contains(from) && !attacks::line(king, from).contains(to) {
-            continue;
+    if want_quiets {
+        for to in double & check_mask {
+            let from = to.offset(0, -2 * up).expect("double push origin");
+            if pinned.contains(from) && !attacks::line(king, from).contains(to) {
+                continue;
+            }
+            list.push(Move::new(from, to, MoveFlag::DoublePush));
         }
-        list.push(Move::new(from, to, MoveFlag::DoublePush));
     }
-    for from in pawns {
-        let mut captures = attacks::pawn_attacks(us, from) & theirs & check_mask;
-        if pinned.contains(from) {
-            captures &= attacks::line(king, from);
-        }
-        for to in captures {
-            if promo_rank.contains(to) {
-                push_promotions(list, from, to, true);
-            } else {
-                list.push(Move::new(from, to, MoveFlag::Capture));
+    if want_captures {
+        for from in pawns {
+            let mut captures = attacks::pawn_attacks(us, from) & theirs & check_mask;
+            if pinned.contains(from) {
+                captures &= attacks::line(king, from);
+            }
+            for to in captures {
+                if promo_rank.contains(to) {
+                    push_promotions(list, from, to, true);
+                } else {
+                    list.push(Move::new(from, to, MoveFlag::Capture));
+                }
             }
         }
     }
-    if let Some(ep) = pos.en_passant() {
+    if let Some(ep) = pos.en_passant().filter(|_| want_captures) {
         let captured = ep.offset(0, -up).expect("en passant captured pawn");
         for from in attacks::pawn_attacks(them, ep) & pawns {
             // Verify by hand: remove both pawns, add ours on the target, and
@@ -241,7 +294,7 @@ pub fn generate(pos: &Position, list: &mut MoveList) {
 
     // Castling: not in check, the squares between king and rook empty, and
     // the king's path not attacked.
-    if checkers.is_empty() {
+    if want_quiets && checkers.is_empty() {
         let rights = pos.castling();
         let (king_side, queen_side, rank) = match us {
             Color::White => (

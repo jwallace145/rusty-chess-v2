@@ -9,7 +9,9 @@
 
 pub mod board;
 pub mod eval;
+pub mod movepick;
 pub mod search;
+pub mod see;
 pub mod stats;
 pub mod telemetry;
 pub mod tt;
