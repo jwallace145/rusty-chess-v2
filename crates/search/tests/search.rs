@@ -236,3 +236,37 @@ fn killer_moves_produce_cutoffs_on_a_real_search() {
         );
     }
 }
+
+#[test]
+fn aspiration_windows_keep_results_exact_and_report_researches() {
+    // Mates and draws must survive the narrow windows.
+    let r = search(
+        "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+        depth(6),
+    );
+    assert_eq!(
+        (r.best.to_string(), mate_in(r.score)),
+        ("d5f6".into(), Some(2))
+    );
+    let r = search("7k/8/8/8/8/8/8/R6K w - - 99 80", depth(6));
+    assert_eq!(r.score, 0);
+    // One record per depth even when a window fails and is re-searched.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    let r = s.search(&mut b, &depth(7), &mut |_| {});
+    assert_eq!(r.iterations.len(), 7);
+    assert!(r.iterations.windows(2).all(|w| w[1].nodes > w[0].nodes));
+    // The start position's score moves between depths 6 and 7 by more than
+    // the window, so that iteration must have been re-searched.
+    let mut b = board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    let r = s.search(&mut b, &depth(7), &mut |_| {});
+    assert_eq!(r.iterations.len(), 7);
+    if let Some(summary) = s.stats().summary() {
+        assert!(
+            summary.aspiration_researches > 0,
+            "{:?}",
+            summary.aspiration_researches
+        );
+    }
+}
