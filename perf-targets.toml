@@ -29,3 +29,17 @@ max_ebf = 0.0
 # rather than as an improvement (🟢) or a regression (🔴).
 speed_noise_pct = 10.0      # NPS rows; shared runners vary this much run to run
 efficiency_noise_pct = 1.0  # percentage points of fail-high-first, percent of EBF
+
+[sprt]
+# Strength tests on CI (the `sprt` label). Both engines play at a fixed node
+# budget per move, so the verdict does not depend on the runner; NPS is judged
+# by the bench gate. elo1 is the gain a change must plausibly deliver; tighten
+# it as gains get smaller.
+nodes_per_move = 200_000
+elo0 = 0.0
+elo1 = 10.0
+alpha = 0.05
+beta = 0.05
+max_rounds = 1500   # pairs of games before giving up without a verdict
+concurrency = 3     # ubuntu-latest has 4 vCPUs; one is left for fastchess
+openings = "tests/openings/openings.epd"

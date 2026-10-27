@@ -32,7 +32,7 @@ Squash merges use the title as the commit message.
 
 ## SPRT result
 
-<!-- fastchess SPRT against `main`, e.g. 8+0.08s with an opening book. A `feat` that touches search or eval does not merge without a passing SPRT. -->
+<!-- Add the `sprt` label; the SPRT workflow posts the verdict as a comment. Copy its numbers here. A `feat` that touches search or eval does not merge without H1 accepted. -->
 
 - Elo: `<elo> ± <error>`
 - LOS: `<los>`

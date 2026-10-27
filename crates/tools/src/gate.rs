@@ -80,6 +80,44 @@ impl Default for Comment {
     }
 }
 
+/// How SPRT games are played on CI. Fixed nodes per move make the result
+/// independent of the runner's speed; speed is judged by the bench gate.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Sprt {
+    /// Nodes each engine may search per move.
+    pub nodes_per_move: u64,
+    /// The null hypothesis Elo gain.
+    pub elo0: f64,
+    /// The alternative hypothesis Elo gain.
+    pub elo1: f64,
+    /// Type I error rate.
+    pub alpha: f64,
+    /// Type II error rate.
+    pub beta: f64,
+    /// Rounds (pairs of games) before giving up without a verdict.
+    pub max_rounds: u32,
+    /// Games played at once on the runner.
+    pub concurrency: u32,
+    /// The openings file, one FEN per line.
+    pub openings: String,
+}
+
+impl Default for Sprt {
+    fn default() -> Self {
+        Self {
+            nodes_per_move: 200_000,
+            elo0: 0.0,
+            elo1: 10.0,
+            alpha: 0.05,
+            beta: 0.05,
+            max_rounds: 1500,
+            concurrency: 3,
+            openings: "tests/openings/openings.epd".into(),
+        }
+    }
+}
+
 /// The committed bars.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Targets {
@@ -92,6 +130,9 @@ pub struct Targets {
     /// PR comment noise thresholds.
     #[serde(default)]
     pub comment: Comment,
+    /// SPRT settings.
+    #[serde(default)]
+    pub sprt: Sprt,
 }
 
 impl Targets {

@@ -1,0 +1,96 @@
+name: SPRT
+
+# Strength test of a PR against its base, on a standardized runner. Both
+# engines are built from source with the same flags and play fastchess games
+# at a fixed node budget per move (see `[sprt]` in perf-targets.toml), so
+# the verdict does not depend on the runner's speed. Runs when a PR carries
+# the `sprt` label, and again on every push while it does. The result is a
+# sticky PR comment; H0 fails the job.
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+concurrency:
+  group: sprt-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -C target-cpu=x86-64-v3
+  FASTCHESS_VERSION: v1.8.2-alpha
+
+jobs:
+  sprt:
+    name: SPRT
+    if: contains(github.event.pull_request.labels.*.name, 'sprt')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      pull-requests: write # post and refresh the SPRT comment
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the PR engine
+        run: |
+          cargo build --release --locked
+          mkdir -p engines && cp target/release/rusty-chess engines/pr
+      - name: Build the base engine from the PR's merge base
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git worktree add base "$BASE_SHA"
+          cargo build --release --locked --manifest-path base/Cargo.toml --target-dir target/base
+          cp target/base/release/rusty-chess engines/base
+          echo "base_label=main@${BASE_SHA:0:7}" >> "$GITHUB_ENV"
+      - name: Fetch fastchess
+        run: |
+          curl -sSL -o fastchess.tar "https://github.com/Disservin/fastchess/releases/download/${FASTCHESS_VERSION}/fastchess-linux-x86-64.tar"
+          sha256sum fastchess.tar
+          mkdir -p fc && tar -xf fastchess.tar -C fc
+          FC=$(find fc -type f -perm -u+x -name 'fastchess*' | head -1)
+          chmod +x "$FC"
+          echo "FC=$FC" >> "$GITHUB_ENV"
+          "$FC" --version || true
+      - name: Play
+        id: play
+        run: |
+          set +e
+          args=$(cargo run --release --locked -p rusty-chess-tools --bin sprt-report -- args --config perf-targets.toml)
+          "$FC" -engine cmd=engines/pr name=pr -engine cmd=engines/base name=base $args -pgnout file=sprt.pgn 2>&1 | tee sprt.log
+          echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+      - name: Build the SPRT comment
+        id: report
+        run: |
+          set +e
+          openings=$(grep -c . tests/openings/openings.epd)
+          cargo run --release --locked -p rusty-chess-tools --bin sprt-report -- render --config perf-targets.toml --log sprt.log \
+            --head "${GITHUB_SHA:0:7}" --base "$base_label" --fastchess "$FASTCHESS_VERSION" --openings "$openings" > sprt.md
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          cat sprt.md
+          { echo "## SPRT"; echo; cat sprt.md; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Post the SPRT comment (refreshed on every run)
+        if: always() && steps.report.outcome != 'skipped'
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: sprt
+          path: sprt.md
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sprt
+          path: |
+            sprt.log
+            sprt.pgn
+            sprt.md
+          if-no-files-found: warn
+      - name: Fail if H0 was accepted or fastchess failed
+        if: steps.report.outputs.status != '0' || steps.play.outputs.exit != '0'
+        run: |
+          echo "::error::SPRT verdict status=${{ steps.report.outputs.status }}, fastchess exit=${{ steps.play.outputs.exit }}; see the SPRT comment"
+          exit 1
