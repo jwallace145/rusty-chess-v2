@@ -56,7 +56,9 @@ Each layer also has a coverage suite that only grows (`tests/perft.epd`
 for move generation, the bench positions for search) and a performance bar
 in `perf-targets.toml` that only rises. `perf-gate` compares a run's JSON
 lines to the bars; CI reports speed bars on every PR, enforces them on
-release PRs, and always enforces the efficiency bars. See
+release PRs, and always enforces the efficiency bars. Every PR gets a
+bench comment, refreshed on each push, with the deltas against the latest
+release. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Phases

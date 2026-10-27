@@ -29,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read # download the baseline artifact from the latest run on the base branch
+      pull-requests: write # post and refresh the bench comment
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -82,15 +84,73 @@ jobs:
       - name: Performance gate
         # Speed bars are noisy on shared runners: reported on every PR, enforced
         # on release PRs and on main. Efficiency bars are always enforced, and
-        # a PR may never lower a bar.
+        # a PR may never lower a bar. The verdict is recorded and the job fails
+        # only after the comment below has been posted.
+        id: gate
         env:
           ENFORCE: ${{ (github.event_name == 'push' || startsWith(github.head_ref, 'release-please--')) && '--enforce-noisy' || '' }}
         run: |
-          set -o pipefail
           args="--targets perf-targets.toml --env ci $ENFORCE"
           if [ -f base-perf-targets.toml ]; then args="$args --ratchet-from base-perf-targets.toml"; fi
-          cargo run --release --locked -p rusty-chess-tools --bin perf-gate -- $args bench.jsonl stats.jsonl perft.jsonl | tee gate.md
+          if cargo run --release --locked -p rusty-chess-tools --bin perf-gate -- $args bench.jsonl stats.jsonl perft.jsonl > gate.md; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "enforced=${ENFORCE:+true}" >> "$GITHUB_OUTPUT"
+          cat gate.md
           { echo "## Performance gate"; echo; cat gate.md; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Download the baseline (the latest release's Bench run)
+        # The comment compares the PR with the latest release, so every PR
+        # answers "is this better than what we shipped?". If the release's
+        # artifact has expired, the latest run on the base branch stands in
+        # and the label says so.
+        if: github.event_name == 'pull_request'
+        id: baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          download() { # <run id> <label>
+            gh run download "$1" --repo "$GITHUB_REPOSITORY" --name bench --dir base && echo "label=$2" >> "$GITHUB_OUTPUT"
+          }
+          tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
+          if [ -n "$tag" ]; then
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha)
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow Bench --branch "$BASE_REF" --event push --commit "$sha" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            if [ -n "$run" ] && download "$run" "$tag"; then exit 0; fi
+            echo "No usable Bench artifact for release $tag (run: ${run:-none}); falling back to the latest run on $BASE_REF."
+          else
+            echo "No release yet; falling back to the latest run on $BASE_REF."
+          fi
+          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow Bench --branch "$BASE_REF" --event push --status success --limit 1 --json databaseId,headSha --jq '.[0] // empty')
+          if [ -z "$run" ]; then echo "No successful Bench run on $BASE_REF yet; no baseline."; exit 0; fi
+          id=$(jq -r .databaseId <<<"$run"); sha=$(jq -r .headSha <<<"$run")
+          download "$id" "${BASE_REF}@${sha:0:7}" || echo "The baseline artifact from run $id is gone (expired?); no baseline."
+      - name: Build the bench comment
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_LABEL: ${{ steps.baseline.outputs.label }}
+          GATE_PASSED: ${{ steps.gate.outputs.passed }}
+          NOISY: ${{ steps.gate.outputs.enforced == 'true' && '--noisy-enforced' || '' }}
+        run: |
+          mkdir -p head && cp bench.jsonl stats.jsonl head/ && { cp perft.jsonl head/ 2>/dev/null || true; }
+          args=(--targets perf-targets.toml --head head --head-label "${HEAD_SHA:0:7}" --gate gate.md --gate-passed "$GATE_PASSED" $NOISY)
+          if [ -n "$BASE_LABEL" ]; then args+=(--base base --base-label "$BASE_LABEL"); fi
+          cargo run --release --locked -p rusty-chess-tools --bin bench-report -- "${args[@]}" > comment.md
+          cat comment.md
+      - name: Post the bench comment (refreshed on every push)
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: bench
+          path: comment.md
+      - name: Fail if the performance gate failed
+        if: steps.gate.outputs.passed != 'true'
+        run: |
+          echo "::error::the performance gate failed; see gate.md in the artifact or the bench comment"
+          exit 1
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -101,4 +161,5 @@ jobs:
             bench.log
             stats.log
             gate.md
+            comment.md
           if-no-files-found: error

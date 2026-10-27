@@ -16,6 +16,10 @@ name = "rusty_chess_tools"
 name = "perf-gate"
 path = "src/bin/perf_gate.rs"
 
+[[bin]]
+name = "bench-report"
+path = "src/bin/bench_report.rs"
+
 [dependencies]
 rusty-chess-core = { path = "../core" }
 rusty-chess-search = { path = "../search" }

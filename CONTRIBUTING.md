@@ -85,6 +85,34 @@ The `commit-msg` hook runs commitlint on every commit; the `pre-commit` hook run
 
 NPS on shared runners is noisy, so CI reports it but gates only on the node signature. Compare NPS on a quiet local machine.
 
+## Coverage suites and performance bars
+
+Each measured layer has a coverage suite that only grows and a performance bar that only rises:
+
+| Layer | Coverage | Measured by | Bar |
+| --- | --- | --- | --- |
+| Move generation | `tests/perft.epd` (append positions; never remove or change a line) | `rusty-chess perft --suite`, `perft.jsonl` | `movegen.min_perft_nps` |
+| Search speed | the bench positions in `src/positions.rs` | `rusty-chess bench`, `bench.jsonl` | `search.min_nps` |
+| Search efficiency | the same bench, built with `--features stats` | `stats.jsonl` | `efficiency.min_fail_high_first`, `efficiency.max_ebf` |
+
+The bars are committed in `perf-targets.toml`, per environment for speed (`local` for a quiet machine, `ci` for shared runners). `perf-gate` (in `crates/tools`) compares a run's JSON lines to them:
+
+```sh
+cargo run --release -p rusty-chess-tools --bin perf-gate -- \
+  --targets perf-targets.toml --env local --enforce-noisy bench.jsonl stats.jsonl perft.jsonl
+```
+
+In CI the `Bench` job runs the gate with `--env ci`. Speed bars are reported on every PR and enforced on release PRs and on `main`; efficiency bars are deterministic and always enforced; a PR that lowers any bar fails the ratchet check against `main`. When the engine clears a bar comfortably, raise it in the same PR. A bar of `0` is not enforced yet; set it when the layer first ships.
+
+### The bench comment
+
+Every PR gets one bench comment, posted by the `Bench` job and refreshed in place on every push. It compares the PR's run with the latest release (the Bench run of the tagged commit; if that artifact has expired, the latest run on the base branch, labelled `main@<sha>`): the bench signature, search NPS, perft NPS and suite result, fail-high first and EBF, each with a delta and a marker (🟢 improved, 🔴 regressed, ⚪ unchanged or within noise, 🆕 no baseline). Rows appear only for layers that are measured. The noise thresholds are the `[comment]` section of `perf-targets.toml`; the gate's verdict is one line and its table is folded into the details. `bench-report` in `crates/tools` renders it, so it can also be run locally against two directories of JSON lines:
+
+```sh
+cargo run --release -p rusty-chess-tools --bin bench-report -- \
+  --targets perf-targets.toml --head runs/pr --base runs/v0.1.0 --base-label v0.1.0
+```
+
 ## Releases
 
 Release Please opens and maintains a release PR as changes land on `main`. Merging that PR tags a new version (starting at `v0.1.0`), updates `CHANGELOG.md`, bumps every crate's `version` in the workspace (`release-type: rust`), and triggers the `release` job, which builds macOS arm64, macOS x86_64 and Linux x86_64 binaries and attaches them to the GitHub release. Release PRs are authored by `jwallace145-release-bot[bot]` so that CI runs on them.

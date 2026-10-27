@@ -5,3 +5,4 @@
 
 pub mod gate;
 pub mod perft;
+pub mod report;
