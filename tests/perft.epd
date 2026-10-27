@@ -1,0 +1,76 @@
+# Perft suite: the move generator's coverage set.
+#
+# One position per line: <fen> ;D<depth> <leaf nodes> ...
+# Every count up to about 1.5M nodes was computed with python-chess 1.11; the
+# deeper counts of the standard positions are the published values from the
+# chessprogramming wiki (Perft Results) and the widely used perft test sets.
+#
+# Coverage: the start position, Kiwipete and the other standard positions;
+# castling through, out of and into check, and with rooks attacked; en passant
+# including discovered check along the rank and a pinned capturer; promotions
+# and capture-promotions of every piece; double checks; pins by every slider;
+# knight and bishop and rook interplay; stalemate and checkmate; king-only and
+# pawn-only endings. Append new positions; never remove or change a line.
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ;D1 20 ;D2 400 ;D3 8902 ;D4 197281 ;D5 4865609 ;D6 119060324
+r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 ;D1 48 ;D2 2039 ;D3 97862 ;D4 4085603 ;D5 193690690
+8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1 ;D1 14 ;D2 191 ;D3 2812 ;D4 43238 ;D5 674624 ;D6 11030083
+r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1 ;D1 6 ;D2 264 ;D3 9467 ;D4 422333 ;D5 15833292
+r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1 ;D1 6 ;D2 264 ;D3 9467 ;D4 422333 ;D5 15833292
+rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8 ;D1 44 ;D2 1486 ;D3 62379 ;D4 2103487 ;D5 89941194
+r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 ;D1 46 ;D2 2079 ;D3 89890 ;D4 3894594 ;D5 164075551
+r6r/1b2k1bq/8/8/7B/8/8/R3K2R b KQ - 3 2 ;D1 8 ;D2 192 ;D3 8355 ;D4 206081
+8/8/8/2k5/2pP4/8/B7/4K3 b - d3 0 3 ;D1 8 ;D2 72 ;D3 492 ;D4 5380
+r1bqkbnr/pppppppp/n7/8/8/P7/1PPPPPPP/RNBQKBNR w KQkq - 2 2 ;D1 19 ;D2 380 ;D3 8163 ;D4 182327
+r3k2r/p1pp1pb1/bn2Qnp1/2qPN3/1p2P3/2N5/PPPBBPPP/R3K2R b KQkq - 3 2 ;D1 5 ;D2 259 ;D3 11766 ;D4 563603
+2kr3r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R b KQ - 3 2 ;D1 44 ;D2 2385 ;D3 99756 ;D4 5144430
+rnb2k1r/pp1Pbppp/2p5/q7/2B5/8/PPPQNnPP/RNB1K2R w KQ - 3 9 ;D1 39 ;D2 1577 ;D3 63647 ;D4 2433142
+2r5/3pk3/8/2P5/8/2K5/8/8 w - - 5 4 ;D1 9 ;D2 163 ;D3 1349 ;D4 23718
+rnbqkb1r/ppppp1pp/7n/4Pp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3 ;D1 31 ;D2 570 ;D3 17546 ;D4 351806
+3k4/3p4/8/K1P4r/8/8/8/8 b - - 0 1 ;D1 18 ;D2 92 ;D3 1670 ;D4 10138 ;D5 185429 ;D6 1134888
+8/8/4k3/8/2p5/8/B2P2K1/8 w - - 0 1 ;D1 13 ;D2 102 ;D3 1266 ;D4 10276 ;D5 135655 ;D6 1015133
+8/8/1k6/2b5/2pP4/8/5K2/8 b - d3 0 1 ;D1 15 ;D2 126 ;D3 1928 ;D4 13931 ;D5 206379 ;D6 1440467
+5k2/8/8/8/8/8/8/4K2R w K - 0 1 ;D1 15 ;D2 66 ;D3 1198 ;D4 6399 ;D5 120330 ;D6 661072
+3k4/8/8/8/8/8/8/R3K3 w Q - 0 1 ;D1 16 ;D2 71 ;D3 1286 ;D4 7418 ;D5 141077 ;D6 803711
+r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1 ;D1 26 ;D2 1141 ;D3 27826 ;D4 1274206
+r3k2r/8/3Q4/8/8/5q2/8/R3K2R b KQkq - 0 1 ;D1 44 ;D2 1494 ;D3 50509 ;D4 1720476
+2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1 ;D1 11 ;D2 133 ;D3 1442 ;D4 19174 ;D5 266199 ;D6 3821001
+8/8/1P2K3/8/2n5/1q6/8/5k2 b - - 0 1 ;D1 29 ;D2 165 ;D3 5160 ;D4 31961 ;D5 1004658
+4k3/1P6/8/8/8/8/K7/8 w - - 0 1 ;D1 9 ;D2 40 ;D3 472 ;D4 2661 ;D5 38983 ;D6 217342
+8/P1k5/K7/8/8/8/8/8 w - - 0 1 ;D1 6 ;D2 27 ;D3 273 ;D4 1329 ;D5 18135 ;D6 92683
+K1k5/8/P7/8/8/8/8/8 w - - 0 1 ;D1 2 ;D2 6 ;D3 13 ;D4 63 ;D5 382 ;D6 2217
+8/k1P5/8/1K6/8/8/8/8 w - - 0 1 ;D1 10 ;D2 25 ;D3 268 ;D4 926 ;D5 10857 ;D6 43261 ;D7 567584
+8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1 ;D1 37 ;D2 183 ;D3 6559 ;D4 23527
+8/8/8/8/8/8/6k1/4K2R w K - 0 1 ;D1 12 ;D2 38 ;D3 564 ;D4 2219
+8/8/8/8/8/8/1k6/R3K3 w Q - 0 1 ;D1 15 ;D2 65 ;D3 1018 ;D4 4573
+4k2r/6K1/8/8/8/8/8/8 w k - 0 1 ;D1 3 ;D2 32 ;D3 134 ;D4 2073
+r3k3/1K6/8/8/8/8/8/8 w q - 0 1 ;D1 4 ;D2 49 ;D3 243 ;D4 3991
+4k3/8/8/8/8/8/8/4K2R b K - 0 1 ;D1 5 ;D2 75 ;D3 459 ;D4 8290
+4k3/8/8/8/8/8/8/R3K3 b Q - 0 1 ;D1 5 ;D2 80 ;D3 493 ;D4 8897
+4k2r/8/8/8/8/8/8/4K3 b k - 0 1 ;D1 15 ;D2 66 ;D3 1197 ;D4 7059
+r3k3/8/8/8/8/8/8/4K3 b q - 0 1 ;D1 16 ;D2 71 ;D3 1287 ;D4 7626
+4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1 ;D1 26 ;D2 112 ;D3 3189 ;D4 17945
+r3k2r/8/8/8/8/8/8/4K3 b kq - 0 1 ;D1 26 ;D2 112 ;D3 3189 ;D4 17945
+8/1n4N1/2k5/8/8/5K2/1N4n1/8 w - - 0 1 ;D1 14 ;D2 195 ;D3 2760 ;D4 38675
+8/1k6/8/5N2/8/4n3/8/2K5 w - - 0 1 ;D1 11 ;D2 156 ;D3 1636 ;D4 20534
+8/8/4k3/3Nn3/3nN3/4K3/8/8 w - - 0 1 ;D1 19 ;D2 289 ;D3 4442 ;D4 73584
+B6b/8/8/8/2K5/4k3/8/b6B w - - 0 1 ;D1 17 ;D2 278 ;D3 4607 ;D4 76778
+8/8/1B6/7b/7k/8/2B1b3/7K w - - 0 1 ;D1 21 ;D2 316 ;D3 5744 ;D4 93338
+k7/B7/1B6/1B6/8/8/8/K6b w - - 0 1 ;D1 21 ;D2 144 ;D3 3242 ;D4 32955
+7k/RR6/8/8/8/8/rr6/7K w - - 0 1 ;D1 19 ;D2 275 ;D3 5300 ;D4 104342
+R6r/8/8/2K5/5k2/8/8/r6R w - - 0 1 ;D1 36 ;D2 1027 ;D3 29215 ;D4 771461
+6kq/8/8/8/8/8/8/7K w - - 0 1 ;D1 2 ;D2 36 ;D3 143 ;D4 3637
+8/8/8/8/8/K7/P7/k7 w - - 0 1 ;D1 3 ;D2 7 ;D3 43 ;D4 199
+8/8/8/8/8/7K/7P/7k w - - 0 1 ;D1 3 ;D2 7 ;D3 43 ;D4 199
+K7/p7/k7/8/8/8/8/8 w - - 0 1 ;D1 1 ;D2 3 ;D3 12 ;D4 80
+7K/7p/7k/8/8/8/8/8 w - - 0 1 ;D1 1 ;D2 3 ;D3 12 ;D4 80
+8/2k1p3/3pP3/3P2K1/8/8/8/8 w - - 0 1 ;D1 7 ;D2 35 ;D3 210 ;D4 1091
+8/6kP/8/8/8/8/8/5K2 w - - 0 1 ;D1 9 ;D2 55 ;D3 574 ;D4 2918
+8/2Pk4/8/8/8/8/8/4K3 w - - 0 1 ;D1 9 ;D2 55 ;D3 584 ;D4 3386
+7k/8/8/8/8/8/8/6QK b - - 0 1 ;D1 1 ;D2 22 ;D3 72 ;D4 1700
+4k3/4Q3/4K3/8/8/8/8/8 b - - 0 1 ;D1 0 ;D2 0 ;D3 0 ;D4 0
+k7/8/8/8/8/8/8/1RK5 b - - 0 1 ;D1 1 ;D2 12 ;D3 29 ;D4 464
+rnbqkbnr/ppppp1pp/8/5p2/4P3/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 2 ;D1 31 ;D2 623 ;D3 19471 ;D4 427835
+n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1 ;D1 24 ;D2 496 ;D3 9483 ;D4 182838
+n1n5/PPPk4/8/8/8/8/4Kppp/5N1N w - - 0 1 ;D1 24 ;D2 496 ;D3 9483 ;D4 182838
+8/PPPk4/8/8/8/8/4Kppp/8 b - - 0 1 ;D1 18 ;D2 270 ;D3 4699 ;D4 79355
+8/PPPk4/8/8/8/8/4Kppp/8 w - - 0 1 ;D1 18 ;D2 270 ;D3 4699 ;D4 79355

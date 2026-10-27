@@ -31,6 +31,8 @@ pub enum Record {
     Summary(SummaryRecord),
     /// The result of a `bench` run over the fixed position set.
     Bench(BenchRecord),
+    /// The result of a perft suite run.
+    Perft(PerftRecord),
 }
 
 /// One iteration of iterative deepening.
@@ -105,6 +107,27 @@ pub struct BenchRecord {
     pub elapsed_ms: u64,
     /// Counters accumulated over the whole run, if the `stats` feature is on.
     pub stats: Option<StatsSummary>,
+}
+
+/// The result of running the perft suite. `nps` is the move generation speed
+/// (bulk counting); `failures` is the number of depth checks that did not
+/// match the suite.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PerftRecord {
+    /// Schema version, [`SCHEMA_VERSION`].
+    pub v: u32,
+    /// Positions in the suite.
+    pub positions: u32,
+    /// Deepest depth checked.
+    pub max_depth: u32,
+    /// Leaf nodes counted over the whole run.
+    pub nodes: u64,
+    /// Wall-clock time over the whole run.
+    pub elapsed_ms: u64,
+    /// Leaf nodes per second over the whole run.
+    pub nps: u64,
+    /// Depth checks whose count did not match, or that failed to run.
+    pub failures: u32,
 }
 
 /// Writes [`Record`]s as JSON lines. Each `write` ends with a newline and a

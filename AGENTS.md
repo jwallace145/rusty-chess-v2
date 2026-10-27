@@ -15,6 +15,7 @@ This repository is a single-threaded UCI chess engine in Rust. Read [README.md](
   The PR title MUST be a valid Conventional Commit; squash merges use it as the commit message.
 - **Run the repo's checks locally before opening the PR** (see below).
 - **Never change search or eval without a bench run.** Put the `Bench: <nodes>` signature before and after in the PR description. A changed signature on a `perf` PR is a bug; a `perf` PR must leave the signature unchanged. Use `feat` for anything that changes the signature and `fix` for correctness (perft, TT, mate scores).
+- **Every measured layer ships with a coverage suite and a performance bar, and both only grow.** Move generation is covered by `tests/perft.epd` (append positions, never remove or change a line), search by the bench positions, efficiency by the `stats` counters. The bars live in `perf-targets.toml`; raise one when the engine clears it, never lower one. CI's `Bench` job runs `perf-gate`: speed bars are reported on every PR and enforced on release PRs, efficiency bars are always enforced, and a PR that loosens a bar fails.
 - **Never claim an Elo gain without an SPRT result in the PR.** A `feat` that touches search or eval needs a fastchess SPRT against `main` (Elo, LOS, games) in the PR description. A failed SPRT does not merge; a feature that does not gain Elo is reverted even if it looks right.
 
 ## Engine rules

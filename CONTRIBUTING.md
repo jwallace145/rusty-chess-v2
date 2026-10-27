@@ -81,7 +81,7 @@ The `commit-msg` hook runs commitlint on every commit; the `pre-commit` hook run
 | `Format` | `cargo fmt --all --check` |
 | `Clippy` | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
 | `Tests` | `cargo test --workspace --locked`, with and without `--features stats` |
-| `Bench` | `rusty-chess bench` in release mode; uploads `bench.jsonl` and `stats.jsonl`; checks a `Bench:` line in the PR body if present |
+| `Bench` | `rusty-chess bench` in release mode; uploads `bench.jsonl` and `stats.jsonl`; checks a `Bench:` line in the PR body if present; runs `perf-gate` against `perf-targets.toml` |
 
 NPS on shared runners is noisy, so CI reports it but gates only on the node signature. Compare NPS on a quiet local machine.
 
