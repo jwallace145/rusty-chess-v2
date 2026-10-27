@@ -78,10 +78,13 @@ pub fn parse(log: &str) -> Result<SprtResult, String> {
                 elo = Some((e, err));
             }
         } else if let Some(rest) = line.strip_prefix("LOS: ") {
-            los = rest
-                .split('%')
-                .next()
-                .and_then(|v| v.trim().parse::<f64>().ok());
+            // fastchess prints `nan %` when the result is exactly balanced.
+            los = Some(
+                rest.split('%')
+                    .next()
+                    .and_then(|v| v.trim().parse::<f64>().ok())
+                    .unwrap_or(f64::NAN),
+            );
         } else if let Some(rest) = line.strip_prefix("Games: ") {
             // `800, Wins: 300, Losses: 180, Draws: 320, Points: ...`
             let mut parts = rest.split(',');
@@ -180,12 +183,16 @@ pub fn render(result: &SprtResult, settings: &Sprt, meta: &Meta) -> String {
     let _ = writeln!(out);
     let _ = writeln!(out, "| Elo | LOS | Games | W / L / D | LLR |");
     let _ = writeln!(out, "|--:|--:|--:|:-:|--:|");
+    let los = if result.los.is_nan() {
+        "n/a".to_string()
+    } else {
+        format!("{:.1}%", result.los)
+    };
     let _ = writeln!(
         out,
-        "| {:+.1} ± {:.1} | {:.1}% | {} | {} / {} / {} | {:.2} ({:.2}, {:.2}) |",
+        "| {:+.1} ± {:.1} | {los} | {} | {} / {} / {} | {:.2} ({:.2}, {:.2}) |",
         result.elo,
         result.elo_error,
-        result.los,
         result.games,
         result.wins,
         result.losses,
