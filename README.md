@@ -5,7 +5,9 @@ measurably strong before any NNUE work starts. Every change is justified by a
 number: perft for correctness, bench for speed, stats for search efficiency,
 and SPRT for Elo.
 
-The full plan is in [docs/roadmap.md](docs/roadmap.md). The repository rules
+The full plan is in [docs/roadmap.md](docs/roadmap.md), and the post-mortem of the
+first attempt that shaped it is [docs/lessons-from-rusty-chess-v1.md](docs/lessons-from-rusty-chess-v1.md).
+The repository rules
 are in [docs/repo-conventions.md](docs/repo-conventions.md), restated for
 contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 [AGENTS.md](AGENTS.md).

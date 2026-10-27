@@ -1,6 +1,6 @@
 # Guidance for coding agents
 
-This repository is a single-threaded UCI chess engine in Rust. Read [README.md](README.md) for the layout, [docs/roadmap.md](docs/roadmap.md) for the phased plan and its exit gates, and [CONTRIBUTING.md](CONTRIBUTING.md) for the full rules. The rules below are the ones you MUST follow.
+This repository is a single-threaded UCI chess engine in Rust. Read [README.md](README.md) for the layout, [docs/roadmap.md](docs/roadmap.md) for the phased plan and its exit gates, [docs/lessons-from-rusty-chess-v1.md](docs/lessons-from-rusty-chess-v1.md) for the bugs that sank the first attempt and the guards that catch them, and [CONTRIBUTING.md](CONTRIBUTING.md) for the full rules. The rules below are the ones you MUST follow.
 
 ## Rules
 
@@ -21,6 +21,11 @@ This repository is a single-threaded UCI chess engine in Rust. Read [README.md](
 ## Engine rules
 
 - Correct before fast: perft stays in CI permanently and must pass before any search change merges.
+- The root is an ordinary negamax node: children get `-beta, -alpha` and alpha rises on improvement. Never search root moves with a full window.
+- An aborted search is discarded entirely: once the stop flag is set, no transposition table store happens, no score is compared, and the result is the last *completed* iteration. The bench signature must be identical run to run; any variance means abort handling is leaking.
+- A transposition table bound is derived from the final score against the original alpha and beta at every node, quiescence included. Never store a bounded score as exact.
+- A move-picker stage with zero cutoffs over a bench run is a bug until proven otherwise; read the per-stage counters.
+- Mate scores are offset by ply from the root, never by remaining depth.
 - No heap allocation in the search path. Move lists are stack-allocated.
 - Telemetry (`--features stats`) compiles to nothing in release builds; every counter is a macro.
 - One feature per commit so the bench signature can be bisected.
