@@ -8,6 +8,12 @@
 * **ci:** judge speed by paired runs and instruction counts instead of runner-dependent nps ([#36](https://github.com/jwallace145/rusty-chess-v2/issues/36)) ([e6f465e](https://github.com/jwallace145/rusty-chess-v2/commit/e6f465eb83b2d7da8d70deea3593e57850fde3a9))
 * **search:** order quiet moves by butterfly history with gravity ([#34](https://github.com/jwallace145/rusty-chess-v2/issues/34)) ([0472ecf](https://github.com/jwallace145/rusty-chess-v2/commit/0472ecf5e6ddcbceceecadab7fa2f784a59d40aa))
 
+### Benchmarks
+
+* bench signature 8,243,750, instructions per node 1199, search 7.90M NPS, perft 201.52M NPS (pass (63)), fail-high first 97.5%, EBF 4.18, TT hit 34.8%
+* since v0.6.0: fail-high first +0.7 pt, EBF -0.15, search NPS −9.7%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.6.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.5.0...v0.6.0) (2026-10-27)
 
 
