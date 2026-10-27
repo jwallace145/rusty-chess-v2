@@ -1,0 +1,25 @@
+{
+  "bench": {
+    "depth": 6,
+    "hash_mb": 16,
+    "nps": 12620553,
+    "positions": 50,
+    "signature": 14942735
+  },
+  "date": "2026-10-27",
+  "efficiency": {
+    "ebf": 4.743383572040999,
+    "fail_high_first": 0.8562870201452594,
+    "tt_hit": 0.2942753961668667
+  },
+  "perft": {
+    "failures": 0,
+    "max_depth": 7,
+    "nps": 299324014,
+    "positions": 63
+  },
+  "runner": "ubuntu-latest",
+  "target_cpu": "x86-64-v3",
+  "v": 1,
+  "version": "v0.5.0"
+}
