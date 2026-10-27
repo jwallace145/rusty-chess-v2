@@ -256,8 +256,13 @@ fn aspiration_windows_keep_results_exact_and_report_researches() {
     let r = s.search(&mut b, &depth(7), &mut |_| {});
     assert_eq!(r.iterations.len(), 7);
     assert!(r.iterations.windows(2).all(|w| w[1].nodes > w[0].nodes));
+    // The start position's score moves between depths 6 and 7 by more than
+    // the window, so that iteration must have been re-searched.
+    let mut b = board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    let r = s.search(&mut b, &depth(7), &mut |_| {});
+    assert_eq!(r.iterations.len(), 7);
     if let Some(summary) = s.stats().summary() {
-        // Kiwipete's score moves between depths, so some window must have been re-searched.
         assert!(
             summary.aspiration_researches > 0,
             "{:?}",
