@@ -2,7 +2,7 @@
 
 A living checklist. Oct 26, 2026 · @Jimmy, maintained as the engine is built.
 
-**Status:** Phases 0–2 complete and released as `v0.3.0`. Phase 3 (move ordering and the transposition table) in progress.
+**Status:** Phases 0–2 complete. Phase 3's items are all delivered and released in `v0.7.0`, each with an accepted SPRT; its exit gate holds for fail-high-first and not yet for EBF (see the decision in Phase 3).
 
 ## How to use this document
 
@@ -78,18 +78,22 @@ The goal is a single-threaded Rust UCI engine whose classical search is measurab
 - [x] **Exit:** legal games (in-repo self-play test plus UCI games), signature `68269801` at depth 6 identical across builds and runs, `iter` and `summary` records on every search
 - [x] Baseline numbers to beat: search NPS 7–11M, fail-high-first 0.70, EBF 7.00 (bench-wide; an earlier 3.35 was one position's), qsearch share 0.92
 
-### Phase 3: Move ordering and the transposition table — in progress (the critical gate)
+### Phase 3: Move ordering and the transposition table — items complete, `v0.7.0`; EBF gate open
 
 This is the gate that stopped attempt one. Each item is its own PR with the stats delta visible in the bench comment and an SPRT run.
 
 - [x] SPRT on CI: `sprt.yml` on the `sprt` label, node-limited fastchess games against the PR base from our own openings, sticky comment, H0 fails; `sprt-quick` for a two-minute pipeline smoke test (#24)
 - [x] Openings generator in `crates/tools` and a committed `tests/openings/openings.epd`: 300 positions, 8 random plies, within ±60 cp at depth 4, fixed seed (#24)
 - [x] Transposition table: 10-byte entries in 3-entry clusters, key verification, depth-and-age replacement, mate scores adjusted by ply, TT move searched first, bound derived from the original window at every node, no store after an abort; `Hash` UCI option; `tt_hit` in the iteration records. SPRT +197.5 ± 43.4 Elo in 212 games; fail-high-first 0.70 → 0.79, EBF 7.00 → 4.62 (bench-wide), signature 68269801 → 14255682 (#26)
-- [ ] Benchmark history: every release records its numbers in `docs/benchmarks.md`, its CHANGELOG entry, and its release notes with deltas against the previous release
-- [ ] Staged move picker: TT move → good captures (MVV-LVA, filtered by SEE) → killers → history quiets → bad captures; every stage shows cutoffs on bench
-- [ ] Two killer slots per ply
-- [ ] Butterfly history with gravity
-- [ ] **Exit:** fail-high-first ≥ 0.90 and EBF ≤ 3 on bench; the bars set in `perf-targets.toml`; each item passed SPRT on its own. Phase 4 does not start until both numbers hold
+- [x] Benchmark history: each release is measured once on its Release Please PR; the raw data is committed under `benchmarks/v<version>/` and attached to the GitHub release, and `docs/benchmarks.md`, the CHANGELOG entry and the release notes are derived from it (#30, #32)
+- [x] Hardware-independent speed: PRs are judged by paired A/B runs against their base on one runner and by cachegrind instructions per node, which every release records; absolute NPS is informational with the CPU model beside it (#36)
+- [x] Staged move picker: TT move → good captures (MVV-LVA, filtered by SEE) → killers → history quiets → bad captures; every stage shows cutoffs on bench. SPRT +18.5 ± 12.1 Elo in 1,976 games; fail-high-first 0.79 → 0.86 (#29)
+- [x] Two killer slots per ply. SPRT +97.1 ± 32.6 Elo in 378 games; fail-high-first 0.86 → 0.97, 40% fewer bench nodes (#33)
+- [x] Butterfly history with gravity. SPRT +55.0 ± 22.5 Elo in 554 games; fail-high-first 0.968 → 0.975, EBF 4.33 → 4.18 (#34)
+- [x] **Exit:** fail-high-first ≥ 0.90 on bench: **0.975** (signature 8,243,750; every picker stage cuts off: TT 97,681 / good captures 502,264 / killers 221,741 / history quiets 8,795 / bad captures 165)
+- [x] **Exit:** each item passed SPRT on its own (TT, picker, killers, history: all H1)
+- [x] **Exit:** the bars set in `perf-targets.toml`: `min_fail_high_first = 0.95`, `max_ebf = 4.5`, enforced on every PR and only ratcheting
+- [ ] **Exit:** EBF ≤ 3 on bench: **4.18** (7.00 at Phase 2, 4.62 with the TT). Ordering is close to exhausted as a lever (history moved EBF by 0.15); the remaining reduction is what PVS, null-move pruning and LMR are for. **Decision needed:** keep this gate blocking Phase 4, or move EBF ≤ 3 into Phase 4 as an intermediate gate on the way to its EBF ≈ 2 exit
 
 ### Phase 4: Selectivity
 
@@ -175,6 +179,8 @@ Ship it as a Homebrew-installable UCI binary first. Release CI builds macOS arm6
 - **2026-10-27** Release Please force-pushes and edits its PR in the same second; a shared concurrency group cancelled one of the two CI runs and the cancelled check run blocked the merge. Edits and pushes now have separate streams and code jobs skip on edits (#21).
 - **2026-10-27** A stacked PR whose base was squash-merged shows a conflict if it touched the same lines again; rebase it onto `main` before merging. Merge stacks bottom-up.
 - **2026-10-27** The PR templates list "Bench before" then "Bench after"; CI checks the last `Bench:` line in the body (#19).
+- **2026-10-27** SPRT length tracks how close the gain is to the hypotheses, not how important the change is: killers (+97 Elo) resolved in 378 games, history (+55) in 554, the move picker (+18.5, under fixed nodes that hide its speed gain) took 1,976.
+- **2026-10-27** Move ordering moved fail-high-first from 0.70 to 0.975 across four PRs, but EBF only from 7.00 to 4.18: at depth 6, past good ordering, EBF is set by what the search refuses to prune, which is Phase 4's job.
 - **2026-10-27** GitHub runners are a mix of CPU models, so absolute NPS compared across runs mostly measures the chip (v0.5.0's baseline came from a fast one, and a PR looked 30% slower). Speed is now judged by paired A/B runs of PR and base on the same runner, and by cachegrind instructions per node, which is chip-independent and recorded for every release. Absolute NPS is informational, with the CPU model recorded beside it.
 - **2026-10-27** The bench comment's EBF row showed the last bench position's EBF, not the bench's: Phase 2 read 3.35 but was 7.00, the transposition table read 2.12 but was 4.62. EBF is now the sum of every search's final-iteration nodes over the sum of its previous iteration's. The EBF ≤ 3 gate was never met; it still needs killers, history and, realistically, Phase 4's pruning to hold at depth 6.
 - **2026-10-27** SPRT run time is set by the hypotheses, not by how good the change is: each game contributes at most the evidence that separates `elo0` from `elo1`, so a 200-Elo gain still needs ~200 games with `elo1 = 10`, and two identical engines take the longest (H0 with zero signal). Keep `elo1` modest to catch small real gains; use `sprt-quick` to test plumbing.
