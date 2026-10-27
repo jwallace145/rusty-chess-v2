@@ -15,23 +15,41 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 | Path | Contents |
 | --- | --- |
 | `crates/core` | Board, bitboards, magics, move generation, Zobrist hashing, make/unmake. No dependencies. |
-| `crates/search` | Search, transposition table, move picker, evaluation, `SearchStats` telemetry. |
+| `crates/search` | Search, transposition table, move picker, evaluation, `SearchStats` counters and the JSON lines telemetry writer. |
 | `crates/uci` | UCI protocol and the `rusty-chess` binary with `bench` and `perft` subcommands. |
 | `crates/tools` | Perft suite runner, bench and stats diffing, data generation later. |
-| `benches/` | Criterion microbenchmarks. |
-| `tests/` | Perft EPD suite, UCI smoke tests, mate-in-N positions. |
+| `crates/*/benches` | Criterion microbenchmarks, per crate. |
+| `tests/` | Perft EPD suite and other position data shared by the crates' tests. |
 
-## Building
+## Building and running
 
 ```sh
 cargo build --release
-./target/release/rusty-chess bench
-./target/release/rusty-chess perft --depth 5
+./target/release/rusty-chess                 # UCI on stdin/stdout
+./target/release/rusty-chess bench           # signature and NPS over 50 fixed positions
+./target/release/rusty-chess bench --depth 12 --hash 16 --out bench.jsonl
+./target/release/rusty-chess perft --depth 5 # Phase 1
 ```
 
-Local builds target the host CPU (`.cargo/config.toml`). Build with
-`--features stats` to enable the search statistics counters; they compile to
-nothing otherwise.
+Local builds target the host CPU (`.cargo/config.toml`); release CI builds a
+portable baseline instead.
+
+## Measuring
+
+Three layers are measured separately because each one fails differently.
+
+| Layer | Command | Output |
+| --- | --- | --- |
+| Move generation speed | `rusty-chess perft` | perft NPS (bulk counting) |
+| Search speed | `rusty-chess bench` | the node **signature** and NPS |
+| Search efficiency | `cargo build --release --features stats`, then `bench` | fail-high-first rate, EBF, TT hit rate, qsearch share, cutoffs by move-picker stage |
+
+The `stats` feature compiles the counters in; without it every `stat!` in
+the search expands to nothing. `bench --out FILE` writes JSON lines: one
+`summary` record per position and one `bench` record at the end, each with a
+schema version `v`. CI runs bench on every PR and uploads `bench.jsonl` and
+`stats.jsonl` as artifacts; if the PR description carries a `Bench: <nodes>`
+line, CI checks that it matches.
 
 ## Phases
 
