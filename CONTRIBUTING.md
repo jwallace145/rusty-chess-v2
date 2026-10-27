@@ -113,6 +113,17 @@ cargo run --release -p rusty-chess-tools --bin bench-report -- \
   --targets perf-targets.toml --head runs/pr --base runs/v0.1.0 --base-label v0.1.0
 ```
 
+## Strength tests: SPRT on CI
+
+Every `feat` that touches search or evaluation must gain Elo. Add the `sprt` label to the PR and the `SPRT` workflow builds the PR and its merge base on the same `ubuntu-latest` runner with the same flags, then plays fastchess games between them from `tests/openings/openings.epd` (positions our own engine generated; regenerate with `cargo run --release -p rusty-chess-tools --bin openings -- --out tests/openings/openings.epd`). The settings live under `[sprt]` in `perf-targets.toml`:
+
+- Games are played at a **fixed node budget per move**, not a time control, so the verdict does not depend on how fast the shared runner happened to be. Speed is judged separately by the bench gate in the same PR. A change that is better at equal nodes but slower shows both, in two rows.
+- `elo0`/`elo1` are the hypotheses, `alpha`/`beta` the error rates, `max_rounds` the cap. Tighten `elo1` as gains get smaller.
+- The result is one sticky comment: Elo ± error, LOS, games, W/L/D, LLR, and the verdict. H1 accepted is 🟢; H0 accepted is 🔴 and fails the job; the cap without a verdict is ⚪ and needs more games or a smaller `elo1`.
+- The log and PGN are uploaded as the `sprt` artifact.
+
+A full run is 10–35 minutes of runner time (a clear gain resolves in a few hundred games; "no difference" takes the longest), which is why they are opt-in by label rather than on every push. The `sprt-quick` label plays at most 50 pairs: a two-minute smoke test of the pipeline that never reaches a verdict. A quiet dedicated runner can replace `ubuntu-latest` later without changing anything else.
+
 ## Releases
 
 Release Please opens and maintains a release PR as changes land on `main`. Merging that PR tags a new version (starting at `v0.1.0`), updates `CHANGELOG.md`, bumps every crate's `version` in the workspace (`release-type: rust`), and triggers the `release` job, which builds macOS arm64, macOS x86_64 and Linux x86_64 binaries and attaches them to the GitHub release, and the `telemetry` job, which benches the Linux build (with and without `stats`, plus the perft suite), attaches `bench.jsonl`, `stats.jsonl` and `perft.jsonl` to the release and writes the bench signature into the release notes. Those assets are the baseline every PR's bench comment compares against. Release PRs are authored by `jwallace145-release-bot[bot]` so that CI runs on them.
