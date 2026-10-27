@@ -35,8 +35,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build release binaries, with and without stats
         run: |
-          cargo build --release --locked -p rusty-chess-uci
-          cargo build --release --locked -p rusty-chess-uci --features stats --target-dir target/stats
+          cargo build --release --locked
+          cargo build --release --locked --features stats --target-dir target/stats
       - name: Bench
         id: bench
         run: |
