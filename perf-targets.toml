@@ -27,8 +27,10 @@ max_ebf = 0.0
 [comment]
 # The PR bench comment shows a delta smaller than these as unchanged (⚪)
 # rather than as an improvement (🟢) or a regression (🔴).
-speed_noise_pct = 10.0      # NPS rows; shared runners vary this much run to run
+speed_noise_pct = 10.0      # (unused for markers now: absolute NPS rows are informational)
 efficiency_noise_pct = 1.0  # percentage points of fail-high-first, percent of EBF
+paired_noise_pct = 1.0      # paired speed vs base: the whole 95% interval must clear this
+instructions_noise_pct = 0.5 # instructions per node is deterministic, so a small threshold
 
 [sprt]
 # Strength tests on CI (the `sprt` label). Both engines play at a fixed node

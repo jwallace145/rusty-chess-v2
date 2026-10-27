@@ -126,6 +126,8 @@ jobs:
             target/release/rusty-chess bench --out run/bench.jsonl > run/bench.log
             target/stats/release/rusty-chess bench --out run/stats.jsonl > run/stats.log
             target/release/rusty-chess perft --suite tests/perft.epd --out run/perft.jsonl > run/perft.log
+            sudo apt-get install -y -qq valgrind > /dev/null
+            cargo run --release --locked -p rusty-chess-tools --bin speed-report -- instructions --bin target/release/rusty-chess --out run/instructions.jsonl
             cargo run --release --locked -p rusty-chess-tools --bin bench-history -- summary --version "$TAG" --date "$(date -u +%F)" --dir run > run/summary.json
           fi
           ls -l run

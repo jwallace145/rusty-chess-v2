@@ -69,6 +69,10 @@ pub struct Comment {
     pub speed_noise_pct: f64,
     /// Percentage points for fail-high-first, percent for EBF.
     pub efficiency_noise_pct: f64,
+    /// Percent, for the paired speed row: the 95% interval must clear it.
+    pub paired_noise_pct: f64,
+    /// Percent, for instructions per node, which is deterministic.
+    pub instructions_noise_pct: f64,
 }
 
 impl Default for Comment {
@@ -76,6 +80,8 @@ impl Default for Comment {
         Self {
             speed_noise_pct: 10.0,
             efficiency_noise_pct: 1.0,
+            paired_noise_pct: 1.0,
+            instructions_noise_pct: 0.5,
         }
     }
 }
@@ -209,6 +215,13 @@ pub struct Measured {
     /// summed over searches. One position's EBF says little; this is the
     /// bench's.
     pub ebf: Option<f64>,
+    /// The CPU model of the last bench record that names one.
+    pub cpu: Option<String>,
+    /// Paired speed against the base build, `(ratio, low, high)`, from the
+    /// last `speed` record.
+    pub speed: Option<(f64, f64, f64)>,
+    /// Bench instructions per node, from the last `instructions` record.
+    pub instructions_per_node: Option<f64>,
     ebf_final: u64,
     ebf_prev: u64,
     current: Option<(u32, u64, u64)>, // (depth, total nodes, previous iteration's total)
@@ -231,6 +244,9 @@ impl Measured {
                     self.signature = Some(b.nodes);
                     self.search_nps = Some(b.nps);
                     self.bench_config = Some((b.positions, b.depth, b.hash_mb));
+                    if b.cpu.is_some() {
+                        self.cpu = b.cpu.clone();
+                    }
                     if let Some(stats) = &b.stats {
                         self.fail_high_first = Some(stats.fh_first);
                         self.tt_hit = Some(stats.tt_hit);
@@ -250,6 +266,13 @@ impl Measured {
                     };
                 }
                 Record::Summary(_) => self.flush_search(),
+                Record::Speed(sp) => {
+                    self.speed = Some((sp.ratio, sp.ratio_low, sp.ratio_high));
+                    if sp.cpu.is_some() {
+                        self.cpu = sp.cpu.clone();
+                    }
+                }
+                Record::Instructions(i) => self.instructions_per_node = Some(i.per_node),
             }
         }
         self.flush_search();

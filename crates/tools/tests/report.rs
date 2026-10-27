@@ -32,6 +32,7 @@ fn run(signature: u64, nps: u64, fh_first: f64, ebf: f64, perft_nps: Option<u64>
         positions: 50,
         depth: 12,
         hash_mb: 16,
+        cpu: None,
         nodes: signature,
         nps,
         elapsed_ms: 1234,
@@ -97,12 +98,12 @@ fn deltas_improvements_and_regressions_beyond_the_noise_threshold() {
     assert!(row("Bench signature").contains("changed"));
     assert!(row("Search NPS").contains("2.00M") && row("Search NPS").contains("2.30M"));
     assert!(
-        row("Search NPS").contains("+15.0%") && row("Search NPS").ends_with("| 🟢 |"),
+        row("Search NPS").contains("+15.0%") && row("Search NPS").ends_with("| ⚪ |"),
         "{}",
         row("Search NPS")
     );
     assert!(
-        row("Perft NPS").contains("−10.0%") && row("Perft NPS").ends_with("| 🔴 |"),
+        row("Perft NPS").contains("−10.0%") && row("Perft NPS").ends_with("| ⚪ |"),
         "{}",
         row("Perft NPS")
     );
@@ -267,4 +268,54 @@ fn a_zero_baseline_reads_as_new_not_as_a_zero_percent_change() {
         .find(|l| l.starts_with("| Bench signature |"))
         .unwrap();
     assert!(row.contains("changed"), "{row}");
+}
+
+#[test]
+fn speed_is_judged_by_the_paired_row_and_absolute_nps_is_informational() {
+    let base = run(1, 2_000_000, 0.9, 2.2, Some(300_000_000));
+    // A slower runner: absolute NPS 30% lower, but paired speed +4% with a tight interval.
+    let mut head = run(1, 1_400_000, 0.9, 2.2, Some(210_000_000));
+    head.speed = Some((1.04, 1.03, 1.05));
+    head.instructions_per_node = Some(980.0);
+    let mut base = base;
+    base.instructions_per_node = Some(1000.0);
+    let md = render(Some(&base), &head, &targets(), &meta());
+    let row = |name: &str| {
+        md.lines()
+            .find(|l| l.starts_with(&format!("| {name} |")))
+            .unwrap_or_else(|| panic!("no row {name}\n{md}"))
+            .to_string()
+    };
+    assert!(
+        row("Search NPS").contains("−30.0%") && row("Search NPS").ends_with("| ⚪ |"),
+        "{}",
+        row("Search NPS")
+    );
+    assert!(row("Perft NPS").ends_with("| ⚪ |"), "{}", row("Perft NPS"));
+    assert!(
+        row("Speed vs base").contains("| same runner | +4.0% | ±1.0% | 🟢 |"),
+        "{}",
+        row("Speed vs base")
+    );
+    assert!(
+        row("Instructions / node").contains("| 1000 | 980 | −2.0% | 🟢 |"),
+        "{}",
+        row("Instructions / node")
+    );
+    // An interval that straddles zero is not a speed change.
+    head.speed = Some((1.01, 0.99, 1.03));
+    let md = render(Some(&base), &head, &targets(), &meta());
+    assert!(
+        md.lines()
+            .any(|l| l.starts_with("| Speed vs base |") && l.ends_with("| ⚪ |")),
+        "{md}"
+    );
+    head.speed = Some((0.95, 0.94, 0.96));
+    let md = render(Some(&base), &head, &targets(), &meta());
+    assert!(
+        md.lines()
+            .any(|l| l.starts_with("| Speed vs base |") && l.ends_with("| 🔴 |")),
+        "{md}"
+    );
+    assert!(md.contains("**Speed vs base**") && md.contains("**Instructions / node**"));
 }

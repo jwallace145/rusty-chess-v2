@@ -58,6 +58,9 @@ enum Better {
 enum Noise {
     Relative(f64),
     Absolute(f64),
+    /// Shown with its delta but never marked better or worse: the number
+    /// depends on which machine measured it.
+    Informational,
 }
 
 struct Row {
@@ -74,8 +77,19 @@ pub fn render(base: Option<&Measured>, head: &Measured, targets: &Targets, meta:
     let eff_pct = Noise::Relative(targets.comment.efficiency_noise_pct);
     let eff_pt = Noise::Absolute(targets.comment.efficiency_noise_pct / 100.0);
 
+    let _ = speed; // absolute NPS rows are informational; speed is judged by the paired row
     let mut rows = Vec::new();
     push_signature(&mut rows, base, head);
+    push_paired(&mut rows, head, targets.comment.paired_noise_pct);
+    push_numeric(
+        &mut rows,
+        "Instructions / node",
+        base.and_then(|b| b.instructions_per_node),
+        head.instructions_per_node,
+        |v| format!("{v:.0}"),
+        Better::Lower,
+        Noise::Relative(targets.comment.instructions_noise_pct),
+    );
     push_numeric(
         &mut rows,
         "Search NPS",
@@ -83,7 +97,7 @@ pub fn render(base: Option<&Measured>, head: &Measured, targets: &Targets, meta:
         head.search_nps.map(|v| v as f64),
         fmt_nps,
         Better::Higher,
-        speed,
+        Noise::Informational,
     );
     push_numeric(
         &mut rows,
@@ -92,7 +106,7 @@ pub fn render(base: Option<&Measured>, head: &Measured, targets: &Targets, meta:
         head.perft_nps.map(|v| v as f64),
         fmt_nps,
         Better::Higher,
-        speed,
+        Noise::Informational,
     );
     push_perft_suite(&mut rows, base, head);
     push_numeric(
@@ -214,11 +228,17 @@ fn explain(name: &str) -> &'static str {
         "Bench signature" => {
             "total nodes searched over the fixed bench positions (`src/positions.rs`) at a fixed depth and hash size. Deterministic: a different number means search behaviour changed (`feat`); the same number with a different NPS is a pure speed change (`perf`)."
         }
+        "Speed vs base" => {
+            "the PR's bench NPS divided by its merge base's, from alternating runs of both builds on the same runner, with the 95% interval. The runner's own speed cancels out, so this is the speed number to trust; marked only when the whole interval clears the threshold."
+        }
+        "Instructions / node" => {
+            "instructions executed per bench node, counted by cachegrind. The same on every x86-64 machine for the same binary, so it compares exactly against the release; lower is cheaper per node (a change that searches fewer nodes may still raise it)."
+        }
         "Search NPS" => {
-            "nodes per second of that bench in a release build. Speed only; strength is measured by SPRT, not here."
+            "nodes per second of that bench on whichever runner each side ran on. Informational only: runners differ by up to 2x; see Speed vs base."
         }
         "Perft NPS" => {
-            "leaf nodes per second over the perft suite (`tests/perft.epd`) with bulk counting: raw move generation and make/unmake speed."
+            "leaf nodes per second over the perft suite (`tests/perft.epd`) with bulk counting: raw move generation and make/unmake speed. Informational only, for the same reason as Search NPS."
         }
         "Perft suite" => {
             "every position and depth in `tests/perft.epd` must match its known leaf-node count; a failure is a move generation bug."
@@ -280,6 +300,29 @@ fn push_perft_suite(rows: &mut Vec<Row>, base: Option<&Measured>, head: &Measure
 }
 
 #[allow(clippy::too_many_arguments)]
+/// The paired speed row: the PR against its base build on the same runner.
+/// Marked only when the whole 95% interval clears the noise threshold.
+fn push_paired(rows: &mut Vec<Row>, head: &Measured, noise_pct: f64) {
+    let Some((ratio, low, high)) = head.speed else {
+        return;
+    };
+    let pct = |r: f64| (r - 1.0) * 100.0;
+    let marker = if pct(low) >= noise_pct {
+        Marker::Better
+    } else if pct(high) <= -noise_pct {
+        Marker::Worse
+    } else {
+        Marker::Same
+    };
+    rows.push(Row {
+        name: "Speed vs base",
+        base: "same runner".into(),
+        head: fmt_signed_pct(pct(ratio)),
+        delta: format!("±{:.1}%", (pct(high) - pct(low)) / 2.0),
+        marker,
+    });
+}
+
 fn push_numeric(
     rows: &mut Vec<Row>,
     name: &'static str,
@@ -304,6 +347,10 @@ fn push_numeric(
                 Noise::Absolute(abs) => {
                     let diff = h - b;
                     (fmt_signed_pt(diff * 100.0), diff.abs() >= abs - 1e-12)
+                }
+                Noise::Informational => {
+                    let rel = if b == 0.0 { 0.0 } else { (h - b) / b * 100.0 };
+                    (fmt_signed_pct(rel), false)
                 }
             };
             let improved = match better {

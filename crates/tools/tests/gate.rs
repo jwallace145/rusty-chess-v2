@@ -36,6 +36,7 @@ fn bench(nps: u64, fh_first: Option<f64>) -> Record {
         positions: 50,
         depth: 12,
         hash_mb: 16,
+        cpu: None,
         nodes: 1_000_000,
         nps,
         elapsed_ms: 500,

@@ -39,7 +39,7 @@ The goal is a single-threaded Rust UCI engine whose classical search is measurab
 | Layer | What it measures | How | Bar (`perf-targets.toml`) |
 | --- | --- | --- | --- |
 | Move generation | Perft NPS (bulk counting) over `tests/perft.epd` | `rusty-chess perft --suite` | `movegen.min_perft_nps` 100M local and CI |
-| Search speed | Search NPS over 50 bench positions at depth 6 | `rusty-chess bench` | `search.min_nps` 2M local, 1M CI |
+| Search speed | Paired NPS ratio against the base on one runner; instructions per node (cachegrind, chip-independent); absolute NPS with the CPU model, informational | `speed-report paired`, `speed-report instructions`, `rusty-chess bench` | `search.min_nps` 2M local, 1M CI (absolute, release PRs) |
 | Search efficiency | Fail-high-first, EBF, TT hit rate, qsearch share, cutoffs by stage | `bench` with `--features stats` | `efficiency.min_fail_high_first`, `max_ebf` (set at the Phase 3 gate) |
 | Strength | Elo against the PR's base at a fixed node budget per move | fastchess SPRT on CI, `sprt` label | H1 accepted, or the PR does not merge |
 
@@ -175,6 +175,7 @@ Ship it as a Homebrew-installable UCI binary first. Release CI builds macOS arm6
 - **2026-10-27** Release Please force-pushes and edits its PR in the same second; a shared concurrency group cancelled one of the two CI runs and the cancelled check run blocked the merge. Edits and pushes now have separate streams and code jobs skip on edits (#21).
 - **2026-10-27** A stacked PR whose base was squash-merged shows a conflict if it touched the same lines again; rebase it onto `main` before merging. Merge stacks bottom-up.
 - **2026-10-27** The PR templates list "Bench before" then "Bench after"; CI checks the last `Bench:` line in the body (#19).
+- **2026-10-27** GitHub runners are a mix of CPU models, so absolute NPS compared across runs mostly measures the chip (v0.5.0's baseline came from a fast one, and a PR looked 30% slower). Speed is now judged by paired A/B runs of PR and base on the same runner, and by cachegrind instructions per node, which is chip-independent and recorded for every release. Absolute NPS is informational, with the CPU model recorded beside it.
 - **2026-10-27** The bench comment's EBF row showed the last bench position's EBF, not the bench's: Phase 2 read 3.35 but was 7.00, the transposition table read 2.12 but was 4.62. EBF is now the sum of every search's final-iteration nodes over the sum of its previous iteration's. The EBF ≤ 3 gate was never met; it still needs killers, history and, realistically, Phase 4's pruning to hold at depth 6.
 - **2026-10-27** SPRT run time is set by the hypotheses, not by how good the change is: each game contributes at most the evidence that separates `elo0` from `elo1`, so a 200-Elo gain still needs ~200 games with `elo1 = 10`, and two identical engines take the longest (H0 with zero signal). Keep `elo1` modest to catch small real gains; use `sprt-quick` to test plumbing.
 - **2026-10-27** Identical deterministic engines produce mirror-image game pairs: Elo exactly 0 with a zero error bar and an undefined LOS. Rendered as `n/a` rather than `NaN`.

@@ -75,6 +75,8 @@ jobs:
           target/release/rusty-chess bench --out "$run/bench.jsonl" > "$run/bench.log"
           target/stats/release/rusty-chess bench --out "$run/stats.jsonl" > "$run/stats.log"
           target/release/rusty-chess perft --suite tests/perft.epd --out "$run/perft.jsonl" > "$run/perft.log"
+          sudo apt-get install -y -qq valgrind > /dev/null
+          cargo run --release --locked -p rusty-chess-tools --bin speed-report -- instructions --bin target/release/rusty-chess --out "$run/instructions.jsonl"
           tail -3 "$run/bench.log"; tail -3 "$run/perft.log"
       - name: Record into docs/benchmarks.md and CHANGELOG.md
         if: steps.version.outputs.recorded != 'true'
@@ -105,7 +107,7 @@ jobs:
           git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
           # -f: the data must be committed even if an ignore rule ever matches it.
           git add -f "benchmarks/v${VERSION}" docs/benchmarks.md CHANGELOG.md
-          for f in bench.jsonl stats.jsonl perft.jsonl summary.json; do
+          for f in bench.jsonl stats.jsonl perft.jsonl instructions.jsonl summary.json; do
             git diff --cached --name-only | grep -qx "benchmarks/v${VERSION}/$f" || { echo "::error::benchmarks/v${VERSION}/$f is not staged"; exit 1; }
           done
           git commit -m "docs: record v${VERSION} benchmarks"

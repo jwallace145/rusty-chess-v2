@@ -33,6 +33,10 @@ pub enum Record {
     Bench(BenchRecord),
     /// The result of a perft suite run.
     Perft(PerftRecord),
+    /// Paired speed of a build against a base build on the same machine.
+    Speed(SpeedRecord),
+    /// Instructions executed by a bench run, counted by cachegrind.
+    Instructions(InstructionsRecord),
 }
 
 /// One iteration of iterative deepening.
@@ -107,6 +111,50 @@ pub struct BenchRecord {
     pub elapsed_ms: u64,
     /// Counters accumulated over the whole run, if the `stats` feature is on.
     pub stats: Option<StatsSummary>,
+    /// The CPU model the run measured on; absent in records written before it existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu: Option<String>,
+}
+
+/// Search speed of a build relative to a base build, measured by
+/// alternating bench runs of the two on the same machine, so the machine's
+/// own speed cancels out. `ratio` is the mean of the per-pair NPS ratios
+/// (PR / base); `ratio_low`..`ratio_high` is its 95% confidence interval.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SpeedRecord {
+    /// Schema version, [`SCHEMA_VERSION`].
+    pub v: u32,
+    /// Bench depth of every run.
+    pub depth: u32,
+    /// NPS of each base run, in run order.
+    pub base_nps: Vec<u64>,
+    /// NPS of each PR run, in run order.
+    pub pr_nps: Vec<u64>,
+    /// Mean of the per-pair ratios.
+    pub ratio: f64,
+    /// Lower end of the 95% confidence interval.
+    pub ratio_low: f64,
+    /// Upper end of the 95% confidence interval.
+    pub ratio_high: f64,
+    /// The CPU model both builds ran on.
+    pub cpu: Option<String>,
+}
+
+/// Instructions a bench run executed, counted by cachegrind. Unlike time,
+/// this is the same on every x86-64 machine for the same binary, so it is
+/// comparable across runners and releases.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InstructionsRecord {
+    /// Schema version, [`SCHEMA_VERSION`].
+    pub v: u32,
+    /// Bench depth.
+    pub depth: u32,
+    /// Nodes the bench searched (its signature at this depth).
+    pub nodes: u64,
+    /// Instructions executed, the whole process included.
+    pub instructions: u64,
+    /// `instructions / nodes`.
+    pub per_node: f64,
 }
 
 /// The result of running the perft suite. `nps` is the move generation speed

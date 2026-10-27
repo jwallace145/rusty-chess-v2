@@ -88,6 +88,7 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         nps: nps(total_nodes, elapsed_ms),
         elapsed_ms,
         stats: searcher.stats().summary(),
+        cpu: cpu_model(),
     };
 
     writeln!(out, "===========================")?;
@@ -103,6 +104,25 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         w.write(&Record::Bench(record.clone()))?;
     }
     Ok(record)
+}
+
+/// The CPU model, so absolute speeds can be read against the hardware they
+/// were measured on. Best effort; `None` where it cannot be determined.
+pub fn cpu_model() -> Option<String> {
+    if let Ok(info) = std::fs::read_to_string("/proc/cpuinfo") {
+        return info
+            .lines()
+            .find(|l| l.starts_with("model name"))
+            .and_then(|l| l.split(':').nth(1))
+            .map(|m| m.trim().to_string());
+    }
+    std::process::Command::new("sysctl")
+        .args(["-n", "machdep.cpu.brand_string"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 fn nps(nodes: u64, elapsed_ms: u64) -> u64 {
