@@ -1,0 +1,194 @@
+//! The PR bench report: a compact Markdown comparison of two runs.
+
+use rusty_chess_search::stats::StatsSummary;
+use rusty_chess_search::telemetry::{BenchRecord, PerftRecord, Record};
+use rusty_chess_tools::gate::{Measured, Targets};
+use rusty_chess_tools::report::{Meta, render};
+
+fn stats(fh_first: f64) -> StatsSummary {
+    StatsSummary {
+        nodes: 1,
+        qnodes: 0,
+        qnode_share: 0.0,
+        tt_probes: 0,
+        tt_hits: 0,
+        tt_cutoffs: 0,
+        tt_collisions: 0,
+        tt_hit: 0.0,
+        fail_highs: 1,
+        fh_first,
+        cutoffs_by_stage: [0; 5],
+        null_move_cutoffs: 0,
+        lmr_reductions: 0,
+        lmr_researches: 0,
+        futility_skips: 0,
+    }
+}
+
+fn run(signature: u64, nps: u64, fh_first: f64, ebf: f64, perft_nps: Option<u64>) -> Measured {
+    let mut m = Measured::default();
+    let mut records = vec![Record::Bench(BenchRecord {
+        v: 1,
+        positions: 50,
+        depth: 12,
+        hash_mb: 16,
+        nodes: signature,
+        nps,
+        elapsed_ms: 1234,
+        stats: Some(stats(fh_first)),
+    })];
+    if let Some(p) = perft_nps {
+        records.push(Record::Perft(PerftRecord {
+            v: 1,
+            positions: 64,
+            max_depth: 5,
+            nodes: p * 3,
+            elapsed_ms: 3000,
+            nps: p,
+            failures: 0,
+        }));
+    }
+    m.absorb(&records);
+    m.ebf = Some(ebf);
+    m
+}
+
+fn targets() -> Targets {
+    Targets::parse(
+        "[movegen]\nmin_perft_nps = { local = 0, ci = 0 }\n[search]\nmin_nps = { local = 0, ci = 0 }\n[efficiency]\nmin_fail_high_first = 0.0\nmax_ebf = 0.0\n[comment]\nspeed_noise_pct = 10.0\nefficiency_noise_pct = 1.0\n",
+    )
+    .unwrap()
+}
+
+fn meta() -> Meta {
+    Meta {
+        base_label: Some("main@2c0c213".into()),
+        head_label: "ab807a0".into(),
+        gate_passed: Some(true),
+        gate_table: Some("| Bar | Measured |\n| --- | ---: |\n".into()),
+        noisy_enforced: false,
+    }
+}
+
+#[test]
+fn measured_carries_the_signature_and_run_configuration() {
+    let m = run(412_331, 2_310_000, 0.91, 2.1, Some(118_000_000));
+    assert_eq!(m.signature, Some(412_331));
+    assert_eq!(m.bench_config, Some((50, 12, 16)));
+    assert_eq!(m.perft_failures, Some(0));
+    assert_eq!(m.perft_positions, Some(64));
+}
+
+#[test]
+fn deltas_improvements_and_regressions_beyond_the_noise_threshold() {
+    let base = run(412_331, 2_000_000, 0.90, 2.20, Some(100_000_000));
+    let head = run(398_120, 2_300_000, 0.92, 2.05, Some(90_000_000));
+    let md = render(Some(&base), &head, &targets(), &meta());
+    println!("{md}");
+    let row = |name: &str| {
+        md.lines()
+            .find(|l| l.starts_with(&format!("| {name} |")))
+            .unwrap_or_else(|| panic!("no row {name}\n{md}"))
+            .to_string()
+    };
+    assert!(
+        row("Bench signature").contains("412,331") && row("Bench signature").contains("398,120")
+    );
+    assert!(row("Bench signature").contains("changed"));
+    assert!(row("Search NPS").contains("2.00M") && row("Search NPS").contains("2.30M"));
+    assert!(
+        row("Search NPS").contains("+15.0%") && row("Search NPS").ends_with("| 🟢 |"),
+        "{}",
+        row("Search NPS")
+    );
+    assert!(
+        row("Perft NPS").contains("−10.0%") && row("Perft NPS").ends_with("| 🔴 |"),
+        "{}",
+        row("Perft NPS")
+    );
+    assert!(
+        row("Fail-high first").contains("90.0%")
+            && row("Fail-high first").contains("+2.0 pt")
+            && row("Fail-high first").ends_with("| 🟢 |")
+    );
+    assert!(
+        row("EBF").contains("2.20")
+            && row("EBF").contains("2.05")
+            && row("EBF").ends_with("| 🟢 |"),
+        "{}",
+        row("EBF")
+    );
+}
+
+#[test]
+fn changes_within_the_noise_threshold_are_neutral() {
+    let base = run(1, 2_000_000, 0.900, 2.20, None);
+    let head = run(1, 2_100_000, 0.905, 2.21, None);
+    let md = render(Some(&base), &head, &targets(), &meta());
+    let row = |name: &str| {
+        md.lines()
+            .find(|l| l.starts_with(&format!("| {name} |")))
+            .unwrap()
+            .to_string()
+    };
+    assert!(row("Bench signature").contains("same") && row("Bench signature").ends_with("| ⚪ |"));
+    assert!(
+        row("Search NPS").contains("+5.0%") && row("Search NPS").ends_with("| ⚪ |"),
+        "{}",
+        row("Search NPS")
+    );
+    assert!(row("Fail-high first").ends_with("| ⚪ |"));
+    assert!(row("EBF").ends_with("| ⚪ |"));
+    // Perft was not measured on either side: no row at all.
+    assert!(!md.contains("| Perft"), "{md}");
+}
+
+#[test]
+fn a_missing_baseline_shows_the_head_values_only() {
+    let head = run(7, 2_000_000, 0.9, 2.0, Some(50_000_000));
+    let mut m = meta();
+    m.base_label = None;
+    let md = render(None, &head, &targets(), &m);
+    assert!(md.contains("no baseline"), "{md}");
+    let row = md
+        .lines()
+        .find(|l| l.starts_with("| Search NPS |"))
+        .unwrap();
+    assert!(row.contains("2.00M") && row.ends_with("| 🆕 |"), "{row}");
+}
+
+#[test]
+fn the_comment_is_compact_and_carries_the_gate_in_a_collapsed_section() {
+    let base = run(1, 2_000_000, 0.9, 2.2, Some(100_000_000));
+    let head = run(1, 2_000_000, 0.9, 2.2, Some(100_000_000));
+    let md = render(Some(&base), &head, &targets(), &meta());
+    assert!(md.starts_with("### "), "{md}");
+    assert!(
+        md.lines().count() < 30,
+        "{} lines\n{md}",
+        md.lines().count()
+    );
+    assert!(md.contains("<details>") && md.contains("</details>"));
+    assert!(md.contains("| Bar | Measured |"));
+    assert!(md.contains("main@2c0c213") && md.contains("ab807a0"));
+    assert!(md.contains("Performance gate: **pass**"));
+    assert!(md.contains("±10%") && md.contains("±1.0 pt"));
+    let mut failed = meta();
+    failed.gate_passed = Some(false);
+    assert!(render(Some(&base), &head, &targets(), &failed).contains("Performance gate: **fail**"));
+}
+
+#[test]
+fn perft_failures_are_called_out() {
+    let mut head = run(1, 2_000_000, 0.9, 2.2, Some(100_000_000));
+    head.perft_failures = Some(3);
+    let md = render(None, &head, &targets(), &meta());
+    let row = md
+        .lines()
+        .find(|l| l.starts_with("| Perft suite |"))
+        .unwrap();
+    assert!(
+        row.contains("3 failures") && row.ends_with("| 🔴 |"),
+        "{row}"
+    );
+}

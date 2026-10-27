@@ -60,6 +60,26 @@ pub struct Efficiency {
     pub max_ebf: f64,
 }
 
+/// Noise thresholds for the PR bench comment: a delta smaller than these is
+/// shown as unchanged rather than as an improvement or a regression.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Comment {
+    /// Percent, for the speed rows (NPS), which shared runners measure noisily.
+    pub speed_noise_pct: f64,
+    /// Percentage points for fail-high-first, percent for EBF.
+    pub efficiency_noise_pct: f64,
+}
+
+impl Default for Comment {
+    fn default() -> Self {
+        Self {
+            speed_noise_pct: 10.0,
+            efficiency_noise_pct: 1.0,
+        }
+    }
+}
+
 /// The committed bars.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Targets {
@@ -69,6 +89,9 @@ pub struct Targets {
     pub search: Search,
     /// Search efficiency.
     pub efficiency: Efficiency,
+    /// PR comment noise thresholds.
+    #[serde(default)]
+    pub comment: Comment,
 }
 
 impl Targets {
@@ -124,8 +147,18 @@ impl Targets {
 pub struct Measured {
     /// Perft leaf nodes per second, from the last `perft` record.
     pub perft_nps: Option<u64>,
+    /// Perft depth checks that failed, from the last `perft` record.
+    pub perft_failures: Option<u32>,
+    /// Positions in the perft suite, from the last `perft` record.
+    pub perft_positions: Option<u32>,
+    /// Deepest perft depth checked, from the last `perft` record.
+    pub perft_max_depth: Option<u32>,
+    /// The bench signature (total nodes), from the last `bench` record.
+    pub signature: Option<u64>,
     /// Bench nodes per second, from the last `bench` record.
     pub search_nps: Option<u64>,
+    /// Bench `(positions, depth, hash_mb)`, from the last `bench` record.
+    pub bench_config: Option<(u32, u32, u32)>,
     /// Fail-high-first rate, from the last `bench` record with stats.
     pub fail_high_first: Option<f64>,
     /// Effective branching factor, from the last `iter` record that has one.
@@ -137,9 +170,16 @@ impl Measured {
     pub fn absorb(&mut self, records: &[Record]) {
         for record in records {
             match record {
-                Record::Perft(p) => self.perft_nps = Some(p.nps),
+                Record::Perft(p) => {
+                    self.perft_nps = Some(p.nps);
+                    self.perft_failures = Some(p.failures);
+                    self.perft_positions = Some(p.positions);
+                    self.perft_max_depth = Some(p.max_depth);
+                }
                 Record::Bench(b) => {
+                    self.signature = Some(b.nodes);
                     self.search_nps = Some(b.nps);
+                    self.bench_config = Some((b.positions, b.depth, b.hash_mb));
                     if let Some(stats) = &b.stats {
                         self.fail_high_first = Some(stats.fh_first);
                     }

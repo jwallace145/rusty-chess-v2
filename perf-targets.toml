@@ -19,3 +19,9 @@ min_nps = { local = 0, ci = 0 }
 # From `bench` built with `--features stats`. Roadmap Phase 3 gate: >= 0.90 and <= 3.0.
 min_fail_high_first = 0.0
 max_ebf = 0.0
+
+[comment]
+# The PR bench comment shows a delta smaller than these as unchanged (⚪)
+# rather than as an improvement (🟢) or a regression (🔴).
+speed_noise_pct = 10.0      # NPS rows; shared runners vary this much run to run
+efficiency_noise_pct = 1.0  # percentage points of fail-high-first, percent of EBF
