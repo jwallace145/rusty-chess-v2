@@ -14,6 +14,12 @@
 
 * **lichess:** pin lichess-bot to a master commit and match its current config keys ([#52](https://github.com/jwallace145/rusty-chess-v2/issues/52)) ([7f781c4](https://github.com/jwallace145/rusty-chess-v2/commit/7f781c4b8a4550e3aeace5327734ba37d20ac487))
 
+### Benchmarks
+
+* bench signature 716,057, instructions per node 1305, search 6.39M NPS, perft 201.46M NPS (pass (63)), fail-high first 93.1%, EBF 2.17, TT hit 36.0%
+* since v0.10.0: fail-high first -4.4 pt, EBF -1.73, instructions per node +7.4%, search NPS −43.4%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.10.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.9.0...v0.10.0) (2026-10-27)
 
 
