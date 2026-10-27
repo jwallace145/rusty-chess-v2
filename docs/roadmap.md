@@ -52,6 +52,8 @@ The schema is versioned (`"v":1`) so old artifacts stay comparable.
 
 **Deterministic bench.** `engine bench` searches about 50 fixed positions to a fixed depth with a fixed hash size. It prints a total node count (the *signature*) and the NPS. A changed signature means search behavior changed; a changed NPS with the same signature means a pure speed change. The signature goes in every commit message, as Stockfish does.
 
+**Coverage suites and performance bars.** Each layer in the table has a coverage suite that only grows and a bar that only rises, both committed. Move generation is covered by `tests/perft.epd` (lines are appended, never removed or changed) and search by the bench positions. The bars live in `perf-targets.toml`, per environment for speed because shared runners are slow and noisy. `perf-gate` in `crates/tools` compares a run's JSON lines to them: speed bars are reported on every PR and enforced on release PRs and `main`, efficiency bars are always enforced, and a PR that lowers a bar fails. A bar is set when its layer first ships and raised whenever the engine clears it, so every release is at least as fast and as efficient as the last.
+
 **CI artifacts.** On every push, CI runs perft, bench, and bench with stats, then uploads `bench.jsonl` and `stats.jsonl` as artifacts. A small script diffs them against `main` and posts the deltas. NPS on shared runners is noisy, so it is reported but not gated; the node signature and perft are gated.
 
 **Profiling.** Run `samply` or `perf` on `bench` for flamegraphs, and `cargo-show-asm` to inspect hot functions. The release profile uses `lto = "fat"`, `codegen-units = 1`, `panic = "abort"`, and `target-cpu=native` locally.

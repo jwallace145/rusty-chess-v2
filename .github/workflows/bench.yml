@@ -73,6 +73,24 @@ jobs:
             echo "::error::PR description claims Bench: $claimed but CI measured $NODES"
             exit 1
           fi
+      - name: Fetch the base branch's targets for the ratchet check
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
+          # No file on the base branch (the PR that introduces it) means no ratchet check.
+          git show "${{ github.event.pull_request.base.sha }}:perf-targets.toml" > base-perf-targets.toml 2>/dev/null || rm -f base-perf-targets.toml
+      - name: Performance gate
+        # Speed bars are noisy on shared runners: reported on every PR, enforced
+        # on release PRs and on main. Efficiency bars are always enforced, and
+        # a PR may never lower a bar.
+        env:
+          ENFORCE: ${{ (github.event_name == 'push' || startsWith(github.head_ref, 'release-please--')) && '--enforce-noisy' || '' }}
+        run: |
+          set -o pipefail
+          args="--targets perf-targets.toml --env ci $ENFORCE"
+          if [ -f base-perf-targets.toml ]; then args="$args --ratchet-from base-perf-targets.toml"; fi
+          cargo run --release --locked -p rusty-chess-tools --bin perf-gate -- $args bench.jsonl stats.jsonl perft.jsonl | tee gate.md
+          { echo "## Performance gate"; echo; cat gate.md; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -82,4 +100,5 @@ jobs:
             stats.jsonl
             bench.log
             stats.log
+            gate.md
           if-no-files-found: error

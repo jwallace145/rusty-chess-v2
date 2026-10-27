@@ -1,7 +1,7 @@
 [package]
 name = "rusty-chess-tools"
 version = "0.1.0"
-description = "Developer tools: perft suite runner, bench and stats diffing, data generation"
+description = "Developer tools: perft suite runner, performance gate, bench and stats diffing, data generation"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -12,9 +12,15 @@ publish.workspace = true
 [lib]
 name = "rusty_chess_tools"
 
+[[bin]]
+name = "perf-gate"
+path = "src/bin/perf_gate.rs"
+
 [dependencies]
 rusty-chess-core = { path = "../core" }
 rusty-chess-search = { path = "../search" }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.9"
 
 [lints]
 workspace = true

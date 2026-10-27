@@ -18,7 +18,8 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 | `crates/core` | Board, bitboards, magics, move generation, Zobrist hashing, make/unmake. No dependencies. |
 | `crates/search` | Search, transposition table, move picker, evaluation, `SearchStats` counters and the JSON lines telemetry writer. |
 | `crates/tools` | Perft suite runner, bench and stats diffing, data generation later. |
-| `tests/` | UCI smoke tests, perft EPD suite, mate-in-N positions. |
+| `tests/` | UCI smoke tests, the perft suite `perft.epd`, mate-in-N positions. |
+| `perf-targets.toml` | The performance bars `perf-gate` enforces; they only go up. |
 | `benches/` | Criterion microbenchmarks for the binary; crates keep their own under `crates/*/benches`. |
 
 ## Building and running
@@ -50,6 +51,13 @@ the search expands to nothing. `bench --out FILE` writes JSON lines: one
 schema version `v`. CI runs bench on every PR and uploads `bench.jsonl` and
 `stats.jsonl` as artifacts; if the PR description carries a `Bench: <nodes>`
 line, CI checks that it matches.
+
+Each layer also has a coverage suite that only grows (`tests/perft.epd`
+for move generation, the bench positions for search) and a performance bar
+in `perf-targets.toml` that only rises. `perf-gate` compares a run's JSON
+lines to the bars; CI reports speed bars on every PR, enforces them on
+release PRs, and always enforces the efficiency bars. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Phases
 

@@ -1,0 +1,21 @@
+# Performance bars. `perf-gate` compares each run's telemetry to these.
+#
+# Every bar only goes up: CI fails a PR that lowers one. Speed bars are per
+# environment because shared CI runners are slower and noisier than a quiet
+# local machine; they are reported on every PR and enforced on release PRs
+# and local runs. Efficiency bars are deterministic and always enforced.
+# A bar of 0 is not enforced yet; set it when the layer first ships, then
+# raise it as the engine improves.
+
+[movegen]
+# Bulk-counting perft over tests/perft.epd. Roadmap Phase 1 gate: 100M NPS locally.
+min_perft_nps = { local = 0, ci = 0 }
+
+[search]
+# `rusty-chess bench`. Roadmap Phase 2 target: 2M NPS with PeSTO eval.
+min_nps = { local = 0, ci = 0 }
+
+[efficiency]
+# From `bench` built with `--features stats`. Roadmap Phase 3 gate: >= 0.90 and <= 3.0.
+min_fail_high_first = 0.0
+max_ebf = 0.0
