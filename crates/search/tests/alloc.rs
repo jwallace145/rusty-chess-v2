@@ -34,7 +34,7 @@ fn the_search_path_does_not_allocate_per_node() {
     let fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
     let mut board = Board::from_position(Position::from_fen(fen).unwrap());
     let mut searcher = Searcher::new(Arc::new(AtomicBool::new(false)));
-    let depth = 6;
+    let depth = 8;
     let limits = Limits {
         depth: Some(depth),
         ..Limits::default()

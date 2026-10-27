@@ -102,7 +102,7 @@ cargo run --release -p rusty-chess-tools --bin perf-gate -- \
   --targets perf-targets.toml --env local --enforce-noisy bench.jsonl stats.jsonl perft.jsonl
 ```
 
-In CI the `Bench` job runs the gate with `--env ci`. Speed bars are reported on every PR and enforced on release PRs and on `main`; efficiency bars are deterministic and always enforced; a PR that lowers any bar fails the ratchet check against `main`. When the engine clears a bar comfortably, raise it in the same PR. A bar of `0` is not enforced yet; set it when the layer first ships.
+In CI the `Bench` job runs the gate with `--env ci`. Speed bars are reported on every PR and enforced on release PRs and on `main`; efficiency bars are deterministic and always enforced; a PR that lowers any bar fails the ratchet check against `main`. When the engine clears a bar comfortably, raise it in the same PR. A bar of `0` is not enforced yet; set it when the layer first ships. A bar may be lowered only by naming it under `[ratchet] exceptions` in the same file with the reason, so the loosening is reviewed in the PR that makes it; that list is the record of every such decision, and an entry is removed once the bar is back above its old value.
 
 ### The bench comment
 

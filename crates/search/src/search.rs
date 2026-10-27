@@ -6,7 +6,7 @@
 //! original window, never after an abort) and the staged move picker (TT
 //! move, good captures by static exchange, killers, history quiets, bad
 //! captures), searched as a principal variation search inside aspiration
-//! windows, with null-move pruning.
+//! windows, with null-move pruning and late move reductions.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -52,6 +52,31 @@ const NULL_MOVE_MIN_DEPTH: u32 = 3;
 
 /// Base depth reduction of the null-move search; `depth / 4` is added.
 const NULL_MOVE_REDUCTION: u32 = 2;
+
+/// Late moves are reduced from this move index on (the first ones get full depth).
+const LMR_MIN_INDEX: usize = 2;
+
+/// Late move reductions need at least this much depth.
+const LMR_MIN_DEPTH: u32 = 3;
+
+/// The reduction table, `[depth][move index]`, in plies: grows with the log
+/// of both, so deep searches of late moves are cut the most.
+static LMR_TABLE: std::sync::LazyLock<[[u8; 64]; 64]> = std::sync::LazyLock::new(|| {
+    let mut t = [[0u8; 64]; 64];
+    for (d, row) in t.iter_mut().enumerate().skip(1) {
+        for (i, cell) in row.iter_mut().enumerate().skip(1) {
+            let r = 0.75 + (d as f64).ln() * (i as f64).ln() / 2.25;
+            *cell = r.floor().clamp(0.0, 8.0) as u8;
+        }
+    }
+    t
+});
+
+/// The late-move reduction for a quiet move at `index` searched at `depth`.
+#[inline]
+pub fn lmr_reduction(depth: u32, index: usize) -> u32 {
+    LMR_TABLE[depth.min(63) as usize][index.min(63)] as u32
+}
 
 /// The initial half-width of the aspiration window, in centipawns. On the
 /// depth-6 bench, 25 re-searched 37 windows and cost nodes; 50 almost never
@@ -436,7 +461,39 @@ impl Searcher {
             let score = if index == 0 {
                 -self.negamax(board, depth - 1, -beta, -alpha, ply + 1, true)
             } else {
-                let probe = -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, true);
+                // Late move reductions: a quiet move late in the list, at a
+                // node not in check and not giving check, is first searched
+                // shallower; only if it beats alpha anyway does it get the
+                // full-depth null-window search, then the full window as in
+                // PVS.
+                let quiet = !m.is_capture() && !m.is_promotion();
+                let reduction = if quiet
+                    && index >= LMR_MIN_INDEX
+                    && depth >= LMR_MIN_DEPTH
+                    && !in_check
+                    && !board.position().in_check()
+                {
+                    lmr_reduction(depth, index)
+                } else {
+                    0
+                };
+                let mut probe = if reduction > 0 {
+                    stat!(self.stats, lmr_reductions);
+                    -self.negamax(
+                        board,
+                        depth - 1 - reduction,
+                        -alpha - 1,
+                        -alpha,
+                        ply + 1,
+                        true,
+                    )
+                } else {
+                    -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, true)
+                };
+                if reduction > 0 && probe > alpha && !self.aborted {
+                    stat!(self.stats, lmr_researches);
+                    probe = -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, true);
+                }
                 if probe > alpha && probe < beta && !self.aborted {
                     -self.negamax(board, depth - 1, -beta, -alpha, ply + 1, true)
                 } else {
