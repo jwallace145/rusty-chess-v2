@@ -133,7 +133,7 @@ Each phase starts only after the previous gate holds on bench and stats; Phase 3
 - Bitboards, magic bitboards (with PEXT behind a feature for later), precomputed attack and ray tables
 - Compact 16-bit moves, a stack-allocated move list, legal movegen using pin and check masks
 - Make/unmake with an undo stack, and incremental Zobrist hashing (verified against a full recompute in debug builds)
-- **Exit:** the full perft suite passes (startpos, Kiwipete, and the standard EPD set to depth 6+), and bulk-counting perft reaches ≥ 100M NPS single-threaded. Held as of the first move generator: 63 positions, 283 checks, about 280M NPS on an M-series laptop; `movegen.min_perft_nps` in `perf-targets.toml` is set to 100M locally and 40M on CI.
+- **Exit:** the full perft suite passes (startpos, Kiwipete, and the standard EPD set to depth 6+), and bulk-counting perft reaches ≥ 100M NPS single-threaded. Held as of the first move generator: 63 positions, 283 checks, about 280M NPS on an M-series laptop; `movegen.min_perft_nps` in `perf-targets.toml` is set to 100M locally and on CI (the runner measured about 380M).
 
 ### Phase 2: Baseline search
 
