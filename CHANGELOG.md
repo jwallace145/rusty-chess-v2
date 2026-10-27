@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.6.0...v0.7.0) (2026-10-27)
+
+
+### Features
+
+* **ci:** judge speed by paired runs and instruction counts instead of runner-dependent nps ([#36](https://github.com/jwallace145/rusty-chess-v2/issues/36)) ([e6f465e](https://github.com/jwallace145/rusty-chess-v2/commit/e6f465eb83b2d7da8d70deea3593e57850fde3a9))
+* **search:** order quiet moves by butterfly history with gravity ([#34](https://github.com/jwallace145/rusty-chess-v2/issues/34)) ([0472ecf](https://github.com/jwallace145/rusty-chess-v2/commit/0472ecf5e6ddcbceceecadab7fa2f784a59d40aa))
+
 ## [0.6.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.5.0...v0.6.0) (2026-10-27)
 
 
