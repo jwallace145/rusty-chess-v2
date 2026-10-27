@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.3.0...v0.4.0) (2026-10-27)
+
+
+### Features
+
+* **ci:** run sprt on a standardized runner at fixed nodes with our own openings ([#24](https://github.com/jwallace145/rusty-chess-v2/issues/24)) ([61c67a4](https://github.com/jwallace145/rusty-chess-v2/commit/61c67a4f8c30befcb1a88483c516ee5424dd7e60))
+* **search:** add a transposition table with bucketed replacement and tt-move ordering ([#26](https://github.com/jwallace145/rusty-chess-v2/issues/26)) ([7cb7920](https://github.com/jwallace145/rusty-chess-v2/commit/7cb79209bb5a65aeee7910e0bb6b2df014578a20))
+
+
+### Documentation
+
+* tick the sprt-on-ci and openings items and record the first sprt learnings ([#27](https://github.com/jwallace145/rusty-chess-v2/issues/27)) ([d3402fb](https://github.com/jwallace145/rusty-chess-v2/commit/d3402fbed09f66ffd7764332785fe74f73ceda5b))
+* tick the transposition table item with its sprt and bench numbers ([#28](https://github.com/jwallace145/rusty-chess-v2/issues/28)) ([adb9216](https://github.com/jwallace145/rusty-chess-v2/commit/adb9216c34893ea7321bbe6bc503604ad15634d4))
+* turn the roadmap into a living checklist with measured status and learnings ([#23](https://github.com/jwallace145/rusty-chess-v2/issues/23)) ([a9fc610](https://github.com/jwallace145/rusty-chess-v2/commit/a9fc61023c8a70ee94f3ff6e58077e7dbd2f08bc))
+
 ## [0.3.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.2.0...v0.3.0) (2026-10-27)
 
 
