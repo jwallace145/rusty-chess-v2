@@ -13,6 +13,12 @@
 
 * **ci:** stop the release benchmark loop and commit the ignored raw benchmark data ([#32](https://github.com/jwallace145/rusty-chess-v2/issues/32)) ([9487c3b](https://github.com/jwallace145/rusty-chess-v2/commit/9487c3bd7260f2c4a92a4edbda3b196a5e9a1af0))
 
+### Benchmarks
+
+* bench signature 14,942,735, search 12.62M NPS, perft 299.32M NPS (pass (63)), fail-high first 85.6%, EBF 4.74, TT hit 29.4%
+* since v0.4.0: fail-high first +7.0 pt, EBF +0.13, search NPS +99.6%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.4.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.3.0...v0.4.0) (2026-10-27)
 
 
