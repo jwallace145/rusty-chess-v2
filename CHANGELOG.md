@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.5.0...v0.6.0) (2026-10-27)
+
+
+### Features
+
+* **search:** add two killer moves per ply ([#33](https://github.com/jwallace145/rusty-chess-v2/issues/33)) ([83807d9](https://github.com/jwallace145/rusty-chess-v2/commit/83807d912288ac51c5f36c3e4323768d00070280))
+
 ## [0.5.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.4.0...v0.5.0) (2026-10-27)
 
 
