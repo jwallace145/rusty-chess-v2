@@ -1,8 +1,12 @@
 //! Search, transposition table, move picker, evaluation and search telemetry.
 //!
-//! Phase 0 of the roadmap establishes the [`stats`] feature and the JSON lines
-//! [`telemetry`] writer; Phase 2 adds the search itself.
+//! [`eval`] is the tapered PeSTO evaluation, [`board`] wraps a position with
+//! the incrementally updated evaluation and the key history that search
+//! needs, [`stats`] holds the efficiency counters behind the `stats` feature,
+//! and [`telemetry`] writes JSON lines.
 #![warn(missing_docs)]
 
+pub mod board;
+pub mod eval;
 pub mod stats;
 pub mod telemetry;
