@@ -319,3 +319,40 @@ fn null_move_pruning_does_not_lose_a_known_zugzwang() {
         r.pv
     );
 }
+
+#[test]
+fn late_move_reductions_reduce_and_research_without_losing_mates() {
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a8", 1),
+    ] {
+        let r = search(fen, depth(6));
+        assert_eq!(
+            (r.best.to_string(), mate_in(r.score)),
+            (best.into(), Some(mate)),
+            "{fen}"
+        );
+    }
+    // Quiet moves late in the list are reduced, and some of them are re-searched.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(7), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.lmr_reductions > 0, "no reductions");
+        assert!(summary.lmr_researches > 0, "no re-searches");
+        assert!(
+            summary.lmr_researches < summary.lmr_reductions,
+            "most reductions must stand"
+        );
+    }
+    // The reduction table is monotone in depth and move index.
+    use rusty_chess_search::search::lmr_reduction;
+    assert_eq!(lmr_reduction(3, 2), lmr_reduction(3, 2));
+    assert!(lmr_reduction(12, 30) >= lmr_reduction(6, 30));
+    assert!(lmr_reduction(6, 40) >= lmr_reduction(6, 4));
+    assert!(lmr_reduction(3, 3) >= 1 && lmr_reduction(20, 60) <= 6);
+}

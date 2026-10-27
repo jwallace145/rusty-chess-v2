@@ -208,3 +208,26 @@ fn ebf_aggregates_the_final_iterations_of_every_search_not_the_last_one() {
     m.absorb(&[iter(1, 10), summary(), iter(1, 12), summary()]);
     assert_eq!(m.ebf, None);
 }
+
+#[test]
+fn a_declared_exception_allows_lowering_one_bar_only() {
+    let old = Targets::parse(TARGETS).unwrap();
+    let lowered = TARGETS.replace("min_fail_high_first = 0.90", "min_fail_high_first = 0.85");
+    assert!(
+        Targets::parse(&lowered)
+            .unwrap()
+            .is_ratchet_from(&old)
+            .is_err()
+    );
+    let declared = lowered.clone()
+        + "\n[ratchet]\nexceptions = [\"efficiency.min_fail_high_first: late move reductions change what first-move cutoffs measure\"]\n";
+    assert!(
+        Targets::parse(&declared)
+            .unwrap()
+            .is_ratchet_from(&old)
+            .is_ok()
+    );
+    // The exception names one bar; lowering another still fails.
+    let two = declared.replace("ci = 40_000_000", "ci = 30_000_000");
+    assert!(Targets::parse(&two).unwrap().is_ratchet_from(&old).is_err());
+}

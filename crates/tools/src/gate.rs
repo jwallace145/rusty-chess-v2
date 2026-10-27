@@ -156,6 +156,25 @@ impl Default for Rating {
     }
 }
 
+/// Deliberate loosenings of a bar. A bar may only be lowered when it is
+/// named here with a reason, so the loosening is reviewed in the PR that
+/// makes it; the list is kept as the record of every such decision.
+#[derive(Clone, Debug, Deserialize, PartialEq, Default)]
+#[serde(default)]
+pub struct Ratchet {
+    /// `"<bar>: <reason>"` entries, e.g. `"efficiency.min_fail_high_first: late move reductions ..."`.
+    pub exceptions: Vec<String>,
+}
+
+impl Ratchet {
+    /// Whether `bar` may be lowered.
+    pub fn allows(&self, bar: &str) -> bool {
+        self.exceptions
+            .iter()
+            .any(|e| e.split(':').next().map(str::trim) == Some(bar))
+    }
+}
+
 /// The committed bars.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Targets {
@@ -174,6 +193,9 @@ pub struct Targets {
     /// Rating ladder settings.
     #[serde(default)]
     pub rating: Rating,
+    /// Declared bar loosenings.
+    #[serde(default)]
+    pub ratchet: Ratchet,
 }
 
 impl Targets {
@@ -182,12 +204,22 @@ impl Targets {
         toml::from_str(text)
     }
 
-    /// Check that no bar in `self` is looser than in `old`. A bar that was
-    /// `0` (not enforced) in `old` may take any value.
+    /// Check that no bar in `self` is looser than in `old`, except bars
+    /// named in `self.ratchet.exceptions`. A bar that was `0` (not
+    /// enforced) in `old` may take any value.
     pub fn is_ratchet_from(&self, old: &Self) -> Result<(), String> {
         let mut loosened = Vec::new();
+        let exceptions = &self.ratchet;
         let mut min = |name: &str, new: f64, old: f64| {
-            if new < old {
+            if new < old
+                && !exceptions.allows(
+                    name.split('.')
+                        .take(2)
+                        .collect::<Vec<_>>()
+                        .join(".")
+                        .as_str(),
+                )
+            {
                 loosened.push(format!("{name} lowered from {old} to {new}"));
             }
         };
@@ -210,6 +242,7 @@ impl Targets {
         );
         if old.efficiency.max_ebf != 0.0
             && (self.efficiency.max_ebf == 0.0 || self.efficiency.max_ebf > old.efficiency.max_ebf)
+            && !self.ratchet.allows("efficiency.max_ebf")
         {
             loosened.push(format!(
                 "efficiency.max_ebf raised from {} to {}",
