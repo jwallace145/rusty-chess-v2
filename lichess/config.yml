@@ -17,7 +17,7 @@ engine:
     resign_enabled: false          # play on; the evaluation is still coarse
     offer_draw_enabled: true
     offer_draw_score: 0
-    offer_draw_for_egtb_minus_two: false
+    offer_draw_for_egtb_zero: false
     offer_draw_moves: 10
     offer_draw_pieces: 10
   online_moves:
@@ -43,7 +43,7 @@ fake_think_time: false
 rate_limiting_delay: 0
 move_overhead: 1500              # ms kept back from the clock for network latency
 max_takebacks_accepted: 0
-quit_after_all_games_finished: false
+quit_after_all_games_finish: false
 
 correspondence:
   move_time: 60
@@ -99,7 +99,5 @@ matchmaking:
     - 1
   opponent_rating_difference: 300
   rating_preference: "none"
-  opponent_allow_tos_violation: true
   challenge_mode: "random"
   challenge_filter: none
-  delay_after_decline: none

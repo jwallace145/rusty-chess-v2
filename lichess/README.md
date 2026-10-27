@@ -26,7 +26,7 @@ LICHESS_TOKEN=lip_... lichess/run.sh
 ```
 
 This builds the engine in release mode, fetches lichess-bot at the pinned
-version, installs it into a virtual environment, copies the binary and the
+commit (it publishes no release tags), installs it into a virtual environment, copies the binary and the
 config, and starts accepting challenges. Leave it running; press Ctrl-C to
 stop (games in progress are resigned by the server after `abort_time`).
 
@@ -37,12 +37,14 @@ stop (games in progress are resigned by the server after `abort_time`).
   `config.yml` and it challenges other bots within 300 rating points while idle.
 - **Games are saved** as PGN under `lichess/.lichess-bot/game_records/`.
 
+Delete `lichess/.lichess-bot/` to refetch everything.
+
 `config.yml` is versioned; the token is injected from the environment and
 never written to the repo. The engine's hash size is set there (`Hash: 128`).
 
 ## Where it runs
 
-Anywhere with Rust, Python and a network: this laptop while it is awake, or a
+Anywhere with Rust, Python 3.10 or newer and a network: this laptop while it is awake, or a
 small always-on box later (Phase 5). The bot only plays while `run.sh` is
 running.
 
