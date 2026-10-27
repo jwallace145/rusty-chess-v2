@@ -8,3 +8,9 @@ node_modules/
 .DS_Store
 .idea/
 .vscode/
+
+# Lichess bot: the lichess-bot checkout, its virtualenv, PGNs and the token-bearing config
+lichess/.lichess-bot/
+
+# Local secrets (e.g. LICHESS_TOKEN); never committed
+secrets.sh

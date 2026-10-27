@@ -1,0 +1,105 @@
+# lichess-bot configuration for rusty-chess. Copied next to the lichess-bot
+# checkout by lichess/run.sh, which also fills in the token from the
+# LICHESS_TOKEN environment variable. Everything else lives here, versioned.
+
+token: "LICHESS_TOKEN_PLACEHOLDER"
+url: "https://lichess.org/"
+
+engine:
+  dir: "./engines/"
+  name: "rusty-chess"
+  working_dir: ""
+  protocol: "uci"
+  ponder: false                    # the engine does not ponder yet
+  polyglot:
+    enabled: false
+  draw_or_resign:
+    resign_enabled: false          # play on; the evaluation is still coarse
+    offer_draw_enabled: true
+    offer_draw_score: 0
+    offer_draw_for_egtb_minus_two: false
+    offer_draw_moves: 10
+    offer_draw_pieces: 10
+  online_moves:
+    max_out_of_book_moves: 10
+    max_retries: 2
+    chessdb_book:
+      enabled: false
+    lichess_cloud_analysis:
+      enabled: false
+    online_egtb:
+      enabled: false
+  lichess_bot_tbs:
+    syzygy:
+      enabled: false
+    gaviota:
+      enabled: false
+  uci_options:
+    Hash: 128
+  silence_stderr: false
+
+abort_time: 30
+fake_think_time: false
+rate_limiting_delay: 0
+move_overhead: 1500              # ms kept back from the clock for network latency
+max_takebacks_accepted: 0
+quit_after_all_games_finished: false
+
+correspondence:
+  move_time: 60
+  checkin_period: 600
+  disconnect_time: 300
+  ponder: false
+
+challenge:
+  concurrency: 1
+  sort_by: "best"
+  preference: "none"
+  accept_bot: true
+  only_bot: false
+  max_increment: 20
+  min_increment: 0
+  max_base: 1800
+  min_base: 0
+  max_days: 14
+  min_days: 1
+  variants:
+    - standard
+  time_controls:
+    - bullet
+    - blitz
+    - rapid
+  modes:
+    - casual
+    - rated
+  bullet_requires_increment: false
+  max_simultaneous_games_per_user: 1
+
+greeting:
+  hello: "Hi! I'm rusty-chess, a from-scratch Rust engine: github.com/jwallace145/rusty-chess-v2. Good luck!"
+  goodbye: "Thanks for the game!"
+  hello_spectators: "Watching rusty-chess, a from-scratch Rust engine: github.com/jwallace145/rusty-chess-v2"
+  goodbye_spectators: "Thanks for watching!"
+
+pgn_directory: "game_records"
+pgn_file_grouping: "game"
+
+matchmaking:
+  allow_matchmaking: false       # set true to have the bot challenge other bots while idle
+  allow_during_games: false
+  challenge_variant: "standard"
+  challenge_timeout: 30
+  challenge_initial_time:
+    - 180
+    - 300
+  challenge_increment:
+    - 2
+    - 3
+  challenge_days:
+    - 1
+  opponent_rating_difference: 300
+  rating_preference: "none"
+  opponent_allow_tos_violation: true
+  challenge_mode: "random"
+  challenge_filter: none
+  delay_after_decline: none
