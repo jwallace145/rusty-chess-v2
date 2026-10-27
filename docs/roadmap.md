@@ -2,7 +2,7 @@
 
 A living checklist. Oct 26, 2026 · @Jimmy, maintained as the engine is built.
 
-**Status:** Phases 0–2 complete. Phase 3's items are all delivered and released in `v0.7.0`, each with an accepted SPRT; its exit gate holds for fail-high-first and not yet for EBF (see the decision in Phase 3).
+**Status:** Phases 0–3 complete and released (`v0.8.0` also carries the rating ladder). Phase 4 (selectivity) in progress; its first intermediate gate is the EBF ≤ 3 carried over from Phase 3.
 
 ## How to use this document
 
@@ -79,7 +79,7 @@ The goal is a single-threaded Rust UCI engine whose classical search is measurab
 - [x] **Exit:** legal games (in-repo self-play test plus UCI games), signature `68269801` at depth 6 identical across builds and runs, `iter` and `summary` records on every search
 - [x] Baseline numbers to beat: search NPS 7–11M, fail-high-first 0.70, EBF 7.00 (bench-wide; an earlier 3.35 was one position's), qsearch share 0.92
 
-### Phase 3: Move ordering and the transposition table — items complete, `v0.7.0`; EBF gate open
+### Phase 3: Move ordering and the transposition table — complete, `v0.7.0`
 
 This is the gate that stopped attempt one. Each item is its own PR with the stats delta visible in the bench comment and an SPRT run.
 
@@ -94,9 +94,11 @@ This is the gate that stopped attempt one. Each item is its own PR with the stat
 - [x] **Exit:** fail-high-first ≥ 0.90 on bench: **0.975** (signature 8,243,750; every picker stage cuts off: TT 97,681 / good captures 502,264 / killers 221,741 / history quiets 8,795 / bad captures 165)
 - [x] **Exit:** each item passed SPRT on its own (TT, picker, killers, history: all H1)
 - [x] **Exit:** the bars set in `perf-targets.toml`: `min_fail_high_first = 0.95`, `max_ebf = 4.5`, enforced on every PR and only ratcheting
-- [ ] **Exit:** EBF ≤ 3 on bench: **4.18** (7.00 at Phase 2, 4.62 with the TT). Ordering is close to exhausted as a lever (history moved EBF by 0.15); the remaining reduction is what PVS, null-move pruning and LMR are for. **Decision needed:** keep this gate blocking Phase 4, or move EBF ≤ 3 into Phase 4 as an intermediate gate on the way to its EBF ≈ 2 exit
+- [x] **Exit:** EBF ≤ 3 on bench: not met by ordering alone (**4.18**; 7.00 at Phase 2, 4.62 with the TT; history moved it by 0.15). **Decided 2026-10-27:** moved into Phase 4 as an intermediate gate, since the remaining reduction is what PVS, null-move pruning and LMR do
 
-### Phase 4: Selectivity
+### Phase 4: Selectivity — in progress
+
+Each item is its own PR with an SPRT run; the first intermediate gate is the EBF ≤ 3 carried over from Phase 3.
 
 - [ ] Principal variation search
 - [ ] Aspiration windows
@@ -106,6 +108,7 @@ This is the gate that stopped attempt one. Each item is its own PR with the stat
 - [ ] Late move pruning
 - [ ] Check extensions, mate-distance pruning
 - [ ] Improved time management
+- [ ] **Intermediate gate:** EBF ≤ 3 on bench (carried over from Phase 3; 4.18 at its close)
 - [ ] Bench depth raised once EBF allows it (the signature changes; say so in the PR)
 - [ ] **Exit:** EBF ≈ 2, each technique gained Elo under SPRT, roughly 2400–2700 CCRL range
 
