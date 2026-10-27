@@ -59,9 +59,12 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
         }
     }
     let config = config.ok_or("`--config` is required")?;
-    let targets =
+    let mut targets =
         Targets::parse(&std::fs::read_to_string(&config).map_err(|e| format!("{config}: {e}"))?)
             .map_err(|e| format!("{config}: {e}"))?;
+    if let Some(n) = max_rounds {
+        targets.sprt.max_rounds = n;
+    }
     match command.as_str() {
         "args" => {
             println!("{}", fastchess_args(&targets.sprt).join(" "));
