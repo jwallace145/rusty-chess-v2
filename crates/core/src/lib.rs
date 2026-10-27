@@ -2,6 +2,10 @@
 //! Zobrist hashing.
 //!
 //! This crate has no dependencies and no heap allocation on any path that
-//! search will call. Phase 1 of the roadmap fills it in; until then it only
-//! establishes the crate boundary.
+//! search will call. Lookup tables are either `const` or built once on first
+//! use.
 #![warn(missing_docs)]
+
+pub mod attacks;
+pub mod bitboard;
+pub mod types;
