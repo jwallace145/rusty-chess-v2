@@ -2,7 +2,7 @@
 //! its log.
 //!
 //! ```text
-//! sprt-report args --config perf-targets.toml
+//! sprt-report args --config perf-targets.toml [--max-rounds N]
 //! sprt-report render --config perf-targets.toml --log sprt.log --head SHA --base LABEL --fastchess VERSION --openings N
 //! ```
 //!
@@ -28,6 +28,7 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     let command = it.next().ok_or("expected `args` or `render`")?;
     let mut config = None;
     let mut log = None;
+    let mut max_rounds = None;
     let mut meta = Meta {
         head_label: "PR".into(),
         base_label: "base".into(),
@@ -39,6 +40,13 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
         match flag.as_str() {
             "--config" => config = Some(value),
             "--log" => log = Some(value),
+            "--max-rounds" => {
+                max_rounds = Some(
+                    value
+                        .parse()
+                        .map_err(|_| format!("`--max-rounds` got `{value}`"))?,
+                )
+            }
             "--head" => meta.head_label = value,
             "--base" => meta.base_label = value,
             "--fastchess" => meta.fastchess = value,

@@ -122,7 +122,7 @@ Every `feat` that touches search or evaluation must gain Elo. Add the `sprt` lab
 - The result is one sticky comment: Elo ± error, LOS, games, W/L/D, LLR, and the verdict. H1 accepted is 🟢; H0 accepted is 🔴 and fails the job; the cap without a verdict is ⚪ and needs more games or a smaller `elo1`.
 - The log and PGN are uploaded as the `sprt` artifact.
 
-Runs take tens of minutes to a few hours of runner time, which is why they are opt-in by label rather than on every push. A quiet dedicated runner can replace `ubuntu-latest` later without changing anything else.
+A full run is 10–35 minutes of runner time (a clear gain resolves in a few hundred games; "no difference" takes the longest), which is why they are opt-in by label rather than on every push. The `sprt-quick` label plays at most 50 pairs: a two-minute smoke test of the pipeline that never reaches a verdict. A quiet dedicated runner can replace `ubuntu-latest` later without changing anything else.
 
 ## Releases
 
