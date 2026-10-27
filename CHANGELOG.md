@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.7.0...v0.8.0) (2026-10-27)
+
+
+### Features
+
+* **ci:** estimate strength against a stockfish elo ladder on every release ([#41](https://github.com/jwallace145/rusty-chess-v2/issues/41)) ([aa2a9c6](https://github.com/jwallace145/rusty-chess-v2/commit/aa2a9c6604b4601e0f4b868b97354a5b0308fd91))
+
+
+### Documentation
+
+* close out the phase 3 checklist and set the efficiency bars ([#38](https://github.com/jwallace145/rusty-chess-v2/issues/38)) ([ece6f04](https://github.com/jwallace145/rusty-chess-v2/commit/ece6f040d98afba1aad6815983991fc562dd38f8))
+
 ## [0.7.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.6.0...v0.7.0) (2026-10-27)
 
 
