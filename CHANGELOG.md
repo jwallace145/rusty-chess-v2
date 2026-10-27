@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.2.0...v0.3.0) (2026-10-27)
+
+
+### Features
+
+* **ci:** explain each bench comment row in a collapsed section and note perft in release notes ([#16](https://github.com/jwallace145/rusty-chess-v2/issues/16)) ([1d391d5](https://github.com/jwallace145/rusty-chess-v2/commit/1d391d500f6c0d04d1b223d0858e517b2b7d2bc5))
+* **search:** add alpha-beta search with quiescence, uci go and a real bench ([#19](https://github.com/jwallace145/rusty-chess-v2/issues/19)) ([1e051b4](https://github.com/jwallace145/rusty-chess-v2/commit/1e051b48c7fdd8671ff63eb3c6c6264db116b8bc))
+* **search:** add tapered pesto evaluation and the incrementally updated search board ([#18](https://github.com/jwallace145/rusty-chess-v2/issues/18)) ([47ec8f4](https://github.com/jwallace145/rusty-chess-v2/commit/47ec8f4d01b241e92bc3f472ce446ff07ab3e772))
+
+
+### Documentation
+
+* add the v1 post-mortem and turn its three recurring search bugs into agent rules ([#20](https://github.com/jwallace145/rusty-chess-v2/issues/20)) ([e36ca65](https://github.com/jwallace145/rusty-chess-v2/commit/e36ca650f898e5bdf2d3a46d91ca5cc8859cda23))
+
 ## [0.2.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.1.0...v0.2.0) (2026-10-27)
 
 
