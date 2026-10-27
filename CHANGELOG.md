@@ -12,6 +12,12 @@
 
 * close out the phase 3 checklist and set the efficiency bars ([#38](https://github.com/jwallace145/rusty-chess-v2/issues/38)) ([ece6f04](https://github.com/jwallace145/rusty-chess-v2/commit/ece6f040d98afba1aad6815983991fc562dd38f8))
 
+### Benchmarks
+
+* bench signature 8,243,750, instructions per node 1199, search 7.37M NPS, perft 199.85M NPS (pass (63)), fail-high first 97.5%, EBF 4.18, TT hit 34.8%
+* since v0.7.0: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.0%, search NPS −6.7%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.7.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.6.0...v0.7.0) (2026-10-27)
 
 
