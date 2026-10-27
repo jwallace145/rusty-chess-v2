@@ -44,6 +44,7 @@ jobs:
         run: |
           target/release/rusty-chess bench --out bench.jsonl | tee bench.log
           target/stats/release/rusty-chess bench --out stats.jsonl > stats.log
+          target/release/rusty-chess perft --suite tests/perft.epd --out perft.jsonl | tee perft.log
           nodes=$(sed -n 's/^Nodes searched  : //p' bench.log)
           nps=$(sed -n 's/^Nodes\/second    : //p' bench.log)
           stats_nodes=$(sed -n 's/^Nodes searched  : //p' stats.log)
@@ -160,6 +161,8 @@ jobs:
             stats.jsonl
             bench.log
             stats.log
+            perft.jsonl
+            perft.log
             gate.md
             comment.md
           if-no-files-found: error

@@ -8,8 +8,9 @@
 # raise it as the engine improves.
 
 [movegen]
-# Bulk-counting perft over tests/perft.epd. Roadmap Phase 1 gate: 100M NPS locally.
-min_perft_nps = { local = 0, ci = 0 }
+# Bulk-counting perft over tests/perft.epd. Roadmap Phase 1 gate: 100M NPS locally
+# (an M-series laptop does 250M+); shared ubuntu runners are slower and noisy.
+min_perft_nps = { local = 100_000_000, ci = 40_000_000 }
 
 [search]
 # `rusty-chess bench`. Roadmap Phase 2 target: 2M NPS with PeSTO eval.

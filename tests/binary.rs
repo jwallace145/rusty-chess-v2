@@ -113,8 +113,63 @@ fn bench_prints_the_signature_and_writes_jsonl() {
 }
 
 #[test]
-fn perft_is_not_implemented_yet() {
+fn perft_divides_a_position() {
     let out = bin().args(["perft", "--depth", "3"]).output().unwrap();
+    assert!(out.status.success());
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("e2e4: 600"), "{text}");
+    assert!(text.contains("Nodes searched  : 8902"), "{text}");
+    let out = bin()
+        .args(["perft", "--fen", "not a fen"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+}
+
+#[test]
+fn perft_runs_the_suite_and_writes_jsonl() {
+    let dir = std::env::temp_dir().join(format!("rusty-chess-perft-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let out_path = dir.join("perft.jsonl");
+    let suite = dir.join("suite.epd");
+    std::fs::write(&suite, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ;D1 20 ;D2 400 ;D3 8902\n8/8/8/8/8/K7/P7/k7 w - - 0 1 ;D1 3 ;D2 7\n").unwrap();
+    let out = bin()
+        .args(["perft", "--suite"])
+        .arg(&suite)
+        .args(["--max-depth", "2", "--out"])
+        .arg(&out_path)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains("Positions       : 2")
+            && text.contains("Checks          : 4 passed, 0 failed"),
+        "{text}"
+    );
+    let records = rusty_chess_search::telemetry::read_records(std::io::BufReader::new(
+        std::fs::File::open(&out_path).unwrap(),
+    ))
+    .unwrap();
+    match &records[0] {
+        rusty_chess_search::telemetry::Record::Perft(p) => {
+            assert_eq!((p.positions, p.max_depth, p.failures), (2, 2, 0));
+            assert_eq!(p.nodes, 20 + 400 + 3 + 7);
+        }
+        other => panic!("{other:?}"),
+    }
+    // A wrong count is a failure with exit code 3.
+    std::fs::write(&suite, "8/8/8/8/8/K7/P7/k7 w - - 0 1 ;D1 4\n").unwrap();
+    let out = bin()
+        .args(["perft", "--suite"])
+        .arg(&suite)
+        .output()
+        .unwrap();
     assert_eq!(out.status.code(), Some(3));
-    assert!(String::from_utf8_lossy(&out.stderr).contains("Phase 1"));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("expected 4, got 3"));
+    std::fs::remove_dir_all(&dir).unwrap();
 }
