@@ -137,6 +137,9 @@ pub struct Limits {
     pub movestogo: Option<u32>,
     /// Search until told to stop, ignoring the clock.
     pub infinite: bool,
+    /// Time kept back per move for communication latency (the UCI `Move
+    /// Overhead` option); 10 ms when unset.
+    pub overhead: Option<Duration>,
 }
 
 /// What a search found.
@@ -766,13 +769,13 @@ impl Searcher {
 
 /// Soft and hard time budgets: the search does not start a new iteration
 /// after the soft budget and aborts at the hard one.
-fn time_plan(limits: &Limits) -> (Option<Duration>, Option<Duration>) {
-    const OVERHEAD: Duration = Duration::from_millis(10);
+pub fn time_plan(limits: &Limits) -> (Option<Duration>, Option<Duration>) {
+    let overhead = limits.overhead.unwrap_or(Duration::from_millis(10));
     if limits.infinite {
         return (None, None);
     }
     if let Some(mt) = limits.movetime {
-        let t = mt.saturating_sub(OVERHEAD).max(Duration::from_millis(1));
+        let t = mt.saturating_sub(overhead).max(Duration::from_millis(1));
         return (Some(t), Some(t));
     }
     if let Some(time) = limits.time {
@@ -781,11 +784,11 @@ fn time_plan(limits: &Limits) -> (Option<Duration>, Option<Duration>) {
         let base = time / moves + inc.mul_f64(0.75);
         let soft = base
             .min(time / 2)
-            .saturating_sub(OVERHEAD)
+            .saturating_sub(overhead)
             .max(Duration::from_millis(1));
         let hard = (base * 3)
             .min(time / 2)
-            .saturating_sub(OVERHEAD)
+            .saturating_sub(overhead)
             .max(Duration::from_millis(1));
         return (Some(soft), Some(hard.max(soft)));
     }
