@@ -1,8 +1,8 @@
 //! `speed-report`: hardware-independent speed measurements, as JSON lines.
 //!
 //! ```text
-//! speed-report paired --base BIN --pr BIN [--depth 6] [--rounds 5] [--cpu MODEL] --out speed.jsonl
-//! speed-report instructions --bin BIN [--depth 6] --out instructions.jsonl
+//! speed-report paired --base BIN --pr BIN [--depth 10] [--rounds 5] [--cpu MODEL] --out speed.jsonl
+//! speed-report instructions --bin BIN [--depth 10] --out instructions.jsonl
 //! ```
 
 use std::fs::File;
@@ -27,7 +27,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
     let mut it = args.into_iter();
     let command = it.next().ok_or("expected `paired` or `instructions`")?;
     let (mut base, mut pr, mut bin, mut out, mut cpu) = (None, None, None, None, None);
-    let (mut depth, mut rounds) = (6u32, 5usize);
+    let (mut depth, mut rounds) = (10u32, 5usize);
     while let Some(flag) = it.next() {
         let value = it.next().ok_or_else(|| format!("`{flag}` needs a value"))?;
         match flag.as_str() {

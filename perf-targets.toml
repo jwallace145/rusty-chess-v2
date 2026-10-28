@@ -28,8 +28,10 @@ min_nps = { local = 2_000_000, ci = 1_000_000 }
 # searched at exactly the nodes that most reliably cut off on the first move, so
 # the remaining fail-highs are the harder ones: 0.90 at every margin tried, and
 # lowered once more to 0.88. EBF only falls from here; Phase 4 tightens it toward 2.
+# From the depth-10 bench (2026-10-28; depth 6 before): fail-high-first 0.905,
+# EBF 1.77, so the EBF bar moved to 2.0, the Phase 4 exit figure.
 min_fail_high_first = 0.88
-max_ebf = 2.5
+max_ebf = 2.0
 
 [comment]
 # The PR bench comment shows a delta smaller than these as unchanged (⚪)

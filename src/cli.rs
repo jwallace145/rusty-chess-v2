@@ -12,7 +12,7 @@ With no command, speaks UCI on stdin/stdout.
 
 Commands:
   bench      Search the fixed position set and print the node signature
-               --depth N   depth per position (default 6)
+               --depth N   depth per position (default 10)
                --hash MB   hash size in MB (default 16)
                --out FILE  write JSON lines telemetry to FILE
   perft      Count leaf nodes from a position, split by root move
@@ -56,7 +56,7 @@ pub struct BenchArgs {
 impl Default for BenchArgs {
     fn default() -> Self {
         Self {
-            depth: 6,
+            depth: 10,
             hash_mb: 16,
             out: None,
         }
