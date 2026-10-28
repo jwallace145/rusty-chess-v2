@@ -620,6 +620,25 @@ impl Searcher {
         best
     }
 
+    /// Quiescence search from the current position, for tests: the score
+    /// and the number of quiescence nodes searched. Counters are reset.
+    #[doc(hidden)]
+    pub fn quiescence_from_root(&mut self, board: &mut Board, alpha: i32, beta: i32) -> (i32, u64) {
+        self.started = Instant::now();
+        self.nodes = 0;
+        self.qnodes = 0;
+        self.aborted = false;
+        self.node_limit = None;
+        self.hard_deadline = None;
+        let score = self.quiescence(board, alpha, beta, 0);
+        (score, self.qnodes)
+    }
+
+    /// Captures-only search until the position is quiet, except that a side
+    /// in check may not stand pat: it must answer the check, so every legal
+    /// move is searched, and no legal move is mate. At the last ply a
+    /// checked side that has a move is scored statically, an approximation
+    /// documented in the roadmap; a mated one is still mate.
     fn quiescence(&mut self, board: &mut Board, mut alpha: i32, beta: i32, ply: usize) -> i32 {
         self.qnodes += 1;
         stat!(self.stats, qnodes);
@@ -627,22 +646,36 @@ impl Searcher {
         if self.should_abort() {
             return 0;
         }
-        let stand_pat = board.evaluate();
-        if stand_pat >= beta || ply >= MAX_PLY - 1 {
-            return stand_pat;
-        }
-        if stand_pat > alpha {
-            alpha = stand_pat;
-        }
-
-        let mut captures = MoveList::new();
-        generate_captures(board.position(), &mut captures);
+        let in_check = board.position().in_check();
+        let mut moves = MoveList::new();
+        let mut best = if in_check {
+            // No stand pat: the check must be answered. Every legal move is
+            // an evasion (quiet king moves and blocks included), and none
+            // at all is mate.
+            board.position().legal_moves(&mut moves);
+            if moves.is_empty() {
+                return -(MATE - ply as i32);
+            }
+            if ply >= MAX_PLY - 1 {
+                return board.evaluate();
+            }
+            -INFINITY
+        } else {
+            let stand_pat = board.evaluate();
+            if stand_pat >= beta || ply >= MAX_PLY - 1 {
+                return stand_pat;
+            }
+            if stand_pat > alpha {
+                alpha = stand_pat;
+            }
+            generate_captures(board.position(), &mut moves);
+            stand_pat
+        };
         let mut scores = [0i32; rusty_chess_core::movegen::MAX_MOVES];
-        score_moves(board, &captures, &mut scores);
+        score_moves(board, &moves, &mut scores);
 
-        let mut best = stand_pat;
-        for index in 0..captures.len() {
-            let m = pick_next(&mut captures, &mut scores, index);
+        for index in 0..moves.len() {
+            let m = pick_next(&mut moves, &mut scores, index);
             let undo = board.make_move(m);
             let score = -self.quiescence(board, -beta, -alpha, ply + 1);
             board.unmake_move(m, undo);
