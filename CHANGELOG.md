@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.16.0...v0.17.0) (2026-10-28)
+
+
+### Features
+
+* **uci:** add a move overhead option and keep it back from every time budget ([#71](https://github.com/jwallace145/rusty-chess-v2/issues/71)) ([bc5939f](https://github.com/jwallace145/rusty-chess-v2/commit/bc5939f25adf0400d2b2244474f3e2a1abf5f828))
+
+### Benchmarks
+
+* bench signature 2,077,084, instructions per node 2233, search 5.69M NPS, perft 374.28M NPS (pass (63)), fail-high first 90.5%, EBF 1.82, TT hit 50.1%
+* since v0.16.0: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.0%, search NPS +35.6%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.16.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.15.0...v0.16.0) (2026-10-28)
 
 
