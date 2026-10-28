@@ -7,6 +7,12 @@
 
 * **search:** add reverse futility pruning at shallow null-window nodes ([#53](https://github.com/jwallace145/rusty-chess-v2/issues/53)) ([f982be1](https://github.com/jwallace145/rusty-chess-v2/commit/f982be1800205954e40f75b84535826f14e9b205))
 
+### Benchmarks
+
+* bench signature 601,010, instructions per node 1305, search 6.46M NPS, perft 262.19M NPS (pass (63)), fail-high first 89.8%, EBF 2.17, TT hit 28.7%
+* since v0.11.0: fail-high first -3.3 pt, EBF -0.01, instructions per node −0.0%, search NPS +1.1%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.11.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.10.0...v0.11.0) (2026-10-27)
 
 
