@@ -348,6 +348,38 @@ fn reverse_futility_pruning_prunes_but_keeps_mates_and_mate_threats() {
 }
 
 #[test]
+fn late_move_pruning_skips_quiets_but_keeps_mates_and_defences() {
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a8", 1),
+        // Mate in three whose key move is a quiet rook move (Ra6), late in
+        // the ordering, through the pruned depths.
+        ("r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - 0 1", "f6a6", 3),
+    ] {
+        let r = search(fen, depth(8));
+        assert_eq!(
+            (r.best.to_string(), mate_in(r.score)),
+            (best.into(), Some(mate)),
+            "{fen}"
+        );
+    }
+    // The only defence to a mate threat may be a late quiet move.
+    let r = search("4r1k1/Q4ppp/8/8/8/8/5PPP/6K1 w - - 0 1", depth(6));
+    assert!(r.score > 300 && mate_in(r.score).is_none(), "{}", r.score);
+    // A busy middlegame skips late quiet moves.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(6), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.lmp_skips > 0, "no late move pruning skips");
+    }
+}
+
+#[test]
 fn null_move_pruning_does_not_lose_a_known_zugzwang() {
     // White to move; every move loses the rook except Rf1 (Rh1 by the rook's path); the king
     // on h1 is stalemated apart from pawn moves. With naive null-move pruning white would
