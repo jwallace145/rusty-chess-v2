@@ -30,6 +30,7 @@ fn stats(fh_first: f64) -> StatsSummary {
         qtt_cutoffs: 0,
         lmp_checks_kept: 0,
         aspiration_researches: 0,
+        iterations_skipped: 0,
     }
 }
 

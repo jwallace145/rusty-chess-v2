@@ -48,6 +48,12 @@ const CHECK_EVERY: u64 = 2048;
 /// previous score is not yet a useful guess.
 const ASPIRATION_MIN_DEPTH: u32 = 4;
 
+/// How much longer the next iteration is expected to take than the last,
+/// before two iterations have been timed, and the range a measured ratio is
+/// trusted within.
+const ITERATION_GROWTH_DEFAULT: f64 = 3.0;
+const ITERATION_GROWTH_RANGE: (f64, f64) = (1.5, 5.0);
+
 /// Null-move pruning needs at least this much depth to be worth a try.
 const NULL_MOVE_MIN_DEPTH: u32 = 3;
 
@@ -281,6 +287,10 @@ impl Searcher {
         let mut pv = best.to_string();
         let mut iterations = Vec::new();
         let mut prev_total = 0u64;
+        // How long the last two iterations took, to predict the next.
+        let mut prev_elapsed = Duration::ZERO;
+        let mut last_iter = Duration::ZERO;
+        let mut prev_iter;
 
         for depth in 1..=max_depth {
             let score = self.aspirate(board, depth, best_score);
@@ -310,8 +320,27 @@ impl Searcher {
             on_iter(&record);
             iterations.push(record);
 
+            prev_iter = last_iter;
+            last_iter = elapsed.saturating_sub(prev_elapsed);
+            prev_elapsed = elapsed;
             if soft.is_some_and(|s| elapsed >= s) || self.stop.load(Ordering::Relaxed) {
                 break;
+            }
+            // An iteration that cannot finish before the hard limit is pure
+            // waste, since an aborted iteration is discarded: do not start
+            // it. The next is expected to take the last one's time times the
+            // measured growth between the last two.
+            if let Some(hard) = hard {
+                let growth = if prev_iter > Duration::ZERO {
+                    (last_iter.as_secs_f64() / prev_iter.as_secs_f64())
+                        .clamp(ITERATION_GROWTH_RANGE.0, ITERATION_GROWTH_RANGE.1)
+                } else {
+                    ITERATION_GROWTH_DEFAULT
+                };
+                if elapsed + last_iter.mul_f64(growth) > hard {
+                    stat!(self.stats, iterations_skipped);
+                    break;
+                }
             }
             if self.node_limit.is_some_and(|n| total >= n) {
                 break;

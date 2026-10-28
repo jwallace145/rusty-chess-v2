@@ -43,6 +43,7 @@ fn measured(signature: u64, nps: u64, fh: f64, ebf: f64) -> Measured {
                 qtt_cutoffs: 0,
                 lmp_checks_kept: 0,
                 aspiration_researches: 0,
+                iterations_skipped: 0,
             }),
         }),
         Record::Perft(PerftRecord {

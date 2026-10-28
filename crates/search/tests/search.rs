@@ -609,6 +609,33 @@ fn the_move_overhead_comes_off_every_budget() {
 }
 
 #[test]
+fn a_clock_search_does_not_start_an_iteration_it_cannot_finish() {
+    // 3 s on the clock: 90 ms soft, 290 ms hard. Iterations grow about 1.8x
+    // here, so one started near the soft budget would often run into the
+    // hard limit and be discarded; the prediction stops before it, so the
+    // search ends well short of the hard limit and plays a completed depth.
+    let started = Instant::now();
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    let r = s.search(
+        &mut b,
+        &Limits {
+            time: Some(Duration::from_millis(3_000)),
+            ..Limits::default()
+        },
+        &mut |_| {},
+    );
+    let elapsed = started.elapsed();
+    assert!(elapsed < Duration::from_millis(290), "{elapsed:?}");
+    assert_eq!(
+        r.depth as usize,
+        r.iterations.len(),
+        "the last iteration completed"
+    );
+    assert!(r.depth >= 4 && r.best.to_string() != "0000");
+}
+
+#[test]
 fn null_move_pruning_does_not_lose_a_known_zugzwang() {
     // White to move; every move loses the rook except Rf1 (Rh1 by the rook's path); the king
     // on h1 is stalemated apart from pawn moves. With naive null-move pruning white would

@@ -136,6 +136,9 @@ pub struct SearchStats {
     pub lmp_checks_kept: u64,
     /// Aspiration windows that failed and were re-searched wider.
     pub aspiration_researches: u64,
+    /// Iterations not started because they were predicted to overrun the
+    /// hard time limit.
+    pub iterations_skipped: u64,
 }
 
 #[cfg(feature = "stats")]
@@ -164,6 +167,7 @@ impl Default for SearchStats {
             qtt_cutoffs: 0,
             lmp_checks_kept: 0,
             aspiration_researches: 0,
+            iterations_skipped: 0,
         }
     }
 }
@@ -207,6 +211,7 @@ impl SearchStats {
             qtt_cutoffs: self.qtt_cutoffs,
             lmp_checks_kept: self.lmp_checks_kept,
             aspiration_researches: self.aspiration_researches,
+            iterations_skipped: self.iterations_skipped,
         })
     }
 }
@@ -293,6 +298,9 @@ pub struct StatsSummary {
     /// Aspiration windows re-searched wider. Absent in records written before it existed.
     #[serde(default)]
     pub aspiration_researches: u64,
+    /// Iterations not started for a predicted overrun. Absent in records written before it existed.
+    #[serde(default)]
+    pub iterations_skipped: u64,
 }
 
 /// Effective branching factor between two consecutive iterations of
