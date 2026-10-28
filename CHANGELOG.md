@@ -7,6 +7,12 @@
 
 * **search:** add late move pruning of quiet moves at shallow null-window nodes ([#55](https://github.com/jwallace145/rusty-chess-v2/issues/55)) ([678a3ac](https://github.com/jwallace145/rusty-chess-v2/commit/678a3ac98178c4ec046437a70ccabad9df7d9c2a))
 
+### Benchmarks
+
+* bench signature 387,631, instructions per node 1592, search 4.79M NPS, perft 256.73M NPS (pass (63)), fail-high first 89.2%, EBF 1.91, TT hit 35.8%
+* since v0.12.0: fail-high first -0.6 pt, EBF -0.26, instructions per node +22.0%, search NPS −25.9%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.12.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.11.0...v0.12.0) (2026-10-28)
 
 
