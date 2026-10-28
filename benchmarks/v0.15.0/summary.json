@@ -1,0 +1,27 @@
+{
+  "bench": {
+    "depth": 10,
+    "hash_mb": 16,
+    "nps": 3703323,
+    "positions": 50,
+    "signature": 2566403
+  },
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "date": "2026-10-28",
+  "efficiency": {
+    "ebf": 2.0224810038000283,
+    "fail_high_first": 0.8992282469734716,
+    "tt_hit": 0.27942322195068015
+  },
+  "instructions_per_node": 2163.923489802654,
+  "perft": {
+    "failures": 0,
+    "max_depth": 7,
+    "nps": 202645050,
+    "positions": 63
+  },
+  "runner": "ubuntu-latest",
+  "target_cpu": "x86-64-v3",
+  "v": 1,
+  "version": "v0.15.0"
+}

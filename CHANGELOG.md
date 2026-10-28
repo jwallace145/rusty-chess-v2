@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.15.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.14.0...v0.15.0) (2026-10-28)
+
+
+### Features
+
+* **search:** fix quiescence in check and skip losing captures by static exchange ([#63](https://github.com/jwallace145/rusty-chess-v2/issues/63)) ([a22c879](https://github.com/jwallace145/rusty-chess-v2/commit/a22c87996dcaaed56e516bdd86a91825b0d34f5b))
+
+
+### Documentation
+
+* tick the mate-distance and checking-move pruning item with its sprt result ([#64](https://github.com/jwallace145/rusty-chess-v2/issues/64)) ([7372037](https://github.com/jwallace145/rusty-chess-v2/commit/7372037d70c742b1b8872e4a94dac6d5d0bd3a40))
+
+### Benchmarks
+
+* bench signature 2,566,403, instructions per node 2164, search 3.70M NPS, perft 202.65M NPS (pass (63)), fail-high first 89.9%, EBF 2.02, TT hit 27.9%
+* since v0.14.0: fail-high first -0.4 pt, EBF +0.23, instructions per node +39.6%, search NPS −58.0%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.14.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.13.0...v0.14.0) (2026-10-28)
 
 
