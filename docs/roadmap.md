@@ -109,7 +109,7 @@ Each item is its own PR with an SPRT run; the first intermediate gate is the EBF
 - [ ] Check extensions, mate-distance pruning
 - [ ] Improved time management
 - [x] **Intermediate gate:** EBF ≤ 3 on bench (carried over from Phase 3; 4.18 at its close): 2.86 with null-move pruning, 2.17 with late move reductions
-- [ ] Bench depth raised once EBF allows it (the signature changes; say so in the PR)
+- [x] Bench depth raised once EBF allows it (the signature changes; say so in the PR): 6 → 10 after late move pruning left the depth-6 bench under 100 ms; signature 387631 → 3629136, EBF 1.91 → 1.77, fail-high-first 0.89 → 0.905 at the new depth, EBF bar tightened 2.5 → 2.0 (#TBD)
 - [ ] **Exit:** EBF ≈ 2, each technique gained Elo under SPRT, roughly 2400–2700 CCRL range
 
 ### Phase 5: First release

@@ -30,7 +30,7 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 cargo build --release
 ./target/release/rusty-chess                 # UCI: position, go depth|movetime|wtime.., stop, quit
 ./target/release/rusty-chess bench           # signature and NPS over 50 fixed positions
-./target/release/rusty-chess bench --depth 6 --hash 16 --out bench.jsonl
+./target/release/rusty-chess bench --depth 10 --hash 16 --out bench.jsonl
 ./target/release/rusty-chess perft --depth 5 --fen "<fen>"   # split by root move
 ./target/release/rusty-chess perft --suite tests/perft.epd --out perft.jsonl
 ```
