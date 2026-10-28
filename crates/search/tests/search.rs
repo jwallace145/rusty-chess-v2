@@ -487,6 +487,47 @@ fn quiescence_out_of_check_is_still_captures_only() {
 }
 
 #[test]
+fn quiescence_skips_captures_that_lose_material_but_never_evasions() {
+    // Bxd4 loses a bishop for a pawn (exd4): not searched, the stand pat
+    // is the answer and the node count says nothing was tried.
+    let fen = "4k3/8/8/4p3/3p4/8/1B6/4K3 w - - 0 1";
+    let (score, qnodes) = qsearch(fen);
+    assert_eq!(score, board(fen).evaluate());
+    assert_eq!(qnodes, 1, "the losing capture was searched");
+    // The same capture of an undefended pawn is searched and wins it.
+    let fen = "4k3/8/8/8/3p4/8/1B6/4K3 w - - 0 1";
+    let (score, qnodes) = qsearch(fen);
+    assert!(score > board(fen).evaluate(), "{score}");
+    assert_eq!(qnodes, 2);
+    // In check, every evasion is searched whatever it costs: the blocks
+    // that lose the queen to mate are still found to be mate.
+    let (score, _) = qsearch("R5k1/3q1ppp/8/8/8/8/8/6K1 b - - 0 1");
+    assert_eq!(mate_in(score), Some(-1));
+    // Mates through the main search stay exact.
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - 0 1", "f6a6", 3),
+    ] {
+        let r = search(fen, depth(8));
+        assert_eq!(
+            (r.best.to_string(), mate_in(r.score)),
+            (best.into(), Some(mate)),
+            "{fen}"
+        );
+    }
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(6), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.qsee_skips > 0, "no losing captures skipped");
+    }
+}
+
+#[test]
 fn quiescence_leaves_the_board_as_it_found_it() {
     for fen in [
         "R5k1/3q1ppp/8/8/8/8/8/6K1 b - - 0 1",

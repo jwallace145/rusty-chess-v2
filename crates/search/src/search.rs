@@ -20,6 +20,7 @@ use crate::board::Board;
 use crate::history::History;
 use crate::killers::Killers;
 use crate::movepick::MovePicker;
+use crate::see::see_ge;
 use crate::stat;
 use crate::stats::{MAX_PLY, SearchStats, effective_branching_factor};
 use crate::telemetry::{IterRecord, SCHEMA_VERSION};
@@ -676,6 +677,13 @@ impl Searcher {
 
         for index in 0..moves.len() {
             let m = pick_next(&mut moves, &mut scores, index);
+            // A capture that loses material by static exchange evaluation
+            // is not going to raise alpha above the stand pat; skip it.
+            // Evasions are never skipped: in check every move is searched.
+            if !in_check && !see_ge(board.position(), m, 0) {
+                stat!(self.stats, qsee_skips);
+                continue;
+            }
             let undo = board.make_move(m);
             let score = -self.quiescence(board, -beta, -alpha, ply + 1);
             board.unmake_move(m, undo);
