@@ -328,15 +328,8 @@ fn reverse_futility_pruning_prunes_but_keeps_mates_and_mate_threats() {
     // A queen up, but Re1 mates next move: the static evaluation says
     // "winning" at every depth, and the threat must still be parried.
     let r = search("4r1k1/Q4ppp/8/8/8/8/5PPP/6K1 w - - 0 1", depth(6));
-    assert!(
-        [
-            "g2g3", "h2h3", "a7e3", "a7e7", "a7a1", "a7b8", "a7f2", "g1f1"
-        ]
-        .contains(&r.best.to_string().as_str()),
-        "white must parry Re1#: {} ({})",
-        r.best,
-        r.pv
-    );
+    // Any parry will do (Qa5 covers e1 too); a mate score against, or a
+    // score that lost the queen, means the threat was missed.
     assert!(r.score > 300 && mate_in(r.score).is_none(), "{}", r.score);
     // A busy middlegame prunes.
     let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
@@ -393,6 +386,22 @@ fn mate_distance_pruning_cuts_lines_longer_than_a_known_mate() {
     );
     if let Some(summary) = s.stats().summary() {
         assert!(summary.mdp_cutoffs > 0, "no mate-distance cutoffs");
+    }
+}
+
+#[test]
+fn check_extensions_find_forcing_mates_a_ply_early_and_keep_checking_moves_unpruned() {
+    // Two rooks against a bare king: 1.Rb7 Kg8 2.Ra8# (or the mirror). The
+    // mating move gives check, so the extension sees the mate at depth 3,
+    // one ply before a plain search; and late move pruning must not skip
+    // the checking rook move, which sits late in an unordered list.
+    let r = search("7k/8/8/8/8/8/R7/1R5K w - - 0 1", depth(3));
+    assert_eq!(mate_in(r.score), Some(2), "{} ({})", r.score, r.pv);
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(6), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.check_extensions > 0, "no check extensions");
     }
 }
 

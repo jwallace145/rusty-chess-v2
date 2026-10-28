@@ -502,12 +502,16 @@ impl Searcher {
         let mut quiets_count = 0usize;
         while let Some(m) = picker.next_with(board.position(), &self.history) {
             let quiet = !m.is_capture() && !m.is_promotion();
+            let undo = board.make_move(m);
+            let gives_check = board.position().in_check();
             // Late move pruning: at a shallow null-window node, once the
             // ordered moves have gone past the index that history and the
             // killers make worthwhile, the remaining quiet moves are skipped
-            // without a search. Never while being mated: a defence may be
+            // without a search. Never a checking move (the forcing line may
+            // be the point), and never while being mated: a defence may be
             // anywhere in the list.
             if quiet
+                && !gives_check
                 && prunable
                 && !pv_node
                 && depth <= LMP_MAX_DEPTH
@@ -515,16 +519,24 @@ impl Searcher {
                 && !is_mate_score(best)
             {
                 stat!(self.stats, lmp_skips);
+                board.unmake_move(m, undo);
                 index += 1;
                 continue;
             }
-            let undo = board.make_move(m);
+            // Check extension: a move that gives check is searched one ply
+            // deeper, so forcing sequences are not cut off at the horizon.
+            let new_depth = if gives_check {
+                stat!(self.stats, check_extensions);
+                depth
+            } else {
+                depth - 1
+            };
             // Principal variation search: the first move gets the full
             // window; every later move a null window that only asks whether
             // it beats alpha, re-searched in full when it does (and might
             // still be below beta).
             let score = if index == 0 {
-                -self.negamax(board, depth - 1, -beta, -alpha, ply + 1, true)
+                -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true)
             } else {
                 // Late move reductions: a quiet move late in the list, at a
                 // node not in check and not giving check, is first searched
@@ -535,7 +547,7 @@ impl Searcher {
                     && index >= LMR_MIN_INDEX
                     && depth >= LMR_MIN_DEPTH
                     && !in_check
-                    && !board.position().in_check()
+                    && !gives_check
                 {
                     lmr_reduction(depth, index)
                 } else {
@@ -545,21 +557,21 @@ impl Searcher {
                     stat!(self.stats, lmr_reductions);
                     -self.negamax(
                         board,
-                        depth - 1 - reduction,
+                        new_depth - reduction,
                         -alpha - 1,
                         -alpha,
                         ply + 1,
                         true,
                     )
                 } else {
-                    -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, true)
+                    -self.negamax(board, new_depth, -alpha - 1, -alpha, ply + 1, true)
                 };
                 if reduction > 0 && probe > alpha && !self.aborted {
                     stat!(self.stats, lmr_researches);
-                    probe = -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, true);
+                    probe = -self.negamax(board, new_depth, -alpha - 1, -alpha, ply + 1, true);
                 }
                 if probe > alpha && probe < beta && !self.aborted {
-                    -self.negamax(board, depth - 1, -beta, -alpha, ply + 1, true)
+                    -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true)
                 } else {
                     probe
                 }
