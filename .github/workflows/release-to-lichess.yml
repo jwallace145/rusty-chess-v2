@@ -1,0 +1,23 @@
+name: Release to Lichess
+
+# Ships every published release to the Lichess bot: builds an image from the
+# release's Linux asset (checksum-verified, never rebuilt), pushes it to ECR
+# under the release tag and rolls the bot to it after the game in progress
+# ends. The infrastructure and the workflow live in jwall-engineering-infra;
+# see its docs/lichess-bot.md. A red check here means the release was not
+# deployed and the bot keeps playing the previous version.
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  release:
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/container-release.yml@v0.11.0
+    with:
+      project: rusty-chess
+    permissions:
+      contents: read
+      id-token: write
