@@ -382,7 +382,7 @@ impl Searcher {
         board: &mut Board,
         depth: u32,
         mut alpha: i32,
-        beta: i32,
+        mut beta: i32,
         ply: usize,
         null_ok: bool,
     ) -> i32 {
@@ -401,6 +401,18 @@ impl Searcher {
         stat!(self.stats, nodes_by_ply[ply]);
         if self.should_abort() {
             return 0;
+        }
+
+        // Mate-distance pruning: no line from here can be better than mating
+        // on the next ply or worse than being mated now, so a window beyond
+        // those bounds is cut to them and an empty window ends the node.
+        if ply > 0 {
+            alpha = alpha.max(-(MATE - ply as i32));
+            beta = beta.min(MATE - ply as i32 - 1);
+            if alpha >= beta {
+                stat!(self.stats, mdp_cutoffs);
+                return alpha;
+            }
         }
 
         let in_check = board.position().in_check();

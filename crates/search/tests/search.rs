@@ -380,6 +380,23 @@ fn late_move_pruning_skips_quiets_but_keeps_mates_and_defences() {
 }
 
 #[test]
+fn mate_distance_pruning_cuts_lines_longer_than_a_known_mate() {
+    // Once a mate in two is on the board, no line can be shorter than it:
+    // deeper nodes have an empty window and end at once. The result is
+    // unchanged.
+    let mut b = board("r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    let r = s.search(&mut b, &depth(6), &mut |_| {});
+    assert_eq!(
+        (r.best.to_string(), mate_in(r.score)),
+        ("d5f6".into(), Some(2))
+    );
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.mdp_cutoffs > 0, "no mate-distance cutoffs");
+    }
+}
+
+#[test]
 fn null_move_pruning_does_not_lose_a_known_zugzwang() {
     // White to move; every move loses the rook except Rf1 (Rh1 by the rook's path); the king
     // on h1 is stalemated apart from pawn moves. With naive null-move pruning white would
