@@ -8,6 +8,12 @@
 * **bench:** raise the default bench depth from 6 to 10 ([#60](https://github.com/jwallace145/rusty-chess-v2/issues/60)) ([e81bac4](https://github.com/jwallace145/rusty-chess-v2/commit/e81bac4e796a97847a70bfd7ecd7ce56e3ac2506))
 * **search:** add mate-distance pruning and keep checking moves out of late move pruning ([#57](https://github.com/jwallace145/rusty-chess-v2/issues/57)) ([4561886](https://github.com/jwallace145/rusty-chess-v2/commit/45618862137dd1d1c687548cea6ed0ea55676e4c))
 
+### Benchmarks
+
+* bench signature 3,775,127, instructions per node 1550, search 8.82M NPS, perft 371.94M NPS (pass (63)), fail-high first 90.3%, EBF 1.79, TT hit 28.6%
+* since v0.13.0: fail-high first +1.2 pt, EBF -0.12, instructions per node −2.6%, search NPS +84.3%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.13.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.12.0...v0.13.0) (2026-10-28)
 
 
