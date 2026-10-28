@@ -390,18 +390,19 @@ fn mate_distance_pruning_cuts_lines_longer_than_a_known_mate() {
 }
 
 #[test]
-fn check_extensions_find_forcing_mates_a_ply_early_and_keep_checking_moves_unpruned() {
-    // Two rooks against a bare king: 1.Rb7 Kg8 2.Ra8# (or the mirror). The
-    // mating move gives check, so the extension sees the mate at depth 3,
-    // one ply before a plain search; and late move pruning must not skip
-    // the checking rook move, which sits late in an unordered list.
-    let r = search("7k/8/8/8/8/8/R7/1R5K w - - 0 1", depth(3));
+fn late_move_pruning_never_skips_a_checking_move() {
+    // King on c6, rook on h1, against a bare king on a8: 1.Kc7 Ka7 2.Ra1#
+    // (or 1.Kb6 Kb8 2.Rh8#). Either mating move is a quiet rook check far
+    // down an unordered list of rook moves, past the late-move-pruning
+    // index at depth 2, so v0.13.0 misses the mate at depth 5 (it reports
+    // +599). Keeping checking moves out of the pruning finds it.
+    let r = search("k7/8/2K5/8/8/8/8/7R w - - 0 1", depth(5));
     assert_eq!(mate_in(r.score), Some(2), "{} ({})", r.score, r.pv);
     let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
     let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
     s.search(&mut b, &depth(6), &mut |_| {});
     if let Some(summary) = s.stats().summary() {
-        assert!(summary.check_extensions > 0, "no check extensions");
+        assert!(summary.lmp_checks_kept > 0, "no checking moves kept");
     }
 }
 

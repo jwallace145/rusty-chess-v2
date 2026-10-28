@@ -502,35 +502,30 @@ impl Searcher {
         let mut quiets_count = 0usize;
         while let Some(m) = picker.next_with(board.position(), &self.history) {
             let quiet = !m.is_capture() && !m.is_promotion();
-            let gives_check = board.position().gives_check(m);
             // Late move pruning: at a shallow null-window node, once the
             // ordered moves have gone past the index that history and the
             // killers make worthwhile, the remaining quiet moves are skipped
-            // without a search. Never a checking move (the forcing line may
-            // be the point), and never while being mated: a defence may be
-            // anywhere in the list.
+            // without a search. Never while being mated (a defence may be
+            // anywhere in the list), and never a checking move: the forcing
+            // line may be the point. The check test is last so it runs only
+            // for a move about to be skipped.
             if quiet
-                && !gives_check
                 && prunable
                 && !pv_node
                 && depth <= LMP_MAX_DEPTH
                 && index >= lmp_threshold(depth)
                 && !is_mate_score(best)
             {
-                stat!(self.stats, lmp_skips);
-                index += 1;
-                continue;
+                if board.position().gives_check(m) {
+                    stat!(self.stats, lmp_checks_kept);
+                } else {
+                    stat!(self.stats, lmp_skips);
+                    index += 1;
+                    continue;
+                }
             }
             let undo = board.make_move(m);
-            debug_assert_eq!(gives_check, board.position().in_check());
-            // Check extension: a move that gives check is searched one ply
-            // deeper, so forcing sequences are not cut off at the horizon.
-            let new_depth = if gives_check {
-                stat!(self.stats, check_extensions);
-                depth
-            } else {
-                depth - 1
-            };
+            let new_depth = depth - 1;
             // Principal variation search: the first move gets the full
             // window; every later move a null window that only asks whether
             // it beats alpha, re-searched in full when it does (and might
@@ -547,7 +542,7 @@ impl Searcher {
                     && index >= LMR_MIN_INDEX
                     && depth >= LMR_MIN_DEPTH
                     && !in_check
-                    && !gives_check
+                    && !board.position().in_check()
                 {
                     lmr_reduction(depth, index)
                 } else {
