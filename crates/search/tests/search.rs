@@ -307,6 +307,46 @@ fn null_move_pruning_cuts_nodes_but_never_in_check_or_pawn_endings() {
 }
 
 #[test]
+fn reverse_futility_pruning_prunes_but_keeps_mates_and_mate_threats() {
+    // Mates stay exact through the pruned depths.
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a8", 1),
+    ] {
+        let r = search(fen, depth(6));
+        assert_eq!(
+            (r.best.to_string(), mate_in(r.score)),
+            (best.into(), Some(mate)),
+            "{fen}"
+        );
+    }
+    // A queen up, but Re1 mates next move: the static evaluation says
+    // "winning" at every depth, and the threat must still be parried.
+    let r = search("4r1k1/Q4ppp/8/8/8/8/5PPP/6K1 w - - 0 1", depth(6));
+    assert!(
+        [
+            "g2g3", "h2h3", "a7e3", "a7e7", "a7a1", "a7b8", "a7f2", "g1f1"
+        ]
+        .contains(&r.best.to_string().as_str()),
+        "white must parry Re1#: {} ({})",
+        r.best,
+        r.pv
+    );
+    assert!(r.score > 500 && mate_in(r.score).is_none(), "{}", r.score);
+    // A busy middlegame prunes.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(6), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.rfp_cutoffs > 0, "no reverse futility cutoffs");
+    }
+}
+
+#[test]
 fn null_move_pruning_does_not_lose_a_known_zugzwang() {
     // White to move; every move loses the rook except Rf1 (Rh1 by the rook's path); the king
     // on h1 is stalemated apart from pawn moves. With naive null-move pruning white would

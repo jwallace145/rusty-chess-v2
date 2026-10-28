@@ -100,15 +100,15 @@ This is the gate that stopped attempt one. Each item is its own PR with the stat
 
 Each item is its own PR with an SPRT run; the first intermediate gate is the EBF ≤ 3 carried over from Phase 3.
 
-- [ ] Principal variation search
-- [ ] Aspiration windows
-- [ ] Null-move pruning
-- [ ] Late move reductions (log-based table)
-- [ ] Reverse futility pruning
+- [x] Principal variation search: the first move gets the full window, every later move a null window re-searched in full when it beats alpha. SPRT inconclusive at the 1000-round cap, +11.6 ± 11.4 Elo, LOS 97.7% in 2000 games (merged on LOS); EBF 4.18 → 3.86, signature 8243750 → 7143901 (#44, v0.9.0)
+- [x] Aspiration windows: ±35 cp around the previous score from depth 4, widened on failure (`aspiration_researches` counter). SPRT inconclusive at the cap, +13.2 ± 10.8 Elo, LOS 99.2% in 2000 games (merged on LOS); signature 7143901 → 7082718 (#46, v0.10.0)
+- [x] Null-move pruning: R = 2 + depth/4 from depth 3, non-pawn-material guard, never twice in a row, mate scores from a null search clamped to beta. SPRT +130.8 ± 36.4 Elo, LOS 100% in 278 games; EBF 3.90 → 2.86 (the ≤ 3 gate), signature 7082718 → 2932004 (#47, v0.11.0)
+- [x] Late move reductions: log table 0.75 + ln(depth)·ln(index)/2.25 for quiet moves from index 2 at depth ≥ 3, not in or giving check, re-searched at full depth when the reduced search beats alpha. SPRT +204.2 ± 46.8 Elo, LOS 100% in 212 games; EBF 2.86 → 2.17, fail-high-first 0.975 → 0.93 (bar lowered to 0.92 with a declared exception), signature 2932004 → 716057 (#48, v0.11.0)
+- [ ] Reverse futility pruning: at null-window nodes up to depth 6, not in check, return the static evaluation when it beats beta by 80 cp per ply of depth left (`rfp_cutoffs` counter). Signature 716057 → 601010, fail-high-first 0.93 → 0.90 (bar lowered to 0.88, EBF bar tightened to 2.5); SPRT pending (#TBD)
 - [ ] Late move pruning
 - [ ] Check extensions, mate-distance pruning
 - [ ] Improved time management
-- [ ] **Intermediate gate:** EBF ≤ 3 on bench (carried over from Phase 3; 4.18 at its close)
+- [x] **Intermediate gate:** EBF ≤ 3 on bench (carried over from Phase 3; 4.18 at its close): 2.86 with null-move pruning, 2.17 with late move reductions
 - [ ] Bench depth raised once EBF allows it (the signature changes; say so in the PR)
 - [ ] **Exit:** EBF ≈ 2, each technique gained Elo under SPRT, roughly 2400–2700 CCRL range
 

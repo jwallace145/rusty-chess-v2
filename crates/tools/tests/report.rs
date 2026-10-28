@@ -18,6 +18,7 @@ fn stats(fh_first: f64) -> StatsSummary {
         fail_highs: 1,
         fh_first,
         cutoffs_by_stage: [0; 5],
+        rfp_cutoffs: 0,
         null_move_cutoffs: 0,
         lmr_reductions: 0,
         lmr_researches: 0,

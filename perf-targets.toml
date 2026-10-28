@@ -24,9 +24,12 @@ min_nps = { local = 2_000_000, ci = 1_000_000 }
 # Set at the end of Phase 3 (fail-high-first 0.975, EBF 4.18) with a small margin.
 # Late move reductions (Phase 4) shifted fail-high-first to 0.93: reduced searches
 # change which move index produces a cutoff, so the bar was lowered once with a
-# declared exception below. EBF only falls from here; Phase 4 tightens it toward 2.
-min_fail_high_first = 0.92
-max_ebf = 3.0
+# declared exception below. Reverse futility pruning returns before any move is
+# searched at exactly the nodes that most reliably cut off on the first move, so
+# the remaining fail-highs are the harder ones: 0.90 at every margin tried, and
+# lowered once more to 0.88. EBF only falls from here; Phase 4 tightens it toward 2.
+min_fail_high_first = 0.88
+max_ebf = 2.5
 
 [comment]
 # The PR bench comment shows a delta smaller than these as unchanged (⚪)
@@ -68,4 +71,5 @@ openings = "tests/openings/openings.epd"
 # above its old value, so the ratchet protects it again.
 exceptions = [
   "efficiency.min_fail_high_first: late move reductions (2026-10-27) change which move index cuts off; lowered 0.95 -> 0.92 while EBF tightened 4.5 -> 3.0",
+  "efficiency.min_fail_high_first: reverse futility pruning (2026-10-27) removes the nodes that cut off on the first move before any move is searched; lowered 0.92 -> 0.88 while EBF tightened 3.0 -> 2.5",
 ]

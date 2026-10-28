@@ -52,6 +52,7 @@ fn bench(nps: u64, fh_first: Option<f64>) -> Record {
             fail_highs: 1000,
             fh_first: fh,
             cutoffs_by_stage: [900, 50, 30, 15, 5],
+            rfp_cutoffs: 0,
             null_move_cutoffs: 0,
             lmr_reductions: 0,
             lmr_researches: 0,

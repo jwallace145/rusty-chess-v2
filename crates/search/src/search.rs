@@ -53,6 +53,12 @@ const NULL_MOVE_MIN_DEPTH: u32 = 3;
 /// Base depth reduction of the null-move search; `depth / 4` is added.
 const NULL_MOVE_REDUCTION: u32 = 2;
 
+/// Reverse futility pruning applies up to this depth.
+const RFP_MAX_DEPTH: u32 = 6;
+
+/// Reverse futility margin per ply of remaining depth, in centipawns.
+const RFP_MARGIN: i32 = 80;
+
 /// Late moves are reduced from this move index on (the first ones get full depth).
 const LMR_MIN_INDEX: usize = 2;
 
@@ -410,19 +416,37 @@ impl Searcher {
             }
         }
 
+        // The pruning below reasons from the static evaluation; in check it
+        // is meaningless, and a mate score in the window must be searched.
+        let pv_node = beta - alpha > 1;
+        let prunable = ply > 0 && !in_check && !is_mate_score(beta);
+        let static_eval = if prunable { board.evaluate() } else { 0 };
+
+        // Reverse futility pruning: at shallow depth, when the static
+        // evaluation beats beta by a margin that grows with the depth left,
+        // the remaining search is very unlikely to bring the score back
+        // under beta. Only at null-window nodes, so the principal variation
+        // is always searched out.
+        if prunable
+            && !pv_node
+            && depth <= RFP_MAX_DEPTH
+            && static_eval - RFP_MARGIN * depth as i32 >= beta
+        {
+            stat!(self.stats, rfp_cutoffs);
+            return static_eval;
+        }
+
         // Null-move pruning: if passing the turn still fails high at a
         // reduced depth, this node almost certainly does too. Not in check,
         // not twice in a row, not without a piece to move (zugzwang), and
         // only when the static evaluation already clears beta.
         if null_ok
-            && ply > 0
+            && prunable
             && depth >= NULL_MOVE_MIN_DEPTH
-            && !in_check
-            && !is_mate_score(beta)
             && board
                 .position()
                 .has_non_pawn_material(board.position().side_to_move())
-            && board.evaluate() >= beta
+            && static_eval >= beta
         {
             let reduction = NULL_MOVE_REDUCTION + depth / 4;
             let undo = board.make_null_move();
