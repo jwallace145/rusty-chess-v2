@@ -7,6 +7,12 @@
 
 * **search:** probe and store the transposition table in quiescence ([#66](https://github.com/jwallace145/rusty-chess-v2/issues/66)) ([4c5c5b1](https://github.com/jwallace145/rusty-chess-v2/commit/4c5c5b13842120ff959b7d24ef99fead1f4e7f6a))
 
+### Benchmarks
+
+* bench signature 2,077,084, instructions per node 2233, search 4.20M NPS, perft 360.44M NPS (pass (63)), fail-high first 90.5%, EBF 1.82, TT hit 50.1%
+* since v0.15.0: fail-high first +0.6 pt, EBF -0.20, instructions per node +3.2%, search NPS +13.3%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.15.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.14.0...v0.15.0) (2026-10-28)
 
 
