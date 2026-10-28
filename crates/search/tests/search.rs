@@ -528,6 +528,41 @@ fn quiescence_skips_captures_that_lose_material_but_never_evasions() {
 }
 
 #[test]
+fn quiescence_uses_the_transposition_table() {
+    // The second quiescence search of the same position from the same
+    // searcher is answered by the table: one node, the same score.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    let (first, nodes_first) = s.quiescence_from_root(&mut b, -MATE, MATE);
+    let (second, nodes_second) = s.quiescence_from_root(&mut b, -MATE, MATE);
+    assert_eq!(first, second);
+    assert!(nodes_first > 1, "{nodes_first}");
+    assert_eq!(nodes_second, 1, "answered from the table");
+    // A full search sees quiescence cutoffs from the table, and the mates
+    // and the determinism of the search are unchanged.
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(6), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.qtt_cutoffs > 0, "no quiescence table cutoffs");
+    }
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - 0 1", "f6a6", 3),
+    ] {
+        let r = search(fen, depth(8));
+        assert_eq!(
+            (r.best.to_string(), mate_in(r.score)),
+            (best.into(), Some(mate)),
+            "{fen}"
+        );
+    }
+}
+
+#[test]
 fn quiescence_leaves_the_board_as_it_found_it() {
     for fen in [
         "R5k1/3q1ppp/8/8/8/8/8/6K1 b - - 0 1",

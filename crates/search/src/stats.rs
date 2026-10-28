@@ -127,6 +127,10 @@ pub struct SearchStats {
     pub mdp_cutoffs: u64,
     /// Quiescence captures skipped for losing material by static exchange.
     pub qsee_skips: u64,
+    /// Transposition table probes from quiescence.
+    pub qtt_probes: u64,
+    /// Quiescence nodes ended by a transposition table hit.
+    pub qtt_cutoffs: u64,
     /// Quiet moves late move pruning would have skipped but kept because
     /// they give check.
     pub lmp_checks_kept: u64,
@@ -156,6 +160,8 @@ impl Default for SearchStats {
             lmp_skips: 0,
             mdp_cutoffs: 0,
             qsee_skips: 0,
+            qtt_probes: 0,
+            qtt_cutoffs: 0,
             lmp_checks_kept: 0,
             aspiration_researches: 0,
         }
@@ -197,6 +203,8 @@ impl SearchStats {
             lmp_skips: self.lmp_skips,
             mdp_cutoffs: self.mdp_cutoffs,
             qsee_skips: self.qsee_skips,
+            qtt_probes: self.qtt_probes,
+            qtt_cutoffs: self.qtt_cutoffs,
             lmp_checks_kept: self.lmp_checks_kept,
             aspiration_researches: self.aspiration_researches,
         })
@@ -273,6 +281,12 @@ pub struct StatsSummary {
     /// Quiescence captures skipped by static exchange. Absent in records written before it existed.
     #[serde(default)]
     pub qsee_skips: u64,
+    /// Transposition table probes from quiescence. Absent in records written before it existed.
+    #[serde(default)]
+    pub qtt_probes: u64,
+    /// Quiescence nodes ended by a table hit. Absent in records written before it existed.
+    #[serde(default)]
+    pub qtt_cutoffs: u64,
     /// Checking moves kept by late move pruning. Absent in records written before it existed.
     #[serde(default)]
     pub lmp_checks_kept: u64,
