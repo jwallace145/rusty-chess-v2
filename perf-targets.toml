@@ -44,7 +44,12 @@ instructions_noise_pct = 0.5 # instructions per node is deterministic, so a smal
 # Stockfish limited to each UCI_Elo level, at a real time control, from our
 # openings. Each level gives "level + measured Elo difference"; levels combine
 # by inverse variance. Limited Stockfish is a ballpark scale, not CCRL.
-levels = [1500, 1800, 2100, 2400]
+# The rungs must bracket the engine: a level it beats in nearly every game
+# says little (no finite error bar at 100%). Ladder history, so that ratings
+# are compared on the same rungs: 1500/1800/2100/2400 for v0.3.0 to v0.13.0
+# (v0.12.0 scored 98% on 1500 and 65% on 2400); 2200/2500/2800/3100 from
+# 2026-10-28, with v0.12.0 and v0.13.0 re-rated on it for the overlap.
+levels = [2200, 2500, 2800, 3100]
 games_per_level = 100   # 50 openings from both sides; about 10 minutes per level
 tc = "10+0.1"
 concurrency = 4
