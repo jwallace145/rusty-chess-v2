@@ -288,6 +288,9 @@ pub struct Measured {
     /// Paired speed against the base build, `(ratio, low, high)`, from the
     /// last `speed` record.
     pub speed: Option<(f64, f64, f64)>,
+    /// Paired time to depth against the base build, `(ratio, low, high)` of
+    /// PR time over base time, from the last `speed` record that has it.
+    pub time_to_depth: Option<(f64, f64, f64)>,
     /// Bench instructions per node, from the last `instructions` record.
     pub instructions_per_node: Option<f64>,
     ebf_final: u64,
@@ -336,6 +339,11 @@ impl Measured {
                 Record::Summary(_) => self.flush_search(),
                 Record::Speed(sp) => {
                     self.speed = Some((sp.ratio, sp.ratio_low, sp.ratio_high));
+                    if let (Some(r), Some(l), Some(h)) =
+                        (sp.time_ratio, sp.time_ratio_low, sp.time_ratio_high)
+                    {
+                        self.time_to_depth = Some((r, l, h));
+                    }
                     if sp.cpu.is_some() {
                         self.cpu = sp.cpu.clone();
                     }

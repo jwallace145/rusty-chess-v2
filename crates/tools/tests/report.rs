@@ -324,3 +324,45 @@ fn speed_is_judged_by_the_paired_row_and_absolute_nps_is_informational() {
     );
     assert!(md.contains("**Speed vs base**") && md.contains("**Instructions / node**"));
 }
+
+#[test]
+fn a_changed_signature_hands_the_speed_verdict_to_time_to_depth() {
+    // Fewer, dearer nodes: NPS down 35%, but the same depth in 16% less time.
+    let base = run(3_629_136, 2_000_000, 0.9, 1.8, None);
+    let mut head = run(2_566_403, 1_300_000, 0.9, 2.0, None);
+    head.speed = Some((0.65, 0.62, 0.68));
+    head.time_to_depth = Some((0.84, 0.81, 0.87));
+    let md = render(Some(&base), &head, &targets(), &meta());
+    let row = |name: &str| {
+        md.lines()
+            .find(|l| l.starts_with(&format!("| {name} |")))
+            .unwrap_or_else(|| panic!("no row {name}\n{md}"))
+            .to_string()
+    };
+    assert!(
+        row("Speed vs base").contains("per node") && row("Speed vs base").ends_with("| ⚪ |"),
+        "{}",
+        row("Speed vs base")
+    );
+    assert!(
+        row("Time to depth").contains("−16.0%") && row("Time to depth").ends_with("| 🟢 |"),
+        "{}",
+        row("Time to depth")
+    );
+    assert!(md.contains("**Time to depth**"), "{md}");
+    // Same signature: NPS keeps its verdict, and more time is a regression.
+    let mut head = run(3_629_136, 1_300_000, 0.9, 1.8, None);
+    head.speed = Some((0.95, 0.94, 0.96));
+    head.time_to_depth = Some((1.05, 1.04, 1.06));
+    let md = render(Some(&base), &head, &targets(), &meta());
+    assert!(
+        md.lines()
+            .any(|l| l.starts_with("| Speed vs base |") && l.ends_with("| 🔴 |")),
+        "{md}"
+    );
+    assert!(
+        md.lines()
+            .any(|l| l.starts_with("| Time to depth |") && l.ends_with("| 🔴 |")),
+        "{md}"
+    );
+}

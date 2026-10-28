@@ -15,14 +15,35 @@ use std::process::Command;
 
 use rusty_chess_search::telemetry::{InstructionsRecord, SCHEMA_VERSION, SpeedRecord};
 
-/// The `Nodes searched` and `Nodes/second` lines of a bench run's output.
-pub fn parse_bench_output(text: &str) -> Option<(u64, u64)> {
+/// The summary of one bench run: nodes, nodes per second and wall time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BenchRun {
+    /// Total nodes (the signature).
+    pub nodes: u64,
+    /// Nodes per second.
+    pub nps: u64,
+    /// Wall time in milliseconds.
+    pub ms: u64,
+}
+
+/// The `Total time (ms)`, `Nodes searched` and `Nodes/second` lines of a
+/// bench run's output.
+pub fn parse_bench_run(text: &str) -> Option<BenchRun> {
     let field = |prefix: &str| {
         text.lines()
             .find_map(|l| l.strip_prefix(prefix))
             .and_then(|v| v.trim().parse::<u64>().ok())
     };
-    Some((field("Nodes searched  :")?, field("Nodes/second    :")?))
+    Some(BenchRun {
+        nodes: field("Nodes searched  :")?,
+        nps: field("Nodes/second    :")?,
+        ms: field("Total time (ms) :")?,
+    })
+}
+
+/// The `Nodes searched` and `Nodes/second` lines of a bench run's output.
+pub fn parse_bench_output(text: &str) -> Option<(u64, u64)> {
+    parse_bench_run(text).map(|r| (r.nodes, r.nps))
 }
 
 /// The total instruction count from a cachegrind output file (`summary: N`).
@@ -61,7 +82,7 @@ fn t_95(df: usize) -> f64 {
     T.get(df.saturating_sub(1)).copied().unwrap_or(1.96)
 }
 
-fn bench(bin: &Path, depth: u32) -> Result<(u64, u64), String> {
+fn bench(bin: &Path, depth: u32) -> Result<BenchRun, String> {
     let out = Command::new(bin)
         .args(["bench", "--depth", &depth.to_string()])
         .output()
@@ -73,13 +94,15 @@ fn bench(bin: &Path, depth: u32) -> Result<(u64, u64), String> {
             String::from_utf8_lossy(&out.stderr)
         ));
     }
-    parse_bench_output(&String::from_utf8_lossy(&out.stdout))
+    parse_bench_run(&String::from_utf8_lossy(&out.stdout))
         .ok_or_else(|| format!("{}: no bench summary", bin.display()))
 }
 
 /// Alternate `rounds` bench runs of `base` and `pr` (base first, then the
 /// order swaps each round so drift over time affects both equally) after one
-/// discarded warm-up run of each.
+/// discarded warm-up run of each. Reports both nodes per second (per-node
+/// speed, the right measure when the signature is unchanged) and time to
+/// depth (the right measure when it changed).
 pub fn measure_paired(
     base: &Path,
     pr: &Path,
@@ -89,21 +112,27 @@ pub fn measure_paired(
 ) -> Result<SpeedRecord, String> {
     bench(base, depth)?;
     bench(pr, depth)?;
-    let mut base_nps = Vec::with_capacity(rounds);
-    let mut pr_nps = Vec::with_capacity(rounds);
+    let mut base_runs = Vec::with_capacity(rounds);
+    let mut pr_runs = Vec::with_capacity(rounds);
     for round in 0..rounds {
         let (b, p) = if round % 2 == 0 {
-            let b = bench(base, depth)?.1;
-            (b, bench(pr, depth)?.1)
+            let b = bench(base, depth)?;
+            (b, bench(pr, depth)?)
         } else {
-            let p = bench(pr, depth)?.1;
-            (bench(base, depth)?.1, p)
+            let p = bench(pr, depth)?;
+            (bench(base, depth)?, p)
         };
-        base_nps.push(b);
-        pr_nps.push(p);
+        base_runs.push(b);
+        pr_runs.push(p);
     }
+    let base_nps: Vec<u64> = base_runs.iter().map(|r| r.nps).collect();
+    let pr_nps: Vec<u64> = pr_runs.iter().map(|r| r.nps).collect();
+    let base_ms: Vec<u64> = base_runs.iter().map(|r| r.ms).collect();
+    let pr_ms: Vec<u64> = pr_runs.iter().map(|r| r.ms).collect();
     let (ratio, ratio_low, ratio_high) =
         paired_ratio(&base_nps, &pr_nps).ok_or("no usable runs")?;
+    // A sub-millisecond run has no usable time; then there is no time ratio.
+    let time = paired_ratio(&base_ms, &pr_ms);
     Ok(SpeedRecord {
         v: SCHEMA_VERSION,
         depth,
@@ -113,6 +142,11 @@ pub fn measure_paired(
         ratio_low,
         ratio_high,
         cpu,
+        base_ms,
+        pr_ms,
+        time_ratio: time.map(|t| t.0),
+        time_ratio_low: time.map(|t| t.1),
+        time_ratio_high: time.map(|t| t.2),
     })
 }
 
@@ -137,8 +171,9 @@ pub fn measure_instructions(
             String::from_utf8_lossy(&out.stderr)
         ));
     }
-    let (nodes, _) = parse_bench_output(&String::from_utf8_lossy(&out.stdout))
-        .ok_or("no bench summary under valgrind")?;
+    let nodes = parse_bench_run(&String::from_utf8_lossy(&out.stdout))
+        .ok_or("no bench summary under valgrind")?
+        .nodes;
     let text =
         std::fs::read_to_string(out_file).map_err(|e| format!("{}: {e}", out_file.display()))?;
     let instructions =

@@ -138,6 +138,25 @@ pub struct SpeedRecord {
     pub ratio_high: f64,
     /// The CPU model both builds ran on.
     pub cpu: Option<String>,
+    /// Wall time of each base run in milliseconds, in run order. Absent in
+    /// records written before time to depth was measured.
+    #[serde(default)]
+    pub base_ms: Vec<u64>,
+    /// Wall time of each PR run in milliseconds, in run order.
+    #[serde(default)]
+    pub pr_ms: Vec<u64>,
+    /// Time to depth: mean of the per-pair ratios of PR time over base time
+    /// (below 1 is faster), with its 95% interval. The number to trust when
+    /// the bench signature changed, because NPS is per node and the change
+    /// altered what a node is.
+    #[serde(default)]
+    pub time_ratio: Option<f64>,
+    /// Lower end of the time ratio's 95% confidence interval.
+    #[serde(default)]
+    pub time_ratio_low: Option<f64>,
+    /// Upper end of the time ratio's 95% confidence interval.
+    #[serde(default)]
+    pub time_ratio_high: Option<f64>,
 }
 
 /// Instructions a bench run executed, counted by cachegrind. Unlike time,

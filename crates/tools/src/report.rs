@@ -80,7 +80,16 @@ pub fn render(base: Option<&Measured>, head: &Measured, targets: &Targets, meta:
     let _ = speed; // absolute NPS rows are informational; speed is judged by the paired row
     let mut rows = Vec::new();
     push_signature(&mut rows, base, head);
-    push_paired(&mut rows, head, targets.comment.paired_noise_pct);
+    let signature_changed = match (base.and_then(|b| b.signature), head.signature) {
+        (Some(b), Some(h)) => b != h,
+        _ => false,
+    };
+    push_paired(
+        &mut rows,
+        head,
+        targets.comment.paired_noise_pct,
+        signature_changed,
+    );
     push_numeric(
         &mut rows,
         "Instructions / node",
@@ -229,7 +238,10 @@ fn explain(name: &str) -> &'static str {
             "total nodes searched over the fixed bench positions (`src/positions.rs`) at a fixed depth and hash size. Deterministic: a different number means search behaviour changed (`feat`); the same number with a different NPS is a pure speed change (`perf`)."
         }
         "Speed vs base" => {
-            "the PR's bench NPS divided by its merge base's, from alternating runs of both builds on the same runner, with the 95% interval. The runner's own speed cancels out, so this is the speed number to trust; marked only when the whole interval clears the threshold."
+            "the PR's bench NPS divided by its merge base's, from alternating runs of both builds on the same runner, with the 95% interval. The runner's own speed cancels out. NPS is per node, so it is the speed number to trust only when the signature is unchanged; when the signature changed, the change altered what a node is, the row is left unmarked and Time to depth carries the verdict."
+        }
+        "Time to depth" => {
+            "the PR's bench wall time divided by its merge base's over the same positions at the same depth, from the same alternating runs; below zero is faster. The speed number to trust when the signature changed: a search that visits fewer, dearer nodes shows a lower NPS and a shorter time at once, and only the time says which way the trade went."
         }
         "Instructions / node" => {
             "instructions executed per bench node, counted by cachegrind. The same on every x86-64 machine for the same binary, so it compares exactly against the release; lower is cheaper per node (a change that searches fewer nodes may still raise it)."
@@ -300,27 +312,53 @@ fn push_perft_suite(rows: &mut Vec<Row>, base: Option<&Measured>, head: &Measure
 }
 
 #[allow(clippy::too_many_arguments)]
-/// The paired speed row: the PR against its base build on the same runner.
+/// The paired speed rows: the PR against its base build on the same runner.
 /// Marked only when the whole 95% interval clears the noise threshold.
-fn push_paired(rows: &mut Vec<Row>, head: &Measured, noise_pct: f64) {
-    let Some((ratio, low, high)) = head.speed else {
-        return;
-    };
+/// `Speed vs base` is nodes per second, a per-node measure, so when the
+/// signature changed (the change altered what a node is) it is shown
+/// unmarked and `Time to depth` carries the verdict.
+fn push_paired(rows: &mut Vec<Row>, head: &Measured, noise_pct: f64, signature_changed: bool) {
     let pct = |r: f64| (r - 1.0) * 100.0;
-    let marker = if pct(low) >= noise_pct {
-        Marker::Better
-    } else if pct(high) <= -noise_pct {
-        Marker::Worse
-    } else {
-        Marker::Same
-    };
-    rows.push(Row {
-        name: "Speed vs base",
-        base: "same runner".into(),
-        head: fmt_signed_pct(pct(ratio)),
-        delta: format!("±{:.1}%", (pct(high) - pct(low)) / 2.0),
-        marker,
-    });
+    if let Some((ratio, low, high)) = head.speed {
+        let marker = if signature_changed {
+            Marker::Same
+        } else if pct(low) >= noise_pct {
+            Marker::Better
+        } else if pct(high) <= -noise_pct {
+            Marker::Worse
+        } else {
+            Marker::Same
+        };
+        rows.push(Row {
+            name: "Speed vs base",
+            base: if signature_changed {
+                "per node".into()
+            } else {
+                "same runner".into()
+            },
+            head: fmt_signed_pct(pct(ratio)),
+            delta: format!("±{:.1}%", (pct(high) - pct(low)) / 2.0),
+            marker,
+        });
+    }
+    if let Some((ratio, low, high)) = head.time_to_depth {
+        // Less time is better: the row shows the time change, and the
+        // marker reads it the other way round from the NPS row.
+        let marker = if pct(high) <= -noise_pct {
+            Marker::Better
+        } else if pct(low) >= noise_pct {
+            Marker::Worse
+        } else {
+            Marker::Same
+        };
+        rows.push(Row {
+            name: "Time to depth",
+            base: "same runner".into(),
+            head: fmt_signed_pct(pct(ratio)),
+            delta: format!("±{:.1}%", (pct(high) - pct(low)) / 2.0),
+            marker,
+        });
+    }
 }
 
 fn push_numeric(

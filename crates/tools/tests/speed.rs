@@ -1,12 +1,27 @@
 //! Paired speed ratios, bench output and cachegrind parsing.
 
-use rusty_chess_tools::speed::{paired_ratio, parse_bench_output, parse_cachegrind_summary};
+use rusty_chess_tools::speed::{
+    BenchRun, paired_ratio, parse_bench_output, parse_bench_run, parse_cachegrind_summary,
+};
 
 #[test]
-fn bench_output_yields_nodes_and_nps() {
-    let text = "Position 1/50: ...\n===========================\nPositions       : 50\nNodes searched  : 8986067\nNodes/second    : 10945270\n";
+fn bench_output_yields_nodes_nps_and_time() {
+    let text = "Position 1/50: ...\n===========================\nPositions       : 50\nTotal time (ms) : 821\nNodes searched  : 8986067\nNodes/second    : 10945270\n";
     assert_eq!(parse_bench_output(text), Some((8_986_067, 10_945_270)));
+    assert_eq!(
+        parse_bench_run(text),
+        Some(BenchRun {
+            nodes: 8_986_067,
+            nps: 10_945_270,
+            ms: 821
+        })
+    );
     assert_eq!(parse_bench_output("nothing"), None);
+    assert_eq!(
+        parse_bench_run("Nodes searched  : 1\nNodes/second    : 1\n"),
+        None,
+        "the time line is required"
+    );
 }
 
 #[test]
