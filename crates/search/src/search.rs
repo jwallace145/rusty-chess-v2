@@ -648,6 +648,27 @@ impl Searcher {
             return 0;
         }
         let in_check = board.position().in_check();
+
+        // Transposition table: a horizon node needs no particular depth, so
+        // any stored bound that agrees with the window ends the node, and a
+        // stored move is searched first.
+        let key = board.position().key();
+        let alpha_orig = alpha;
+        let mut tt_move = Move::NULL;
+        stat!(self.stats, qtt_probes);
+        if let Some(hit) = self.tt.probe(key, ply) {
+            tt_move = hit.mv;
+            let cutoff = match hit.bound {
+                Bound::Exact => true,
+                Bound::Lower => hit.score >= beta,
+                Bound::Upper => hit.score <= alpha,
+            };
+            if cutoff {
+                stat!(self.stats, qtt_cutoffs);
+                return hit.score;
+            }
+        }
+
         let mut moves = MoveList::new();
         let mut best = if in_check {
             // No stand pat: the check must be answered. Every legal move is
@@ -663,7 +684,12 @@ impl Searcher {
             -INFINITY
         } else {
             let stand_pat = board.evaluate();
-            if stand_pat >= beta || ply >= MAX_PLY - 1 {
+            if ply >= MAX_PLY - 1 {
+                return stand_pat;
+            }
+            if stand_pat >= beta {
+                self.tt
+                    .store(key, Move::NULL, stand_pat, 0, Bound::Lower, ply);
                 return stand_pat;
             }
             if stand_pat > alpha {
@@ -674,7 +700,13 @@ impl Searcher {
         };
         let mut scores = [0i32; rusty_chess_core::movegen::MAX_MOVES];
         score_moves(board, &moves, &mut scores);
+        if tt_move != Move::NULL {
+            if let Some(i) = moves.iter().position(|&m| m == tt_move) {
+                scores[i] = i32::MAX;
+            }
+        }
 
+        let mut best_move = Move::NULL;
         for index in 0..moves.len() {
             let m = pick_next(&mut moves, &mut scores, index);
             // A capture that loses material by static exchange evaluation
@@ -688,18 +720,28 @@ impl Searcher {
             let score = -self.quiescence(board, -beta, -alpha, ply + 1);
             board.unmake_move(m, undo);
             if self.aborted {
-                return 0;
+                return 0; // discarded by the caller; nothing is stored
             }
             if score > best {
                 best = score;
                 if score > alpha {
                     alpha = score;
+                    best_move = m;
                     if alpha >= beta {
                         break;
                     }
                 }
             }
         }
+        // The bound follows from the score against the original window.
+        let bound = if best >= beta {
+            Bound::Lower
+        } else if best > alpha_orig {
+            Bound::Exact
+        } else {
+            Bound::Upper
+        };
+        self.tt.store(key, best_move, best, 0, bound, ply);
         best
     }
 

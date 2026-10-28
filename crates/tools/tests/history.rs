@@ -39,6 +39,8 @@ fn measured(signature: u64, nps: u64, fh: f64, ebf: f64) -> Measured {
                 lmp_skips: 0,
                 mdp_cutoffs: 0,
                 qsee_skips: 0,
+                qtt_probes: 0,
+                qtt_cutoffs: 0,
                 lmp_checks_kept: 0,
                 aspiration_researches: 0,
             }),

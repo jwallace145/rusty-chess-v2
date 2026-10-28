@@ -60,6 +60,8 @@ fn bench(nps: u64, fh_first: Option<f64>) -> Record {
             lmp_skips: 0,
             mdp_cutoffs: 0,
             qsee_skips: 0,
+            qtt_probes: 0,
+            qtt_cutoffs: 0,
             lmp_checks_kept: 0,
             aspiration_researches: 0,
         }),
