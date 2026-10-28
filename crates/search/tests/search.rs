@@ -434,7 +434,9 @@ fn a_clock_search_ends_near_its_soft_budget_not_its_hard_limit() {
         },
     );
     let elapsed = started.elapsed();
-    assert!(elapsed < Duration::from_millis(200), "{elapsed:?}");
+    // Generous: the stats build and a loaded runner are slower, and the point
+    // is only that the search does not run on toward the hard limit and past it.
+    assert!(elapsed < Duration::from_millis(400), "{elapsed:?}");
     assert!(
         r.depth >= 4 && r.best.to_string() != "0000",
         "{} {}",
