@@ -96,6 +96,53 @@ fn zobrist_keys_depend_on_everything_that_matters() {
 }
 
 #[test]
+fn gives_check_agrees_with_making_the_move_everywhere_in_the_perft_suite() {
+    // Every legal move of every suite position, and of every position one
+    // ply below it: direct checks, discovered checks, en passant, castling
+    // and promotions are all in the suite.
+    fn check_all(p: &mut Position, depth: u32, checked: &mut u64) {
+        let mut list = rusty_chess_core::movegen::MoveList::new();
+        p.legal_moves(&mut list);
+        for &m in list.iter() {
+            let predicted = p.gives_check(m);
+            let undo = p.make_move(m);
+            assert_eq!(predicted, p.in_check(), "{m} in {}", p.to_fen());
+            *checked += 1;
+            if depth > 1 {
+                check_all(p, depth - 1, checked);
+            }
+            p.unmake_move(m, undo);
+        }
+    }
+    let mut checked = 0;
+    for line in include_str!("../../../tests/perft.epd").lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let fen = line.split(';').next().unwrap().trim();
+        check_all(&mut pos(fen), 2, &mut checked);
+    }
+    assert!(checked > 20_000, "{checked}");
+    // A few named cases: a castling check, an en passant discovered check,
+    // a promotion check and a discovered check by a king move.
+    for (fen, mv, expected) in [
+        ("5k2/8/8/8/8/8/8/4K2R w K - 0 1", "e1g1", true),
+        // En passant clears two squares on the rank between rook and king.
+        ("8/8/8/R2pP2k/8/8/8/4K3 w - d6 0 1", "e5d6", true),
+        ("8/P7/8/8/8/8/8/k1K5 w - - 0 1", "a7a8q", true),
+        ("8/P7/8/8/8/8/8/k1K5 w - - 0 1", "a7a8n", false),
+        ("4k3/8/8/8/8/8/4K3/4R3 w - - 0 1", "e2d3", true),
+    ] {
+        let p = pos(fen);
+        let m = p
+            .parse_uci_move(mv)
+            .unwrap_or_else(|| panic!("{mv} in {fen}"));
+        assert_eq!(p.gives_check(m), expected, "{mv} in {fen}");
+    }
+}
+
+#[test]
 fn attacks_and_checkers() {
     let p = pos(KIWIPETE);
     assert!(!p.is_attacked(Square::E5, Color::Black)); // the e6 pawn blocks the queen; no knight reaches it
