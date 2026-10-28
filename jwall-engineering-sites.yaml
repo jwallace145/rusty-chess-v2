@@ -1,0 +1,48 @@
+# jwall-engineering-sites project file: runs this repository's GitHub releases
+# as a permanent Lichess bot. Everything else (region, account, VPC, AMI, names,
+# state, CI roles) is derived by the tool. Fields and behaviour:
+# https://github.com/jwallace145/jwall-engineering-infra/blob/main/docs/lichess-bot.md
+version: 1
+project: rusty-chess
+repository: jwallace145/rusty-chess-v2
+
+# The six tags every resource carries (through the provider's default_tags).
+# Project, Repository, Environment=prod and ManagedBy=terraform are cross-checked.
+tags:
+  Organization: jwall-engineering
+  Project: rusty-chess
+  Environment: prod
+  Repository: jwallace145/rusty-chess-v2
+  ManagedBy: terraform
+  Owner: jwallace145
+
+components:
+  - kind: container-image
+    architecture: x86_64            # x86_64 | arm64; must match the release asset
+    artifact:                       # the release asset the image ships (never a rebuild)
+      asset: rusty-chess-{version}-x86_64-unknown-linux-gnu.tar.gz
+      checksum: rusty-chess-{version}-x86_64-unknown-linux-gnu.tar.gz.sha256
+      binary: rusty-chess
+    # dockerfile: docker/Dockerfile # optional: replace the harness-owned Dockerfile
+
+  - kind: lichess-bot
+    track: latest-release           # every published vX.Y.Z release is rolled out
+    # A whole, unshared, fast core: the engine is single-threaded and its
+    # strength is that core's speed (doubling nodes per second is worth
+    # roughly 50-80 Elo at a clock). Never a burstable type: the bot searches
+    # almost continuously, and a t3 in standard credit mode is held to 10% of
+    # a core once its credits run out, within hours. c8a.medium is one AMD
+    # Zen 5 core at 4.5 GHz with SMT off, about $39/month on demand; it runs
+    # the x86-64-v3 release asset as-is.
+    instance_type: c8a.medium
+    config: lichess/config.yml      # lichess-bot config with LICHESS_TOKEN_PLACEHOLDER
+    lichess_user: rusty-chess-bot   # optional: for the profile URL in `bot status`
+    secrets:
+      LICHESS_TOKEN: /jwall-engineering/rusty-chess/lichess-token
+    engine:
+      hash_mb: 256                  # UCI Hash; c8a.medium has 2 GiB
+      move_overhead_ms: 500         # UCI Move Overhead (lichess-bot's own move_overhead stays in config.yml)
+    records:
+      s3: true                      # sync game_records/ to s3://jwall-engineering-rusty-chess-records/records/
+    logs:
+      retention_days: 30
