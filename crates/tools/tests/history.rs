@@ -36,6 +36,7 @@ fn measured(signature: u64, nps: u64, fh: f64, ebf: f64) -> Measured {
                 lmr_reductions: 0,
                 lmr_researches: 0,
                 futility_skips: 0,
+                lmp_skips: 0,
                 aspiration_researches: 0,
             }),
         }),

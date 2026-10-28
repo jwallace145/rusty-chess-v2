@@ -121,6 +121,8 @@ pub struct SearchStats {
     pub lmr_researches: u64,
     /// Moves skipped by futility pruning.
     pub futility_skips: u64,
+    /// Quiet moves skipped by late move pruning.
+    pub lmp_skips: u64,
     /// Aspiration windows that failed and were re-searched wider.
     pub aspiration_researches: u64,
 }
@@ -144,6 +146,7 @@ impl Default for SearchStats {
             lmr_reductions: 0,
             lmr_researches: 0,
             futility_skips: 0,
+            lmp_skips: 0,
             aspiration_researches: 0,
         }
     }
@@ -181,6 +184,7 @@ impl SearchStats {
             lmr_reductions: self.lmr_reductions,
             lmr_researches: self.lmr_researches,
             futility_skips: self.futility_skips,
+            lmp_skips: self.lmp_skips,
             aspiration_researches: self.aspiration_researches,
         })
     }
@@ -247,6 +251,9 @@ pub struct StatsSummary {
     pub lmr_researches: u64,
     /// Futility-pruned moves.
     pub futility_skips: u64,
+    /// Quiet moves skipped by late move pruning. Absent in records written before it existed.
+    #[serde(default)]
+    pub lmp_skips: u64,
     /// Aspiration windows re-searched wider. Absent in records written before it existed.
     #[serde(default)]
     pub aspiration_researches: u64,

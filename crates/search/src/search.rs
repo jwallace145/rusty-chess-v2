@@ -59,6 +59,18 @@ const RFP_MAX_DEPTH: u32 = 6;
 /// Reverse futility margin per ply of remaining depth, in centipawns.
 const RFP_MARGIN: i32 = 80;
 
+/// Late move pruning applies up to this depth.
+const LMP_MAX_DEPTH: u32 = 4;
+
+/// Quiet moves are pruned from move index `LMP_BASE + depth * depth` on.
+const LMP_BASE: usize = 3;
+
+/// The move index from which late move pruning skips quiet moves at `depth`.
+#[inline]
+pub fn lmp_threshold(depth: u32) -> usize {
+    LMP_BASE + (depth * depth) as usize
+}
+
 /// Late moves are reduced from this move index on (the first ones get full depth).
 const LMR_MIN_INDEX: usize = 2;
 
@@ -477,6 +489,23 @@ impl Searcher {
         let mut quiets_tried = [Move::NULL; 64];
         let mut quiets_count = 0usize;
         while let Some(m) = picker.next_with(board.position(), &self.history) {
+            let quiet = !m.is_capture() && !m.is_promotion();
+            // Late move pruning: at a shallow null-window node, once the
+            // ordered moves have gone past the index that history and the
+            // killers make worthwhile, the remaining quiet moves are skipped
+            // without a search. Never while being mated: a defence may be
+            // anywhere in the list.
+            if quiet
+                && prunable
+                && !pv_node
+                && depth <= LMP_MAX_DEPTH
+                && index >= lmp_threshold(depth)
+                && !is_mate_score(best)
+            {
+                stat!(self.stats, lmp_skips);
+                index += 1;
+                continue;
+            }
             let undo = board.make_move(m);
             // Principal variation search: the first move gets the full
             // window; every later move a null window that only asks whether
@@ -490,7 +519,6 @@ impl Searcher {
                 // shallower; only if it beats alpha anyway does it get the
                 // full-depth null-window search, then the full window as in
                 // PVS.
-                let quiet = !m.is_capture() && !m.is_promotion();
                 let reduction = if quiet
                     && index >= LMR_MIN_INDEX
                     && depth >= LMR_MIN_DEPTH

@@ -34,9 +34,10 @@ fn the_search_path_does_not_allocate_per_node() {
     let fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
     let mut board = Board::from_position(Position::from_fen(fen).unwrap());
     let mut searcher = Searcher::new(Arc::new(AtomicBool::new(false)));
-    let depth = 8;
+    // A node limit rather than a depth: pruning keeps shrinking the tree at
+    // a fixed depth, and the guard needs a large search whatever the depth.
     let limits = Limits {
-        depth: Some(depth),
+        nodes: Some(200_000),
         ..Limits::default()
     };
 
@@ -52,7 +53,8 @@ fn the_search_path_does_not_allocate_per_node() {
     // Per iteration: the root FEN string, the PV string and its pieces, the
     // record pushed into the iterations vector. Generous, and still four
     // orders of magnitude below one allocation per node.
-    let budget = 32 * depth as usize + 32;
+    let depth = result.iterations.len();
+    let budget = 32 * depth + 32;
     assert!(
         allocations <= budget,
         "{allocations} allocations during a {nodes}-node search (budget {budget}): something allocates per node"
