@@ -382,7 +382,7 @@ impl Searcher {
         board: &mut Board,
         depth: u32,
         mut alpha: i32,
-        beta: i32,
+        mut beta: i32,
         ply: usize,
         null_ok: bool,
     ) -> i32 {
@@ -401,6 +401,18 @@ impl Searcher {
         stat!(self.stats, nodes_by_ply[ply]);
         if self.should_abort() {
             return 0;
+        }
+
+        // Mate-distance pruning: no line from here can be better than mating
+        // on the next ply or worse than being mated now, so a window beyond
+        // those bounds is cut to them and an empty window ends the node.
+        if ply > 0 {
+            alpha = alpha.max(-(MATE - ply as i32));
+            beta = beta.min(MATE - ply as i32 - 1);
+            if alpha >= beta {
+                stat!(self.stats, mdp_cutoffs);
+                return alpha;
+            }
         }
 
         let in_check = board.position().in_check();
@@ -493,8 +505,10 @@ impl Searcher {
             // Late move pruning: at a shallow null-window node, once the
             // ordered moves have gone past the index that history and the
             // killers make worthwhile, the remaining quiet moves are skipped
-            // without a search. Never while being mated: a defence may be
-            // anywhere in the list.
+            // without a search. Never while being mated (a defence may be
+            // anywhere in the list), and never a checking move: the forcing
+            // line may be the point. The check test is last so it runs only
+            // for a move about to be skipped.
             if quiet
                 && prunable
                 && !pv_node
@@ -502,17 +516,22 @@ impl Searcher {
                 && index >= lmp_threshold(depth)
                 && !is_mate_score(best)
             {
-                stat!(self.stats, lmp_skips);
-                index += 1;
-                continue;
+                if board.position().gives_check(m) {
+                    stat!(self.stats, lmp_checks_kept);
+                } else {
+                    stat!(self.stats, lmp_skips);
+                    index += 1;
+                    continue;
+                }
             }
             let undo = board.make_move(m);
+            let new_depth = depth - 1;
             // Principal variation search: the first move gets the full
             // window; every later move a null window that only asks whether
             // it beats alpha, re-searched in full when it does (and might
             // still be below beta).
             let score = if index == 0 {
-                -self.negamax(board, depth - 1, -beta, -alpha, ply + 1, true)
+                -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true)
             } else {
                 // Late move reductions: a quiet move late in the list, at a
                 // node not in check and not giving check, is first searched
@@ -533,21 +552,21 @@ impl Searcher {
                     stat!(self.stats, lmr_reductions);
                     -self.negamax(
                         board,
-                        depth - 1 - reduction,
+                        new_depth - reduction,
                         -alpha - 1,
                         -alpha,
                         ply + 1,
                         true,
                     )
                 } else {
-                    -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, true)
+                    -self.negamax(board, new_depth, -alpha - 1, -alpha, ply + 1, true)
                 };
                 if reduction > 0 && probe > alpha && !self.aborted {
                     stat!(self.stats, lmr_researches);
-                    probe = -self.negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, true);
+                    probe = -self.negamax(board, new_depth, -alpha - 1, -alpha, ply + 1, true);
                 }
                 if probe > alpha && probe < beta && !self.aborted {
-                    -self.negamax(board, depth - 1, -beta, -alpha, ply + 1, true)
+                    -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true)
                 } else {
                     probe
                 }

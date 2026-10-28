@@ -328,15 +328,8 @@ fn reverse_futility_pruning_prunes_but_keeps_mates_and_mate_threats() {
     // A queen up, but Re1 mates next move: the static evaluation says
     // "winning" at every depth, and the threat must still be parried.
     let r = search("4r1k1/Q4ppp/8/8/8/8/5PPP/6K1 w - - 0 1", depth(6));
-    assert!(
-        [
-            "g2g3", "h2h3", "a7e3", "a7e7", "a7a1", "a7b8", "a7f2", "g1f1"
-        ]
-        .contains(&r.best.to_string().as_str()),
-        "white must parry Re1#: {} ({})",
-        r.best,
-        r.pv
-    );
+    // Any parry will do (Qa5 covers e1 too); a mate score against, or a
+    // score that lost the queen, means the threat was missed.
     assert!(r.score > 300 && mate_in(r.score).is_none(), "{}", r.score);
     // A busy middlegame prunes.
     let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
@@ -376,6 +369,40 @@ fn late_move_pruning_skips_quiets_but_keeps_mates_and_defences() {
     s.search(&mut b, &depth(6), &mut |_| {});
     if let Some(summary) = s.stats().summary() {
         assert!(summary.lmp_skips > 0, "no late move pruning skips");
+    }
+}
+
+#[test]
+fn mate_distance_pruning_cuts_lines_longer_than_a_known_mate() {
+    // Once a mate in two is on the board, no line can be shorter than it:
+    // deeper nodes have an empty window and end at once. The result is
+    // unchanged.
+    let mut b = board("r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    let r = s.search(&mut b, &depth(6), &mut |_| {});
+    assert_eq!(
+        (r.best.to_string(), mate_in(r.score)),
+        ("d5f6".into(), Some(2))
+    );
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.mdp_cutoffs > 0, "no mate-distance cutoffs");
+    }
+}
+
+#[test]
+fn late_move_pruning_never_skips_a_checking_move() {
+    // King on c6, rook on h1, against a bare king on a8: 1.Kc7 Ka7 2.Ra1#
+    // (or 1.Kb6 Kb8 2.Rh8#). Either mating move is a quiet rook check far
+    // down an unordered list of rook moves, past the late-move-pruning
+    // index at depth 2, so v0.13.0 misses the mate at depth 5 (it reports
+    // +599). Keeping checking moves out of the pruning finds it.
+    let r = search("k7/8/2K5/8/8/8/8/7R w - - 0 1", depth(5));
+    assert_eq!(mate_in(r.score), Some(2), "{} ({})", r.score, r.pv);
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(6), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.lmp_checks_kept > 0, "no checking moves kept");
     }
 }
 

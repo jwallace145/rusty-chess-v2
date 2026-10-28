@@ -24,6 +24,8 @@ fn stats(fh_first: f64) -> StatsSummary {
         lmr_researches: 0,
         futility_skips: 0,
         lmp_skips: 0,
+        mdp_cutoffs: 0,
+        lmp_checks_kept: 0,
         aspiration_researches: 0,
     }
 }

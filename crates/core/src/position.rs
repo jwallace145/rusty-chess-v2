@@ -506,6 +506,54 @@ impl Position {
         self.checkers().is_nonempty()
     }
 
+    /// Whether `m`, a legal move for the side to move, gives check: a direct
+    /// attack from the destination (by the promoted piece, for a promotion),
+    /// a discovered attack through the vacated square (and the captured
+    /// pawn's square, for en passant), or the rook's attack after castling.
+    /// Cheaper than making the move and asking.
+    pub fn gives_check(&self, m: Move) -> bool {
+        let us = self.side;
+        let king = self.king_square(!us);
+        let king_bb = Bitboard::from_square(king);
+        let from = m.from();
+        let to = m.to();
+        let mut occ = (self.occupied() & !Bitboard::from_square(from)) | Bitboard::from_square(to);
+        if m.is_en_passant() {
+            occ &= !Bitboard::from_square(Square::new(to.file(), from.rank()));
+        }
+        let kind = m
+            .promotion()
+            .or_else(|| self.piece_at(from).map(|p| p.kind))
+            .unwrap_or(PieceKind::Pawn);
+        let direct = match kind {
+            PieceKind::Pawn => attacks::pawn_attacks(us, to),
+            PieceKind::Knight => attacks::knight_attacks(to),
+            PieceKind::Bishop => attacks::bishop_attacks(to, occ),
+            PieceKind::Rook => attacks::rook_attacks(to, occ),
+            PieceKind::Queen => attacks::queen_attacks(to, occ),
+            PieceKind::King => Bitboard::EMPTY,
+        };
+        if (direct & king_bb).is_nonempty() {
+            return true;
+        }
+        // A slider of ours, other than the moved piece, that sees the king
+        // now that the vacated squares are empty.
+        let ours = self.by_color(us) & !Bitboard::from_square(from);
+        let rooks = ours & (self.by_kind(PieceKind::Rook) | self.by_kind(PieceKind::Queen));
+        let bishops = ours & (self.by_kind(PieceKind::Bishop) | self.by_kind(PieceKind::Queen));
+        if (attacks::rook_attacks(king, occ) & rooks).is_nonempty()
+            || (attacks::bishop_attacks(king, occ) & bishops).is_nonempty()
+        {
+            return true;
+        }
+        if m.is_castle() {
+            let (rook_from, rook_to) = castle_rook_squares(to);
+            let occ = (occ & !Bitboard::from_square(rook_from)) | Bitboard::from_square(rook_to);
+            return (attacks::rook_attacks(rook_to, occ) & king_bb).is_nonempty();
+        }
+        false
+    }
+
     /// `sq` if a pawn of the side to move could capture en passant there.
     fn capturable_en_passant(&self, sq: Square) -> Option<Square> {
         let capturers =
