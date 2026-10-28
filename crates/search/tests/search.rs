@@ -394,15 +394,15 @@ fn the_time_plan_spreads_the_clock_and_keeps_the_overhead_back() {
             plan.1.map(|d| d.as_millis() as u64),
         )
     };
-    // 10+0 with the default 10 ms overhead: a 25th of the clock, twice that hard.
+    // 10+0 with the default 10 ms overhead: a 20th of the clock, twice that hard.
     assert_eq!(
         ms(time_plan(&clock(600_000, 0, None, None))),
-        (Some(23_999), Some(47_999))
+        (Some(29_999), Some(59_999))
     );
     // 3+2: most of the increment is added.
     assert_eq!(
         ms(time_plan(&clock(180_000, 2_000, None, None))).0,
-        Some(8_699)
+        Some(10_499)
     );
     // One move to go: never more than half the clock, hard no more than soft.
     assert_eq!(
@@ -423,7 +423,7 @@ fn the_time_plan_spreads_the_clock_and_keeps_the_overhead_back() {
 
 #[test]
 fn a_clock_search_ends_near_its_soft_budget_not_its_hard_limit() {
-    // 1 second on the clock: 40 ms soft, 80 ms hard. The predicted next
+    // 1 second on the clock: 50 ms soft, 100 ms hard. The predicted next
     // iteration keeps the search from running far past the budget.
     let started = Instant::now();
     let r = search(
@@ -434,7 +434,7 @@ fn a_clock_search_ends_near_its_soft_budget_not_its_hard_limit() {
         },
     );
     let elapsed = started.elapsed();
-    assert!(elapsed < Duration::from_millis(150), "{elapsed:?}");
+    assert!(elapsed < Duration::from_millis(200), "{elapsed:?}");
     assert!(
         r.depth >= 4 && r.best.to_string() != "0000",
         "{} {}",
