@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.12.0...v0.13.0) (2026-10-28)
+
+
+### Features
+
+* **search:** add late move pruning of quiet moves at shallow null-window nodes ([#55](https://github.com/jwallace145/rusty-chess-v2/issues/55)) ([678a3ac](https://github.com/jwallace145/rusty-chess-v2/commit/678a3ac98178c4ec046437a70ccabad9df7d9c2a))
+
 ## [0.12.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.11.0...v0.12.0) (2026-10-28)
 
 
