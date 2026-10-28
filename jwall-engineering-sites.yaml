@@ -27,13 +27,20 @@ components:
 
   - kind: lichess-bot
     track: latest-release           # every published vX.Y.Z release is rolled out
-    instance_type: t3.micro
+    # A whole, unshared, fast core: the engine is single-threaded and its
+    # strength is that core's speed (doubling nodes per second is worth
+    # roughly 50-80 Elo at a clock). Never a burstable type: the bot searches
+    # almost continuously, and a t3 in standard credit mode is held to 10% of
+    # a core once its credits run out, within hours. c8a.medium is one AMD
+    # Zen 5 core at 4.5 GHz with SMT off, about $39/month on demand; it runs
+    # the x86-64-v3 release asset as-is.
+    instance_type: c8a.medium
     config: lichess/config.yml      # lichess-bot config with LICHESS_TOKEN_PLACEHOLDER
     lichess_user: rusty-chess-bot   # optional: for the profile URL in `bot status`
     secrets:
       LICHESS_TOKEN: /jwall-engineering/rusty-chess/lichess-token
     engine:
-      hash_mb: 128                  # UCI Hash
+      hash_mb: 256                  # UCI Hash; c8a.medium has 2 GiB
       move_overhead_ms: 500         # UCI Move Overhead (lichess-bot's own move_overhead stays in config.yml)
     records:
       s3: true                      # sync game_records/ to s3://jwall-engineering-rusty-chess-records/records/
