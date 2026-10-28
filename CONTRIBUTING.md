@@ -126,7 +126,7 @@ A full run is 10–35 minutes of runner time (a clear gain resolves in a few hun
 
 ## Strength estimate: the rating ladder
 
-The `Rating` workflow estimates absolute strength by playing the engine against Stockfish limited to a ladder of `UCI_Elo` levels (`[rating]` in `perf-targets.toml`: 1500, 1800, 2100 and 2400 at 10+0.1, 100 games each, from our openings). Each level gives "level plus the measured Elo difference"; the levels combine by inverse variance into one estimate with a 95% error bar, and a level won or lost in every game only bounds it.
+The `Rating` workflow estimates absolute strength by playing the engine against Stockfish limited to a ladder of `UCI_Elo` levels (`[rating]` in `perf-targets.toml`: 2200, 2500, 2800 and 3100 at 10+0.1, 100 games each, from our openings; the rungs move up as the engine outgrows them, and the file records every ladder with the releases rated on it). Each level gives "level plus the measured Elo difference"; the levels combine by inverse variance into one estimate with a 95% error bar, and a level won or lost in every game only bounds it.
 
 - It runs on every published release, attaching `rating.json`, `rating.md`, the logs and PGNs to the release and adding a Strength section to its notes.
 - Run it by hand for any tag, branch or SHA from the Actions tab, or `gh workflow run Rating -f ref=main`; `attach` puts the result on a release tag's release.
