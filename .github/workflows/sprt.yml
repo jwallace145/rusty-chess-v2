@@ -5,7 +5,9 @@ name: SPRT
 # at a fixed node budget per move (see `[sprt]` in perf-targets.toml), so
 # the verdict does not depend on the runner's speed. Runs when a PR carries
 # the `sprt` label, and again on every push while it does. The result is a
-# sticky PR comment; H0 fails the job. The `sprt-quick` label instead plays
+# sticky PR comment; H0 fails the job. The `sprt-tc` label plays timed games
+# at the `[sprt] tc` time control instead of fixed nodes, for a change that
+# fixed nodes cannot see (time management). The `sprt-quick` label instead plays
 # at most 50 pairs: a pipeline smoke test, never a verdict.
 
 on:
@@ -26,7 +28,7 @@ env:
 jobs:
   sprt:
     name: SPRT
-    if: contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick')
+    if: contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick') || contains(github.event.pull_request.labels.*.name, 'sprt-tc')
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
@@ -62,10 +64,12 @@ jobs:
         id: play
         env:
           QUICK: ${{ contains(github.event.pull_request.labels.*.name, 'sprt-quick') && !contains(github.event.pull_request.labels.*.name, 'sprt') }}
+          TIMED: ${{ contains(github.event.pull_request.labels.*.name, 'sprt-tc') }}
         run: |
           set +e
           override=""
           if [ "$QUICK" = "true" ]; then override="--max-rounds 50"; echo "sprt-quick: capped at 50 pairs, a smoke test"; fi
+          if [ "$TIMED" = "true" ]; then override="$override --timed"; echo "sprt-tc: timed games at the [sprt] tc, for a change fixed nodes cannot see"; fi
           args=$(cargo run --release --locked -p rusty-chess-tools --bin sprt-report -- args --config perf-targets.toml $override)
           "$FC" -engine cmd=engines/pr name=pr -engine cmd=engines/base name=base $args -pgnout file=sprt.pgn 2>&1 | tee sprt.log
           echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
@@ -78,6 +82,7 @@ jobs:
           openings=$(grep -c . tests/openings/openings.epd)
           override=""
           if [ "${{ contains(github.event.pull_request.labels.*.name, 'sprt-quick') && !contains(github.event.pull_request.labels.*.name, 'sprt') }}" = "true" ]; then override="--max-rounds 50"; fi
+          if [ "${{ contains(github.event.pull_request.labels.*.name, 'sprt-tc') }}" = "true" ]; then override="$override --timed"; fi
           cargo run --release --locked -p rusty-chess-tools --bin sprt-report -- render --config perf-targets.toml $override --log sprt.log \
             --head "${HEAD_SHA:0:7}" --base "$base_label" --fastchess "$FASTCHESS_VERSION" --openings "$openings" > sprt.md
           echo "status=$?" >> "$GITHUB_OUTPUT"

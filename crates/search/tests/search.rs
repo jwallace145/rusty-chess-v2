@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use rusty_chess_core::position::Position;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::search::{Limits, MATE, SearchResult, Searcher, mate_in};
+use rusty_chess_search::search::{Limits, MATE, SearchResult, Searcher, mate_in, time_plan};
 
 fn board(fen: &str) -> Board {
     Board::from_position(Position::from_fen(fen).unwrap_or_else(|e| panic!("{fen}: {e}")))
@@ -377,6 +377,70 @@ fn late_move_pruning_skips_quiets_but_keeps_mates_and_defences() {
     if let Some(summary) = s.stats().summary() {
         assert!(summary.lmp_skips > 0, "no late move pruning skips");
     }
+}
+
+#[test]
+fn the_time_plan_spreads_the_clock_and_keeps_the_overhead_back() {
+    let clock = |ms: u64, inc: u64, movestogo: Option<u32>, overhead: Option<u64>| Limits {
+        time: Some(Duration::from_millis(ms)),
+        inc: Some(Duration::from_millis(inc)),
+        movestogo,
+        overhead: overhead.map(Duration::from_millis),
+        ..Limits::default()
+    };
+    let ms = |plan: (Option<Duration>, Option<Duration>)| {
+        (
+            plan.0.map(|d| d.as_millis() as u64),
+            plan.1.map(|d| d.as_millis() as u64),
+        )
+    };
+    // 10+0 with the default 10 ms overhead: a 25th of the clock, twice that hard.
+    assert_eq!(
+        ms(time_plan(&clock(600_000, 0, None, None))),
+        (Some(23_999), Some(47_999))
+    );
+    // 3+2: most of the increment is added.
+    assert_eq!(
+        ms(time_plan(&clock(180_000, 2_000, None, None))).0,
+        Some(8_699)
+    );
+    // One move to go: never more than half the clock, hard no more than soft.
+    assert_eq!(
+        ms(time_plan(&clock(10_000, 0, Some(1), None))),
+        (Some(4_995), Some(4_995))
+    );
+    // A large overhead comes off first; the budget never drops below a millisecond.
+    assert_eq!(ms(time_plan(&clock(100, 0, None, Some(2_000)))).0, Some(1));
+    // movetime is exact minus the overhead.
+    let plan = time_plan(&Limits {
+        movetime: Some(Duration::from_millis(500)),
+        overhead: Some(Duration::from_millis(100)),
+        ..Limits::default()
+    });
+    assert_eq!(ms(plan), (Some(400), Some(400)));
+    assert_eq!(time_plan(&Limits::default()), (None, None));
+}
+
+#[test]
+fn a_clock_search_ends_near_its_soft_budget_not_its_hard_limit() {
+    // 1 second on the clock: 40 ms soft, 80 ms hard. The predicted next
+    // iteration keeps the search from running far past the budget.
+    let started = Instant::now();
+    let r = search(
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        Limits {
+            time: Some(Duration::from_millis(1_000)),
+            ..Limits::default()
+        },
+    );
+    let elapsed = started.elapsed();
+    assert!(elapsed < Duration::from_millis(150), "{elapsed:?}");
+    assert!(
+        r.depth >= 4 && r.best.to_string() != "0000",
+        "{} {}",
+        r.depth,
+        r.best
+    );
 }
 
 #[test]

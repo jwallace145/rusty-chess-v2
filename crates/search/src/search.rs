@@ -47,6 +47,28 @@ const CHECK_EVERY: u64 = 2048;
 /// previous score is not yet a useful guess.
 const ASPIRATION_MIN_DEPTH: u32 = 4;
 
+/// Time kept back from every move for the trip through the UCI pipe and the
+/// GUI, unless `Limits::overhead` says otherwise.
+const DEFAULT_OVERHEAD: Duration = Duration::from_millis(10);
+
+/// With no `movestogo`, the clock is spread over this many moves.
+const SUDDEN_DEATH_MOVES: u32 = 25;
+
+/// The hard limit is this multiple of the soft budget (and never more than
+/// half the clock): an iteration that was started may run on this long.
+const HARD_FACTOR: u32 = 2;
+
+/// How much longer the next iteration is expected to take than the last,
+/// before the measured ratio is known, and the range it is trusted within.
+const ITERATION_GROWTH_DEFAULT: f64 = 3.0;
+const ITERATION_GROWTH_RANGE: (f64, f64) = (1.5, 5.0);
+
+/// When the best move has not changed for this many completed iterations,
+/// from this depth on, the soft budget shrinks by this factor.
+const STABLE_ITERATIONS: u32 = 4;
+const STABLE_MIN_DEPTH: u32 = 6;
+const STABLE_FACTOR: f64 = 0.5;
+
 /// Null-move pruning needs at least this much depth to be worth a try.
 const NULL_MOVE_MIN_DEPTH: u32 = 3;
 
@@ -136,6 +158,9 @@ pub struct Limits {
     pub movestogo: Option<u32>,
     /// Search until told to stop, ignoring the clock.
     pub infinite: bool,
+    /// Time kept back per move for communication latency; the default is
+    /// `DEFAULT_OVERHEAD`.
+    pub overhead: Option<Duration>,
 }
 
 /// What a search found.
@@ -277,13 +302,25 @@ impl Searcher {
         let mut pv = best.to_string();
         let mut iterations = Vec::new();
         let mut prev_total = 0u64;
+        // For the clock: how long the last two iterations took, and how many
+        // iterations in a row have agreed on the best move.
+        let mut prev_elapsed = Duration::ZERO;
+        let mut last_iter = Duration::ZERO;
+        let mut prev_iter;
+        let mut stable = 0u32;
 
         for depth in 1..=max_depth {
             let score = self.aspirate(board, depth, best_score);
             if self.aborted {
                 break;
             }
-            best = self.pv[0][0];
+            let new_best = self.pv[0][0];
+            stable = if depth > 1 && new_best == best {
+                stable + 1
+            } else {
+                0
+            };
+            best = new_best;
             best_score = score;
             best_depth = depth;
             pv = self.pv_string(0);
@@ -306,11 +343,41 @@ impl Searcher {
             on_iter(&record);
             iterations.push(record);
 
-            if soft.is_some_and(|s| elapsed >= s) || self.stop.load(Ordering::Relaxed) {
+            prev_iter = last_iter;
+            last_iter = elapsed.saturating_sub(prev_elapsed);
+            prev_elapsed = elapsed;
+
+            if self.stop.load(Ordering::Relaxed) {
                 break;
             }
             if self.node_limit.is_some_and(|n| total >= n) {
                 break;
+            }
+            if let Some(soft) = soft {
+                // A best move that has held for several iterations rarely
+                // changes in the next one: spend less on it.
+                let budget = if stable >= STABLE_ITERATIONS && depth >= STABLE_MIN_DEPTH {
+                    soft.mul_f64(STABLE_FACTOR)
+                } else {
+                    soft
+                };
+                if elapsed >= budget {
+                    break;
+                }
+                // An iteration that cannot finish before the hard limit is
+                // pure waste, since an aborted iteration is discarded: do
+                // not start it. The next iteration is expected to take the
+                // last one's time times the measured growth.
+                let growth = if prev_iter > Duration::ZERO {
+                    (last_iter.as_secs_f64() / prev_iter.as_secs_f64())
+                        .clamp(ITERATION_GROWTH_RANGE.0, ITERATION_GROWTH_RANGE.1)
+                } else {
+                    ITERATION_GROWTH_DEFAULT
+                };
+                let predicted = last_iter.mul_f64(growth);
+                if hard.is_some_and(|h| elapsed + predicted > h) {
+                    break;
+                }
             }
         }
 
@@ -663,29 +730,31 @@ impl Searcher {
 }
 
 /// Soft and hard time budgets: the search does not start a new iteration
-/// after the soft budget and aborts at the hard one.
-fn time_plan(limits: &Limits) -> (Option<Duration>, Option<Duration>) {
-    const OVERHEAD: Duration = Duration::from_millis(10);
+/// after the soft budget (or one predicted to overrun the hard limit) and
+/// aborts at the hard one. The soft budget is the clock spread over the
+/// moves to go (`SUDDEN_DEATH_MOVES` without a `movestogo`) plus most of
+/// the increment; the hard limit is `HARD_FACTOR` times that, and neither
+/// exceeds half the clock. The overhead comes off everything.
+pub fn time_plan(limits: &Limits) -> (Option<Duration>, Option<Duration>) {
+    let overhead = limits.overhead.unwrap_or(DEFAULT_OVERHEAD);
+    let floor = Duration::from_millis(1);
     if limits.infinite {
         return (None, None);
     }
     if let Some(mt) = limits.movetime {
-        let t = mt.saturating_sub(OVERHEAD).max(Duration::from_millis(1));
+        let t = mt.saturating_sub(overhead).max(floor);
         return (Some(t), Some(t));
     }
     if let Some(time) = limits.time {
+        let usable = time.saturating_sub(overhead);
         let inc = limits.inc.unwrap_or(Duration::ZERO);
-        let moves = limits.movestogo.unwrap_or(30).max(1);
-        let base = time / moves + inc.mul_f64(0.75);
-        let soft = base
-            .min(time / 2)
-            .saturating_sub(OVERHEAD)
-            .max(Duration::from_millis(1));
-        let hard = (base * 3)
-            .min(time / 2)
-            .saturating_sub(OVERHEAD)
-            .max(Duration::from_millis(1));
-        return (Some(soft), Some(hard.max(soft)));
+        let moves = limits
+            .movestogo
+            .map_or(SUDDEN_DEATH_MOVES, |m| m.clamp(1, SUDDEN_DEATH_MOVES));
+        let base = usable / moves + inc.mul_f64(0.75);
+        let soft = base.min(usable / 2).max(floor);
+        let hard = (soft * HARD_FACTOR).min(usable / 2).max(soft);
+        return (Some(soft), Some(hard));
     }
     (None, None)
 }

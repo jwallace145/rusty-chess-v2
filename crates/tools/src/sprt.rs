@@ -267,13 +267,21 @@ pub fn render(result: &SprtResult, settings: &Sprt, meta: &Meta) -> String {
         "- PR `{}` vs base `{}`, both built on the same runner with the same flags",
         meta.head_label, meta.base_label
     );
-    let _ = writeln!(
-        out,
-        "- {} nodes per move, so the verdict does not depend on the runner's speed (speed is judged by the bench gate); {} openings, each played from both sides; fastchess {}",
-        fmt_int(settings.nodes_per_move),
-        meta.openings,
-        meta.fastchess
-    );
+    if settings.timed {
+        let _ = writeln!(
+            out,
+            "- Timed games at {} on the runner, so the verdict includes time management and the runner's speed (for a change that fixed nodes cannot see); {} openings, each played from both sides; fastchess {}",
+            settings.tc, meta.openings, meta.fastchess
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "- {} nodes per move, so the verdict does not depend on the runner's speed (speed is judged by the bench gate); {} openings, each played from both sides; fastchess {}",
+            fmt_int(settings.nodes_per_move),
+            meta.openings,
+            meta.fastchess
+        );
+    }
     let _ = writeln!(
         out,
         "- Hypotheses: elo0 = {}, elo1 = {}, α = {}, β = {}; at most {} rounds. Settings live in `perf-targets.toml` under `[sprt]`",
@@ -307,10 +315,17 @@ fn fmt_int(v: u64) -> String {
 /// engine commands.
 pub fn fastchess_args(settings: &Sprt) -> Vec<String> {
     let s = |v: String| v;
-    vec![
-        s("-each".into()),
-        s("tc=600+6".into()),
-        s(format!("nodes={}", settings.nodes_per_move)),
+    let each = if settings.timed {
+        vec![s("-each".into()), s(format!("tc={}", settings.tc))]
+    } else {
+        vec![
+            s("-each".into()),
+            s("tc=600+6".into()),
+            s(format!("nodes={}", settings.nodes_per_move)),
+        ]
+    };
+    let mut args = each;
+    args.extend(vec![
         s("-openings".into()),
         s(format!("file={}", settings.openings)),
         s("format=epd".into()),
@@ -342,5 +357,6 @@ pub fn fastchess_args(settings: &Sprt) -> Vec<String> {
         s("-report".into()),
         s("penta=true".into()),
         s("-recover".into()),
-    ]
+    ]);
+    args
 }

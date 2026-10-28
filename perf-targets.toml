@@ -62,6 +62,11 @@ openings = "tests/openings/openings.epd"
 # by the bench gate. elo1 is the gain a change must plausibly deliver; tighten
 # it as gains get smaller.
 nodes_per_move = 200_000
+# The `sprt-tc` label plays timed games at this control instead, for changes
+# that fixed nodes cannot see (time management). The runner's speed is then
+# part of the result, which is why it is not the default. Short enough that
+# the 1000-round cap stays near an hour at concurrency 4.
+tc = "5+0.05"
 elo0 = 0.0
 elo1 = 10.0
 alpha = 0.05

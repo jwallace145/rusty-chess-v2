@@ -107,7 +107,7 @@ Each item is its own PR with an SPRT run; the first intermediate gate is the EBF
 - [x] Reverse futility pruning: at null-window nodes up to depth 6, not in check, return the static evaluation when it beats beta by 80 cp per ply of depth left (`rfp_cutoffs` counter). Signature 716057 → 601010, fail-high-first 0.93 → 0.90 (bar lowered to 0.88, EBF bar tightened to 2.5); SPRT +65.2 ± 24.2 Elo, LOS 100% in 464 games (#53, v0.12.0)
 - [ ] Late move pruning: at null-window nodes up to depth 4, not in check and not being mated, quiet moves from index 3 + depth² on are skipped without a search (`lmp_skips` counter). Signature 601010 → 387631, EBF 2.17 → 1.91, fail-high-first 0.90 → 0.89; SPRT pending (#55)
 - [ ] Check extensions, mate-distance pruning
-- [ ] Improved time management
+- [ ] Improved time management: soft budget = clock / moves to go (25 in sudden death) + ¾ of the increment, hard limit twice that and never past half the clock; no iteration starts after the soft budget, or when the last iteration's time times its measured growth would overrun the hard limit (an aborted iteration is discarded, so that work was pure waste); a best move stable for 4 iterations from depth 6 halves the budget; `Move Overhead` UCI option (default 10 ms). Bench unchanged (depth-limited). Tested with the new `sprt-tc` label at 5+0.05; SPRT pending (#TBD)
 - [x] **Intermediate gate:** EBF ≤ 3 on bench (carried over from Phase 3; 4.18 at its close): 2.86 with null-move pruning, 2.17 with late move reductions
 - [ ] Bench depth raised once EBF allows it (the signature changes; say so in the PR)
 - [ ] **Exit:** EBF ≈ 2, each technique gained Elo under SPRT, roughly 2400–2700 CCRL range
