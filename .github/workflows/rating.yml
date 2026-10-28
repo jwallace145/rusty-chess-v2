@@ -117,8 +117,9 @@ jobs:
           fi
           tar -czf "rusty-chess-${REF}-rating.tar.gz" rating.md rating.json logs
           gh release upload "$REF" rating.json rating.md "rusty-chess-${REF}-rating.tar.gz" --clobber --repo "$GITHUB_REPOSITORY"
-          gh release view "$REF" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
-          if ! grep -q '^## Strength' notes.md; then
-            { echo; cat rating.md; } >> notes.md
-            gh release edit "$REF" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
-          fi
+          # Replace an existing Strength section (a re-rate, for example on a
+          # new ladder) rather than keeping the old one.
+          gh release view "$REF" --repo "$GITHUB_REPOSITORY" --json body --jq .body \
+            | awk '/^## Strength/ { skip = 1; next } /^## / { skip = 0 } !skip' > notes.md
+          { echo; cat rating.md; } >> notes.md
+          gh release edit "$REF" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
