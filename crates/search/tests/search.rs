@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use rusty_chess_core::position::Position;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::search::{Limits, MATE, SearchResult, Searcher, mate_in};
+use rusty_chess_search::search::{Limits, MATE, SearchResult, Searcher, mate_in, time_plan};
 
 fn board(fen: &str) -> Board {
     Board::from_position(Position::from_fen(fen).unwrap_or_else(|e| panic!("{fen}: {e}")))
@@ -577,6 +577,35 @@ fn quiescence_leaves_the_board_as_it_found_it() {
         assert_eq!(b.position().key(), key, "{fen}");
         assert_eq!(b.ply_from_root(), 0);
     }
+}
+
+#[test]
+fn the_move_overhead_comes_off_every_budget() {
+    let ms = |l: &Limits| {
+        let (s, h) = time_plan(l);
+        (s.map(|d| d.as_millis()), h.map(|d| d.as_millis()))
+    };
+    let clock = |overhead: Option<u64>| Limits {
+        time: Some(Duration::from_millis(600_000)),
+        overhead: overhead.map(Duration::from_millis),
+        ..Limits::default()
+    };
+    // 10+0: a 30th of the clock soft, three times that hard, minus 10 ms by default.
+    assert_eq!(ms(&clock(None)), (Some(19_990), Some(59_990)));
+    assert_eq!(ms(&clock(Some(500))), (Some(19_500), Some(59_500)));
+    let movetime = Limits {
+        movetime: Some(Duration::from_millis(1_000)),
+        overhead: Some(Duration::from_millis(300)),
+        ..Limits::default()
+    };
+    assert_eq!(ms(&movetime), (Some(700), Some(700)));
+    // Never below a millisecond, however large the overhead.
+    let tiny = Limits {
+        movetime: Some(Duration::from_millis(100)),
+        overhead: Some(Duration::from_millis(5_000)),
+        ..Limits::default()
+    };
+    assert_eq!(ms(&tiny), (Some(1), Some(1)));
 }
 
 #[test]

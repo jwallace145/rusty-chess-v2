@@ -37,6 +37,10 @@ where
                     o,
                     "option name Hash type spin default {DEFAULT_HASH_MB} min 1 max 4096"
                 )?;
+                writeln!(
+                    o,
+                    "option name Move Overhead type spin default {DEFAULT_MOVE_OVERHEAD_MS} min 0 max 5000"
+                )?;
                 writeln!(o, "uciok")?;
             }
             Some("isready") => writeln!(out.lock().unwrap(), "readyok")?,
@@ -86,7 +90,13 @@ struct Engine<W: Write + Send + 'static> {
     searcher: Option<Searcher>,
     worker: Option<JoinHandle<Searcher>>,
     infinite: bool,
+    /// Time kept back per move for the GUI and the pipe (`Move Overhead`).
+    move_overhead: Duration,
 }
+
+/// The default `Move Overhead`, in milliseconds. Enough for a local GUI;
+/// a bot over the network sets more.
+const DEFAULT_MOVE_OVERHEAD_MS: u64 = 10;
 
 impl<W: Write + Send + 'static> Engine<W> {
     fn new(out: Arc<Mutex<W>>) -> Self {
@@ -97,6 +107,7 @@ impl<W: Write + Send + 'static> Engine<W> {
             searcher: Some(Searcher::new(Arc::new(AtomicBool::new(false)))),
             worker: None,
             infinite: false,
+            move_overhead: Duration::from_millis(DEFAULT_MOVE_OVERHEAD_MS),
         }
     }
 
@@ -151,6 +162,13 @@ impl<W: Write + Send + 'static> Engine<W> {
                 _ => writeln!(
                     self.out.lock().unwrap(),
                     "info string Hash must be 1..4096 MB, got {v}"
+                )?,
+            },
+            (Some("Move Overhead"), Some(v)) => match v.parse::<u64>() {
+                Ok(ms) if ms <= 5000 => self.move_overhead = Duration::from_millis(ms),
+                _ => writeln!(
+                    self.out.lock().unwrap(),
+                    "info string Move Overhead must be 0..5000 ms, got {v}"
                 )?,
             },
             (Some(other), _) => writeln!(
@@ -218,6 +236,7 @@ impl<W: Write + Send + 'static> Engine<W> {
         }
         limits.time = if us == Color::White { wtime } else { btime };
         limits.inc = if us == Color::White { winc } else { binc };
+        limits.overhead = Some(self.move_overhead);
         self.infinite = limits.infinite
             || (limits.depth.is_none()
                 && limits.nodes.is_none()
@@ -277,6 +296,21 @@ mod tests {
         let out = drive("uci\n");
         assert!(out.starts_with("id name rusty-chess "));
         assert!(out.ends_with("uciok\n"));
+    }
+
+    #[test]
+    fn move_overhead_is_advertised_and_validated() {
+        let out = drive("uci\n");
+        assert!(
+            out.contains("option name Move Overhead type spin default 10 min 0 max 5000"),
+            "{out}"
+        );
+        assert_eq!(
+            drive("setoption name Move Overhead value 250\nisready\n"),
+            "readyok\n"
+        );
+        let out = drive("setoption name Move Overhead value 9000\nisready\n");
+        assert!(out.contains("Move Overhead must be 0..5000 ms"), "{out}");
     }
 
     #[test]
