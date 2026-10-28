@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.13.0...v0.14.0) (2026-10-28)
+
+
+### Features
+
+* **bench:** raise the default bench depth from 6 to 10 ([#60](https://github.com/jwallace145/rusty-chess-v2/issues/60)) ([e81bac4](https://github.com/jwallace145/rusty-chess-v2/commit/e81bac4e796a97847a70bfd7ecd7ce56e3ac2506))
+* **search:** add mate-distance pruning and keep checking moves out of late move pruning ([#57](https://github.com/jwallace145/rusty-chess-v2/issues/57)) ([4561886](https://github.com/jwallace145/rusty-chess-v2/commit/45618862137dd1d1c687548cea6ed0ea55676e4c))
+
 ## [0.13.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.12.0...v0.13.0) (2026-10-28)
 
 
