@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.11.0...v0.12.0) (2026-10-28)
+
+
+### Features
+
+* **search:** add reverse futility pruning at shallow null-window nodes ([#53](https://github.com/jwallace145/rusty-chess-v2/issues/53)) ([f982be1](https://github.com/jwallace145/rusty-chess-v2/commit/f982be1800205954e40f75b84535826f14e9b205))
+
 ## [0.11.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.10.0...v0.11.0) (2026-10-27)
 
 
