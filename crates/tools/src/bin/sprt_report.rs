@@ -29,6 +29,7 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     let mut config = None;
     let mut log = None;
     let mut max_rounds = None;
+    let mut timed = false;
     let mut meta = Meta {
         head_label: "PR".into(),
         base_label: "base".into(),
@@ -36,6 +37,10 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
         openings: 0,
     };
     while let Some(flag) = it.next() {
+        if flag == "--timed" {
+            timed = true;
+            continue;
+        }
         let value = it.next().ok_or_else(|| format!("`{flag}` needs a value"))?;
         match flag.as_str() {
             "--config" => config = Some(value),
@@ -65,6 +70,7 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     if let Some(n) = max_rounds {
         targets.sprt.max_rounds = n;
     }
+    targets.sprt.timed = timed;
     match command.as_str() {
         "args" => {
             println!("{}", fastchess_args(&targets.sprt).join(" "));

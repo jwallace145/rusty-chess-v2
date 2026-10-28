@@ -115,6 +115,26 @@ fn settings_parse_from_the_targets_file_and_become_fastchess_arguments() {
 }
 
 #[test]
+fn a_timed_run_plays_at_the_configured_time_control_instead_of_nodes() {
+    let mut t = Targets::parse("[movegen]\nmin_perft_nps = { local = 0, ci = 0 }\n[search]\nmin_nps = { local = 0, ci = 0 }\n[efficiency]\nmin_fail_high_first = 0.0\nmax_ebf = 0.0\n[sprt]\ntc = \"5+0.05\"\n").unwrap();
+    assert!(!t.sprt.timed, "timed is never read from the file");
+    t.sprt.timed = true;
+    let args = fastchess_args(&t.sprt).join(" ");
+    assert!(args.starts_with("-each tc=5+0.05 -openings"), "{args}");
+    assert!(!args.contains("nodes="), "{args}");
+    let r = parse(LOG).unwrap();
+    let meta = Meta {
+        head_label: "pr".into(),
+        base_label: "base".into(),
+        fastchess: "v1".into(),
+        openings: 300,
+    };
+    let text = render(&r, &t.sprt, &meta);
+    assert!(text.contains("Timed games at 5+0.05"), "{text}");
+    assert!(!text.contains("nodes per move"), "{text}");
+}
+
+#[test]
 fn a_balanced_result_renders_los_as_not_available() {
     let log = LOG.replace("LOS: 99.99 %", "LOS: nan %");
     let r = parse(&log).unwrap();

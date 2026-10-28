@@ -93,6 +93,12 @@ impl Default for Comment {
 pub struct Sprt {
     /// Nodes each engine may search per move.
     pub nodes_per_move: u64,
+    /// The time control of a timed run (`sprt-report args --timed`), for
+    /// changes that fixed nodes cannot see, such as time management.
+    pub tc: String,
+    /// Play at `tc` instead of `nodes_per_move`. Set by the command line,
+    /// not the file.
+    pub timed: bool,
     /// The null hypothesis Elo gain.
     pub elo0: f64,
     /// The alternative hypothesis Elo gain.
@@ -113,6 +119,8 @@ impl Default for Sprt {
     fn default() -> Self {
         Self {
             nodes_per_move: 200_000,
+            tc: "10+0.1".into(),
+            timed: false,
             elo0: 0.0,
             elo1: 10.0,
             alpha: 0.05,
