@@ -226,7 +226,8 @@ fn stats_counters_match_the_result_when_enabled() {
 fn killer_moves_produce_cutoffs_on_a_real_search() {
     let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
     let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
-    s.search(&mut b, &depth(5), &mut |_| {});
+    // Depth 7: pruning removes the shallow nodes where quiet moves cut off.
+    s.search(&mut b, &depth(7), &mut |_| {});
     if let Some(summary) = s.stats().summary() {
         let killers = summary.cutoffs_by_stage[rusty_chess_search::stats::Stage::Killers as usize];
         assert!(
@@ -303,6 +304,46 @@ fn null_move_pruning_cuts_nodes_but_never_in_check_or_pawn_endings() {
     s.search(&mut b, &depth(8), &mut |_| {});
     if let Some(summary) = s.stats().summary() {
         assert_eq!(summary.null_move_cutoffs, 0, "null moves in a pawn ending");
+    }
+}
+
+#[test]
+fn reverse_futility_pruning_prunes_but_keeps_mates_and_mate_threats() {
+    // Mates stay exact through the pruned depths.
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a8", 1),
+    ] {
+        let r = search(fen, depth(6));
+        assert_eq!(
+            (r.best.to_string(), mate_in(r.score)),
+            (best.into(), Some(mate)),
+            "{fen}"
+        );
+    }
+    // A queen up, but Re1 mates next move: the static evaluation says
+    // "winning" at every depth, and the threat must still be parried.
+    let r = search("4r1k1/Q4ppp/8/8/8/8/5PPP/6K1 w - - 0 1", depth(6));
+    assert!(
+        [
+            "g2g3", "h2h3", "a7e3", "a7e7", "a7a1", "a7b8", "a7f2", "g1f1"
+        ]
+        .contains(&r.best.to_string().as_str()),
+        "white must parry Re1#: {} ({})",
+        r.best,
+        r.pv
+    );
+    assert!(r.score > 300 && mate_in(r.score).is_none(), "{}", r.score);
+    // A busy middlegame prunes.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(6), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.rfp_cutoffs > 0, "no reverse futility cutoffs");
     }
 }
 

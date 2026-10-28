@@ -111,6 +111,8 @@ pub struct SearchStats {
     pub fail_high_by_index: [u64; MAX_MOVE_INDEX],
     /// Fail-highs bucketed by move-picker [`Stage`].
     pub cutoffs_by_stage: [u64; STAGES],
+    /// Nodes returned by reverse futility pruning.
+    pub rfp_cutoffs: u64,
     /// Null-move searches that failed high.
     pub null_move_cutoffs: u64,
     /// Moves searched with a late-move reduction.
@@ -137,6 +139,7 @@ impl Default for SearchStats {
             tt_collisions: 0,
             fail_high_by_index: [0; MAX_MOVE_INDEX],
             cutoffs_by_stage: [0; STAGES],
+            rfp_cutoffs: 0,
             null_move_cutoffs: 0,
             lmr_reductions: 0,
             lmr_researches: 0,
@@ -173,6 +176,7 @@ impl SearchStats {
             fail_highs,
             fh_first: ratio(self.fail_high_by_index[0], fail_highs),
             cutoffs_by_stage: self.cutoffs_by_stage,
+            rfp_cutoffs: self.rfp_cutoffs,
             null_move_cutoffs: self.null_move_cutoffs,
             lmr_reductions: self.lmr_reductions,
             lmr_researches: self.lmr_researches,
@@ -232,6 +236,9 @@ pub struct StatsSummary {
     pub fh_first: f64,
     /// Fail-highs by [`Stage`], indexed by `Stage as usize`.
     pub cutoffs_by_stage: [u64; STAGES],
+    /// Reverse futility cutoffs. Absent in records written before it existed.
+    #[serde(default)]
+    pub rfp_cutoffs: u64,
     /// Null-move cutoffs.
     pub null_move_cutoffs: u64,
     /// Late-move reductions applied.
