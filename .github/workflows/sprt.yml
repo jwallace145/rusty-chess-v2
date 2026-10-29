@@ -1,14 +1,25 @@
 name: SPRT
 
-# Strength test of a PR against its base, on a standardized runner. Both
-# engines are built from source with the same flags and play fastchess games
-# at a fixed node budget per move (see `[sprt]` in perf-targets.toml), so
-# the verdict does not depend on the runner's speed. Runs when a PR carries
-# the `sprt` label, and again on every push while it does. The result is a
-# sticky PR comment; only an accepted H1 passes the job. The `sprt-tc` label plays timed games
-# at the `[sprt] tc` time control instead of fixed nodes, for a change that
-# fixed nodes cannot see (time management). The `sprt-quick` label instead plays
-# at most 50 pairs: a pipeline smoke test, never a verdict.
+# Strength test of a PR against its base: two SPRTs at once, on two
+# standardized runners, posted as one comment.
+#
+#   SPRT (timed)        fastchess games at the `[sprt] tc` time control. What
+#                       the engine does at a clock. This is the gate: only an
+#                       accepted H1 passes it.
+#   SPRT (fixed nodes)  games at `[sprt] nodes_per_move`. Whether the search got
+#                       smarter per node, whatever a node costs. Informational:
+#                       it explains the timed result and never fails the PR.
+#
+# Why both: a fixed-node test gives a change that makes nodes dearer extra work
+# for free. Between v0.13.0 and v0.18.0 the fixed-node SPRTs summed to about
+# +190 Elo while a 10+0.1 match of the two releases measured +26 (#83). The
+# pair says which of four things happened; see `interpret` in
+# crates/tools/src/sprt.rs and the comment it writes.
+#
+# Labels: `sprt` runs both to a verdict. `sprt-quick` runs both capped at 50
+# pairs, a pipeline smoke test that never reaches a verdict. Both re-run on
+# every push while the label is on. A `perf` PR (unchanged bench signature)
+# needs neither: the bench comment's speed rows are its test.
 
 on:
   pull_request:
@@ -24,13 +35,104 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -C target-cpu=x86-64-v3
   FASTCHESS_VERSION: v1.8.2-alpha
+  QUICK: ${{ contains(github.event.pull_request.labels.*.name, 'sprt-quick') && !contains(github.event.pull_request.labels.*.name, 'sprt') }}
 
 jobs:
-  sprt:
-    name: SPRT
-    if: contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick') || contains(github.event.pull_request.labels.*.name, 'sprt-tc')
+  play:
+    name: SPRT (${{ matrix.title }})
+    if: contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick')
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 300
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: timed
+            title: timed
+            flag: --timed
+          - mode: nodes
+            title: fixed nodes
+            flag: ""
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the PR engine and the tools
+        run: |
+          cargo build --release --locked --quiet
+          cargo build --release --locked --quiet -p rusty-chess-tools --bin sprt-report
+          mkdir -p engines && cp target/release/rusty-chess engines/pr
+          echo "PR engine: $(engines/pr --version), bench $(engines/pr bench | awk -F: '/Nodes searched/ {gsub(/ /, "", $2); print $2}')"
+      - name: Build the base engine from the PR's merge base
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 --quiet origin "$BASE_SHA"
+          git worktree add --quiet base "$BASE_SHA"
+          cargo build --release --locked --quiet --manifest-path base/Cargo.toml --target-dir target/base
+          cp target/base/release/rusty-chess engines/base
+          echo "Base engine at ${BASE_SHA:0:7}: $(engines/base --version), bench $(engines/base bench | awk -F: '/Nodes searched/ {gsub(/ /, "", $2); print $2}')"
+      - name: Fetch fastchess ${{ env.FASTCHESS_VERSION }}
+        run: |
+          curl -sSL -o fastchess.tar "https://github.com/Disservin/fastchess/releases/download/${FASTCHESS_VERSION}/fastchess-linux-x86-64.tar"
+          mkdir -p fc && tar -xf fastchess.tar -C fc
+          FC=$(find fc -type f -perm -u+x -name 'fastchess*' | head -1)
+          chmod +x "$FC"
+          echo "FC=$FC" >> "$GITHUB_ENV"
+      - name: Play (${{ matrix.title }})
+        # Only fastchess's running result is shown here, every 20 games; the
+        # full log and the games are in the artifact.
+        run: |
+          override="${{ matrix.flag }}"
+          if [ "$QUICK" = "true" ]; then override="$override --max-rounds 50"; echo "sprt-quick: capped at 50 pairs, a smoke test"; fi
+          read -ra args <<< "$(target/release/sprt-report args --config perf-targets.toml $override)"
+          set +e
+          "$FC" -engine cmd=engines/pr name=pr -engine cmd=engines/base name=base "${args[@]}" -pgnout file=sprt.pgn > sprt.log 2>&1 &
+          pid=$!
+          shown=0
+          while kill -0 "$pid" 2>/dev/null; do
+            sleep 30
+            n=$(grep -c '^Results of' sprt.log)
+            if [ "$n" -gt "$shown" ]; then
+              shown=$n
+              awk '/^Results of/ {b=""} /^(Elo|LOS|Games|LLR):/ {b=b $0 "\n"} END {printf "%s", b}' sprt.log | sed 's/^/  /'
+              echo "  ---"
+            fi
+          done
+          wait "$pid"; code=$?
+          grep -E "SPRT .* completed|Tournament finished" sprt.log | tail -2
+          echo "fastchess exit $code"
+          exit $code
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sprt-${{ matrix.mode }}
+          path: |
+            sprt.log
+            sprt.pgn
+          if-no-files-found: warn
+      - name: Verdict (${{ matrix.title }})
+        # The timed job is the gate and fails unless H1 was accepted (a smoke
+        # test may be inconclusive). The fixed-node job reports and passes.
+        run: |
+          smoke=""; if [ "$QUICK" = "true" ]; then smoke="--smoke --max-rounds 50"; fi
+          target/release/sprt-report render --config perf-targets.toml ${{ matrix.flag }} $smoke --log sprt.log \
+            --head "${{ github.event.pull_request.head.sha }}" --base "main" --fastchess "$FASTCHESS_VERSION" \
+            --openings "$(grep -c . tests/openings/openings.epd)" > sprt.md; status=$?
+          cat sprt.md >> "$GITHUB_STEP_SUMMARY"
+          grep -m1 -E "H1 accepted|H0 accepted|inconclusive" sprt.md
+          if [ "${{ matrix.mode }}" = "timed" ] && [ "$status" != "0" ]; then
+            echo "::error::The timed SPRT did not accept H1: only an accepted H1 passes the gate. The owner may merge over this for a reason stated in the PR."
+            exit 1
+          fi
+
+  comment:
+    name: SPRT comment
+    needs: play
+    if: always() && needs.play.result != 'skipped' && needs.play.result != 'cancelled'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write # post and refresh the SPRT comment
@@ -38,76 +140,24 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Build the PR engine
-        run: |
-          cargo build --release --locked
-          mkdir -p engines && cp target/release/rusty-chess engines/pr
-      - name: Build the base engine from the PR's merge base
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          git worktree add base "$BASE_SHA"
-          cargo build --release --locked --manifest-path base/Cargo.toml --target-dir target/base
-          cp target/base/release/rusty-chess engines/base
-          echo "base_label=main@${BASE_SHA:0:7}" >> "$GITHUB_ENV"
-      - name: Fetch fastchess
-        run: |
-          curl -sSL -o fastchess.tar "https://github.com/Disservin/fastchess/releases/download/${FASTCHESS_VERSION}/fastchess-linux-x86-64.tar"
-          sha256sum fastchess.tar
-          mkdir -p fc && tar -xf fastchess.tar -C fc
-          FC=$(find fc -type f -perm -u+x -name 'fastchess*' | head -1)
-          chmod +x "$FC"
-          echo "FC=$FC" >> "$GITHUB_ENV"
-          "$FC" --version || true
-      - name: Play
-        id: play
-        env:
-          QUICK: ${{ contains(github.event.pull_request.labels.*.name, 'sprt-quick') && !contains(github.event.pull_request.labels.*.name, 'sprt') }}
-          TIMED: ${{ contains(github.event.pull_request.labels.*.name, 'sprt-tc') }}
-        run: |
-          set +e
-          override=""
-          if [ "$QUICK" = "true" ]; then override="--max-rounds 50"; echo "sprt-quick: capped at 50 pairs, a smoke test"; fi
-          if [ "$TIMED" = "true" ]; then override="$override --timed"; echo "sprt-tc: timed games at the [sprt] tc, for a change fixed nodes cannot see"; fi
-          args=$(cargo run --release --locked -p rusty-chess-tools --bin sprt-report -- args --config perf-targets.toml $override)
-          "$FC" -engine cmd=engines/pr name=pr -engine cmd=engines/base name=base $args -pgnout file=sprt.pgn 2>&1 | tee sprt.log
-          echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
-      - name: Build the SPRT comment
-        id: report
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: sprt-*
+      - name: Combine both runs into one comment
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          set +e
-          openings=$(grep -c . tests/openings/openings.epd)
-          override=""
-          if [ "${{ contains(github.event.pull_request.labels.*.name, 'sprt-quick') && !contains(github.event.pull_request.labels.*.name, 'sprt') }}" = "true" ]; then override="--max-rounds 50 --smoke"; fi
-          if [ "${{ contains(github.event.pull_request.labels.*.name, 'sprt-tc') }}" = "true" ]; then override="$override --timed"; fi
-          cargo run --release --locked -p rusty-chess-tools --bin sprt-report -- render --config perf-targets.toml $override --log sprt.log \
-            --head "${HEAD_SHA:0:7}" --base "$base_label" --fastchess "$FASTCHESS_VERSION" --openings "$openings" > sprt.md
-          echo "status=$?" >> "$GITHUB_OUTPUT"
+          cargo build --release --locked --quiet -p rusty-chess-tools --bin sprt-report
+          smoke=""; if [ "$QUICK" = "true" ]; then smoke="--smoke --max-rounds 50"; fi
+          target/release/sprt-report combine --config perf-targets.toml $smoke \
+            --timed-log sprt-timed/sprt.log --nodes-log sprt-nodes/sprt.log \
+            --head "${HEAD_SHA:0:7}" --base "main@${BASE_SHA:0:7}" --fastchess "$FASTCHESS_VERSION" \
+            --openings "$(grep -c . tests/openings/openings.epd)" > sprt.md || true
           cat sprt.md
-          { echo "## SPRT"; echo; cat sprt.md; } >> "$GITHUB_STEP_SUMMARY"
+          cat sprt.md >> "$GITHUB_STEP_SUMMARY"
       - name: Post the SPRT comment (refreshed on every run)
-        if: always() && steps.report.outcome != 'skipped'
         uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: sprt
           path: sprt.md
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: sprt
-          path: |
-            sprt.log
-            sprt.pgn
-            sprt.md
-          if-no-files-found: warn
-      - name: Fail unless H1 was accepted (a smoke test may be inconclusive)
-        # The check passes only on an accepted H1. An inconclusive run is not
-        # evidence of a gain; the owner can merge over the failed check for a
-        # stated reason (a high-LOS inconclusive result, a correctness fix).
-        if: steps.report.outputs.status != '0' || steps.play.outputs.exit != '0'
-        run: |
-          echo "::error::SPRT verdict status=${{ steps.report.outputs.status }} (0 only for an accepted H1), fastchess exit=${{ steps.play.outputs.exit }}; see the SPRT comment"
-          exit 1

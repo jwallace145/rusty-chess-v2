@@ -235,8 +235,89 @@ pub fn passes(verdict: Verdict, smoke: bool) -> bool {
     }
 }
 
-/// Render the sticky comment.
+/// Render the sticky comment for a single run.
 pub fn render(result: &SprtResult, settings: &Sprt, meta: &Meta) -> String {
+    format!("### ⚔️ SPRT\n\n{}", render_body(result, settings, meta))
+}
+
+/// What the pair of verdicts means, and whether it is a merge. The timed test
+/// is the gate: it is what the engine does at a clock. The fixed-node test
+/// says whether the search got smarter per node, which explains a timed
+/// result: a fixed-node gain that does not survive the clock is a change
+/// worth making cheaper, not one worth abandoning.
+pub fn interpret(nodes: Option<Verdict>, timed: Option<Verdict>) -> &'static str {
+    use Verdict::H1;
+    match (nodes, timed) {
+        (_, None) => "the timed test did not finish, so there is no verdict",
+        (Some(H1), Some(H1)) => "smarter per node, and worth its cost at a clock: **merge**",
+        (Some(H1), Some(_)) => {
+            "smarter per node, but the extra cost per node eats the gain at a clock: **do not merge**; worth a `perf` pass to make it cheaper and a re-test"
+        }
+        (Some(_), Some(H1)) => {
+            "no smarter per node, but faster: a speed gain that wins at a clock: **merge**"
+        }
+        (None, Some(H1)) => "wins at a clock (the fixed-node test did not finish): **merge**",
+        (_, Some(_)) => "no gain at a clock: **do not merge**",
+    }
+}
+
+/// The combined comment for a dual run: the timed result (the gate) and the
+/// fixed-node result (informational), with the reading of the pair. Either
+/// result may be missing when its job failed.
+pub fn render_dual(
+    timed: Option<&SprtResult>,
+    nodes: Option<&SprtResult>,
+    settings: &Sprt,
+    meta: &Meta,
+) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "### ⚔️ SPRT");
+    let _ = writeln!(out);
+    let gate = match timed.map(|r| r.verdict) {
+        Some(Verdict::H1) => "🟢 **Gate: pass**",
+        Some(_) => "🔴 **Gate: fail**",
+        None => "⚪ **Gate: no result**",
+    };
+    let _ = writeln!(
+        out,
+        "{gate}: {}",
+        interpret(nodes.map(|r| r.verdict), timed.map(|r| r.verdict))
+    );
+    let _ = writeln!(out);
+    let mut timed_settings = settings.clone();
+    timed_settings.timed = true;
+    let mut nodes_settings = settings.clone();
+    nodes_settings.timed = false;
+    let sections = [
+        (
+            format!("#### Timed, {} (the gate)", settings.tc),
+            timed,
+            &timed_settings,
+        ),
+        (
+            format!(
+                "#### Fixed nodes, {} per move (informational)",
+                fmt_int(settings.nodes_per_move)
+            ),
+            nodes,
+            &nodes_settings,
+        ),
+    ];
+    for (title, result, s) in sections {
+        let _ = writeln!(out, "{title}");
+        let _ = writeln!(out);
+        match result {
+            Some(r) => out.push_str(&render_body(r, s, meta)),
+            None => {
+                let _ = writeln!(out, "Did not finish; see the job log.");
+            }
+        }
+        let _ = writeln!(out);
+    }
+    out
+}
+
+fn render_body(result: &SprtResult, settings: &Sprt, meta: &Meta) -> String {
     let (glyph, word) = match result.verdict {
         Verdict::H1 => ("🟢", "**H1 accepted**: the change gains Elo"),
         Verdict::H0 => ("🔴", "**H0 accepted**: the change does not gain Elo"),
@@ -246,8 +327,6 @@ pub fn render(result: &SprtResult, settings: &Sprt, meta: &Meta) -> String {
         ),
     };
     let mut out = String::new();
-    let _ = writeln!(out, "### ⚔️ SPRT");
-    let _ = writeln!(out);
     let _ = writeln!(out, "{glyph} {word}");
     let _ = writeln!(out);
     let _ = writeln!(out, "| Elo | LOS | Games | W / L / D | LLR |");
@@ -281,13 +360,13 @@ pub fn render(result: &SprtResult, settings: &Sprt, meta: &Meta) -> String {
     if settings.timed {
         let _ = writeln!(
             out,
-            "- Timed games at {} on the runner, so the verdict includes time management and the runner's speed (for a change that fixed nodes cannot see); {} openings, each played from both sides; fastchess {}",
+            "- Timed games at {} on one runner for both engines: what the engine does at a clock, its cost per node and time management included; {} openings, each played from both sides; fastchess {}",
             settings.tc, meta.openings, meta.fastchess
         );
     } else {
         let _ = writeln!(
             out,
-            "- {} nodes per move, so the verdict does not depend on the runner's speed (speed is judged by the bench gate); {} openings, each played from both sides; fastchess {}",
+            "- {} nodes per move: whether the search is smarter per node, whatever a node costs; {} openings, each played from both sides; fastchess {}",
             fmt_int(settings.nodes_per_move),
             meta.openings,
             meta.fastchess

@@ -64,15 +64,12 @@ hash_mb = 64
 openings = "tests/openings/openings.epd"
 
 [sprt]
-# Strength tests on CI (the `sprt` label). Both engines play at a fixed node
-# budget per move, so the verdict does not depend on the runner; NPS is judged
-# by the bench gate. elo1 is the gain a change must plausibly deliver; tighten
-# it as gains get smaller.
+# Strength tests on CI (the `sprt` label): two SPRTs at once, one timed at `tc`
+# (the gate) and one at `nodes_per_move` (informational: whether the search is
+# smarter per node, whatever a node costs). elo1 is the gain a change must
+# plausibly deliver; tighten it as gains get smaller.
 nodes_per_move = 200_000
-# The `sprt-tc` label plays timed games at this control instead, for changes
-# that fixed nodes cannot see (time management). The runner's speed is then
-# part of the result, which is why it is not the default. Short enough that
-# the 1000-round cap stays near an hour at concurrency 4.
+# Short enough that the 1000-round cap fits the job limit at concurrency 4.
 tc = "5+0.05"
 elo0 = 0.0
 elo1 = 10.0
