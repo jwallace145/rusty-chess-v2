@@ -2,7 +2,7 @@
 
 A living checklist. Oct 26, 2026 · @Jimmy, maintained as the engine is built.
 
-**Status:** Phases 0–3 complete and released (`v0.8.0` also carries the rating ladder). Phase 4 (selectivity) in progress; its first intermediate gate is the EBF ≤ 3 carried over from Phase 3.
+**Status:** Phases 0–4 complete and released (`v0.17.0` closes Phase 4). Phase 4b (second-tier search) and Phase 5 (first release) run in parallel; Phase 6 (NNUE) starts when the 4b list is exhausted and the ladder reads about 2800.
 
 ## How to use this document
 
@@ -109,16 +109,32 @@ Each item is its own PR with an SPRT run; the first intermediate gate is the EBF
 - [x] Check extensions, mate-distance pruning: the window is clamped to the mates reachable from the ply (`mdp_cutoffs`), and late move pruning never skips a move that gives check, decided before the move is made by `Position::gives_check` (direct, discovered, en passant and castling checks; verified against making the move on every suite position) and evaluated only for a move about to be skipped (`lmp_checks_kept`). The one-ply check extension was built and dropped: at fixed nodes it was +9.7 ± 12.4 Elo (LOS 94%, inconclusive) for 30% more nodes and 9% more instructions per node, a net loss at a clock. Depth-10 bench: signature 3629136 → 3775127 (+4%; mate-distance pruning alone leaves it unchanged); a mate in two whose mating move is a quiet check late in the list (`k7/8/2K5/8/8/8/8/7R w`) is found at depth 5 where v0.13.0 misses it; SPRT +24.5 ± 14.0 Elo, LOS 100% in 1252 games; paired speed −2.3% ± 0.6%, 1612 instructions per node (#57, v0.14.0)
 - [x] Quiescence: in check, every evasion is searched and having none is mate (a correctness fix: it stood pat before); losing captures skipped by static exchange evaluation, never in check (`qsee_skips`). Depth-10 bench: quiescence nodes 3.83M → 1.68M (−56%), signature 4629402 → 2566403 (−45%), EBF 1.69 → 2.02 (the ratio counts quiescence nodes; bar loosened 2.0 → 2.2 with a declared exception); SPRT +111.7 ± 32.8 Elo for the SEE pruning alone (296 games), +75.6 ± 26.4 for both against `main` (420 games); time to depth −2.5% (#63, #65, v0.15.0)
 - [x] Quiescence: transposition table probed (any depth suffices at the horizon), the stored move searched first, stand-pat cutoffs and results stored at depth 0 with the bound from the original window (`qtt_probes`, `qtt_cutoffs`). Depth-10 bench: signature 2566403 → 2077084 (−19%), quiescence nodes −24%, EBF 2.02 → 1.82 (bar back to 2.0, exception removed), main-search TT hit 0.28 → 0.50; SPRT +69.4 ± 24.7 Elo (436 games); time to depth −11.5% (#66, v0.16.0)
-- [ ] Improved time management
+- [x] Improved time management: measured, nothing kept. Three timed SPRTs at 5+0.05 found no version better than the original plan (a 30th of the clock plus ¾ of the increment, 3× hard): #59 with new budgets and a stable-move cut, −4.2 ± 10.8 and, retuned to spend the same clock as `main`, −7.5 ± 11.3; #73 with only the guard against starting an iteration predicted to overrun the hard limit, clearly negative and cancelled. The PGNs showed the base reaching the same depth with the same clock use, so the plan's overruns are not waste at short controls. Kept from the work: the `sprt-tc` timed mode (#70) and the `Move Overhead` option (#71, v0.17.0). The long-control overrun the plan is known to have waits for a long-control test, which needs the standardized runner of Phase 5
 - [x] **Intermediate gate:** EBF ≤ 3 on bench (carried over from Phase 3; 4.18 at its close): 2.86 with null-move pruning, 2.17 with late move reductions
 - [x] Bench depth raised once EBF allows it (the signature changes; say so in the PR): 6 → 10 after late move pruning left the depth-6 bench under 100 ms; signature 387631 → 3629136, EBF 1.91 → 1.77, fail-high-first 0.89 → 0.905 at the new depth, EBF bar tightened 2.5 → 2.0 (#60)
-- [ ] **Exit:** EBF ≈ 2, each technique gained Elo under SPRT, roughly 2400–2700 CCRL range
+- [x] **Exit:** EBF ≈ 2: **1.82** on the depth-10 bench. Each technique gained Elo under SPRT: H1 accepted for null-move pruning (+130.8), late move reductions (+204.2), reverse futility pruning (+65.2), late move pruning (+143.2), mate-distance pruning with the checking-move exemption (+24.5), the quiescence fix with SEE pruning (+75.6) and the quiescence transposition table (+69.4); PVS (+11.6, LOS 97.7%) and aspiration windows (+13.2, LOS 99.2%) merged on LOS before the H1-only rule (#77). Strength: about 2600 on the Stockfish ladder (v0.15.0 ~2638 ± 43, v0.16.0 ~2587 ± 43); the CCRL figure needs a tester and a Windows build (Phase 5). **Decided 2026-10-28:** the engine should be stronger before NNUE, since its self-play data is only as good as its search, so Phase 4b below precedes Phase 6; evaluation terms are not worth writing because NNUE replaces them
+
+### Phase 4b: Second-tier search — in progress
+
+The standard techniques the engine still lacks, each worth 10–40 Elo and all of them kept by an NNUE engine. One PR and one release each; an accepted H1 is required (#77). Ordered by expected value per effort.
+
+- [ ] Continuation history (one and two plies back) and a counter-move heuristic in the move picker
+- [ ] Futility pruning of quiet moves at low depth (the forward counterpart of reverse futility)
+- [ ] SEE pruning in the main search: bad captures and losing quiets skipped at shallow depth
+- [ ] The improving heuristic (static evaluation against two plies ago) driving the reverse futility and late move pruning margins
+- [ ] Singular extensions
+- [ ] Internal iterative reductions at nodes without a table move
+- [ ] History-adjusted late move reductions and reduction tuning
+- [ ] Pondering (`go ponder`, `ponderhit`), for Lichess, where the opponent's clock is free time
+- [ ] **Exit:** the list exhausted (each item kept on H1 or dropped on record); the ladder reads about 2800; then Phase 6
 
 ### Phase 5: First release
 
 - [ ] A rating ladder against limited Stockfish on every release, attached with the logs and PGNs, as a ballpark between public ratings
 - [ ] Homebrew tap bumped by the `release` job after the Release Please PR merges (release notes already carry the signature and telemetry since Phase 0)
-- [ ] Lichess bot account: `lichess/run.sh` connects the engine through lichess-bot; the account, token and upgrade are the owner's steps (see `lichess/README.md`). Pulled forward from optional: the rating it earns is the real-world number
+- [x] Lichess bot account: `lichess/run.sh` connects the engine through lichess-bot for development (see `lichess/README.md`), and an always-on `c8a.medium` run by jwall-engineering-infra plays every published release automatically (#74). The rating it earns is the real-world number; it is not comparable to the ladder's or CCRL's
+- [ ] Opening book as a release asset: a from-scratch Polyglot book builder in `crates/tools` from a master-games collection (data credited like PeSTO), published as `rusty-chess-book.bin` beside the binaries; the Lichess bot plays it through lichess-bot's polyglot setting with weighted random selection. The engine itself stays book-free: SPRT, the ladder and CCRL testers all play from their own openings. **Decided 2026-10-28:** no `OwnBook` in the binary; a book built from the engine's own games replaces the master-games book after Phase 6
+- [ ] Release matrix for CCRL testers: a Windows x86-64 build and a baseline x86-64 build beside the x86-64-v3 one, named by CPU level
 - [ ] Optional: submission to CCRL testers
 - [ ] **Exit:** `brew install` works on macOS arm64 and x86_64; the engine is publicly rated somewhere
 
@@ -182,6 +198,8 @@ Ship it as a Homebrew-installable UCI binary first. Release CI builds macOS arm6
 
 ## Learnings
 
+- **2026-10-28** Time management cannot be tested where its waste is: at 5+0.05 the base's overruns past its soft budget finished as deeper moves, and three timed SPRTs of three different plans all lost or tied. A guard against overruns is a long-control change and needs a long-control test; until the standardized runner exists, leave the plan alone.
+- **2026-10-28** Nodes per second and fixed-node SPRT both mis-read a change that alters what a node is. Quiescence SEE pruning read −35% NPS and 🔴 while reaching the same depth 16% sooner, and its fixed-node Elo flattered it. The bench comment now carries a paired time-to-depth row and leaves NPS unmarked when the signature changed (#68); time to depth is the speed number for a `feat`, NPS for a `perf`.
 - **2026-10-26** Release Please's `rust` strategy needs the workspace root to be a package; a virtual workspace fails with "is not a package manifest". The binary moved to the root (#6).
 - **2026-10-27** GitHub-hosted runners vary 2x in NPS between runs of the same code (perft 200M–380M). Deltas under 10% are shown as unchanged; speed bars are enforced only on release PRs; SPRT uses fixed nodes.
 - **2026-10-27** Release Please force-pushes and edits its PR in the same second; a shared concurrency group cancelled one of the two CI runs and the cancelled check run blocked the merge. Edits and pushes now have separate streams and code jobs skip on edits (#21).
