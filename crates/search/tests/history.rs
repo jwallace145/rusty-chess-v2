@@ -3,7 +3,7 @@
 use rusty_chess_core::r#move::Move;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
-use rusty_chess_search::history::{History, MAX_HISTORY};
+use rusty_chess_search::history::{Continuation, History, MAX_HISTORY, PieceTo};
 use rusty_chess_search::movepick::{MovePicker, Stage};
 
 fn mv(uci: &str, pos: &Position) -> Move {
@@ -80,11 +80,42 @@ fn the_picker_orders_quiets_by_history_after_killers() {
     let killer = mv("g1f3", &p);
     let mut picker = MovePicker::new(Move::NULL).with_killers([killer, Move::NULL]);
     let mut out = Vec::new();
-    while let Some(m) = picker.next_with(&p, &h) {
+    while let Some(m) = picker.next_with(&p, &|m| h.get(p.side_to_move(), m)) {
         out.push((m, picker.stage()));
     }
     assert_eq!(out.len(), 20);
     assert_eq!(out[0], (killer, Stage::Killers));
     assert_eq!(out[1], (best, Stage::HistoryQuiets));
     assert_eq!(out[2], (second, Stage::HistoryQuiets));
+}
+
+#[test]
+fn continuation_history_scores_a_move_given_what_came_before() {
+    let p =
+        Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1").unwrap();
+    let e4 = PieceTo { piece: 0, to: 28 }; // white pawn to e4 (a white pawn is piece 0)
+    let nf6 = PieceTo::of(&p, p.parse_uci_move("g8f6").unwrap());
+    let nc6 = PieceTo::of(&p, p.parse_uci_move("b8c6").unwrap());
+    assert_eq!(nf6.piece, 6 + 1, "a black knight");
+    let mut c = Continuation::new();
+    assert_eq!(c.get(e4, nf6), 0);
+    c.update(e4, nf6, 400);
+    c.update(e4, nc6, -400);
+    assert!(c.get(e4, nf6) > 0 && c.get(e4, nc6) < 0);
+    // Keyed by the earlier move: after a different move the scores are untouched.
+    let d4 = PieceTo { piece: 0, to: 27 };
+    assert_eq!(c.get(d4, nf6), 0);
+    // No previous move: nothing scored, nothing stored.
+    c.update(PieceTo::NONE, nf6, 1000);
+    assert_eq!(c.get(PieceTo::NONE, nf6), 0);
+    // Gravity keeps the score bounded; aging halves it; clear zeroes it.
+    for _ in 0..200 {
+        c.update(e4, nf6, 1200);
+    }
+    assert!(c.get(e4, nf6) <= MAX_HISTORY);
+    let before = c.get(e4, nf6);
+    c.age();
+    assert_eq!(c.get(e4, nf6), before / 2);
+    c.clear();
+    assert_eq!(c.get(e4, nf6), 0);
 }

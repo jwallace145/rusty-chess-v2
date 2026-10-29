@@ -9,7 +9,6 @@ use rusty_chess_core::r#move::Move;
 use rusty_chess_core::movegen::{MAX_MOVES, MoveList, generate_captures, generate_quiets};
 use rusty_chess_core::position::Position;
 
-use crate::history::{EMPTY, History};
 use crate::see::{SEE_VALUE, see};
 pub use crate::stats::Stage;
 
@@ -77,11 +76,13 @@ impl MovePicker {
     /// The next move, or `None` when every legal move has been yielded,
     /// ordering quiets without history.
     pub fn next(&mut self, pos: &Position) -> Option<Move> {
-        self.next_with(pos, &EMPTY)
+        self.next_with(pos, &|_| 0)
     }
 
-    /// The next move, ordering the remaining quiets by `history`.
-    pub fn next_with(&mut self, pos: &Position, history: &History) -> Option<Move> {
+    /// The next move, ordering the remaining quiets by `score` (history,
+    /// continuation history, whatever the caller combines), evaluated once
+    /// per quiet when the quiet stage begins.
+    pub fn next_with(&mut self, pos: &Position, score: &dyn Fn(Move) -> i32) -> Option<Move> {
         loop {
             match self.state {
                 State::TtMove => {
@@ -129,9 +130,8 @@ impl MovePicker {
                     self.state = State::GenerateQuiets;
                 }
                 State::GenerateQuiets => {
-                    let side = pos.side_to_move();
                     for (i, &m) in self.quiets.iter().enumerate() {
-                        self.quiet_scores[i] = history.get(side, m);
+                        self.quiet_scores[i] = score(m);
                     }
                     self.state = State::Quiets;
                 }
