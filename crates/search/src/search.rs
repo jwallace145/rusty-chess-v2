@@ -14,10 +14,11 @@ use std::time::{Duration, Instant};
 
 use rusty_chess_core::r#move::Move;
 use rusty_chess_core::movegen::{MoveList, generate_captures};
+use rusty_chess_core::position::Position;
 use rusty_chess_core::types::PieceKind;
 
 use crate::board::Board;
-use crate::history::History;
+use crate::history::{Continuation, History, PieceTo};
 use crate::killers::Killers;
 use crate::movepick::MovePicker;
 use crate::see::see_ge;
@@ -170,6 +171,12 @@ pub struct Searcher {
     tt: TranspositionTable,
     killers: Killers,
     history: History,
+    /// Continuation history one and two plies back.
+    cont1: Continuation,
+    cont2: Continuation,
+    /// The move made at each ply of the current line (`PieceTo::NONE`
+    /// after a null move), so a node knows what led to it.
+    moved: [PieceTo; MAX_PLY + 2],
     stats: SearchStats,
     nodes: u64,
     qnodes: u64,
@@ -189,6 +196,9 @@ impl Searcher {
             tt: TranspositionTable::new(DEFAULT_HASH_MB),
             killers: Killers::new(),
             history: History::new(),
+            cont1: Continuation::new(),
+            cont2: Continuation::new(),
+            moved: [PieceTo::NONE; MAX_PLY + 2],
             stats: SearchStats::new(),
             nodes: 0,
             qnodes: 0,
@@ -226,6 +236,8 @@ impl Searcher {
     pub fn clear_hash(&mut self) {
         self.tt.clear();
         self.history.clear();
+        self.cont1.clear();
+        self.cont2.clear();
     }
 
     /// Per mille of the table in use by the current search.
@@ -251,6 +263,9 @@ impl Searcher {
         self.tt.new_search();
         self.killers.clear();
         self.history.age();
+        self.cont1.age();
+        self.cont2.age();
+        self.moved = [PieceTo::NONE; MAX_PLY + 2];
         board.set_root();
         let fen = board.position().to_fen();
 
@@ -478,6 +493,7 @@ impl Searcher {
         {
             let reduction = NULL_MOVE_REDUCTION + depth / 4;
             let undo = board.make_null_move();
+            self.moved[ply] = PieceTo::NONE;
             let score = -self.negamax(
                 board,
                 depth.saturating_sub(1 + reduction),
@@ -497,6 +513,18 @@ impl Searcher {
             }
         }
 
+        // What led here: the opponent's move one ply back and our own two
+        // plies back, for the continuation tables.
+        let prev1 = if ply >= 1 {
+            self.moved[ply - 1]
+        } else {
+            PieceTo::NONE
+        };
+        let prev2 = if ply >= 2 {
+            self.moved[ply - 2]
+        } else {
+            PieceTo::NONE
+        };
         let mut picker = MovePicker::new(tt_move).with_killers(self.killers.get(ply));
         let mut best = -INFINITY;
         let mut best_move = Move::NULL;
@@ -504,7 +532,9 @@ impl Searcher {
         // Quiet moves searched at this node, for the history malus.
         let mut quiets_tried = [Move::NULL; 64];
         let mut quiets_count = 0usize;
-        while let Some(m) = picker.next_with(board.position(), &self.history) {
+        while let Some(m) = picker.next_with(board.position(), &|q| {
+            self.quiet_score(board.position(), prev1, prev2, q)
+        }) {
             let quiet = !m.is_capture() && !m.is_promotion();
             // Late move pruning: at a shallow null-window node, once the
             // ordered moves have gone past the index that history and the
@@ -528,6 +558,7 @@ impl Searcher {
                     continue;
                 }
             }
+            self.moved[ply] = PieceTo::of(board.position(), m);
             let undo = board.make_move(m);
             let new_depth = depth - 1;
             // Principal variation search: the first move gets the full
@@ -592,9 +623,15 @@ impl Searcher {
                             self.killers.store(ply, m);
                             let side = board.position().side_to_move();
                             let bonus = History::bonus(depth);
+                            let pt = PieceTo::of(board.position(), m);
                             self.history.update(side, m, bonus);
+                            self.cont1.update(prev1, pt, bonus);
+                            self.cont2.update(prev2, pt, bonus);
                             for &q in &quiets_tried[..quiets_count] {
+                                let qt = PieceTo::of(board.position(), q);
                                 self.history.update(side, q, -bonus);
+                                self.cont1.update(prev1, qt, -bonus);
+                                self.cont2.update(prev2, qt, -bonus);
                             }
                         }
                         break;
@@ -746,6 +783,16 @@ impl Searcher {
         };
         self.tt.store(key, best_move, best, 0, bound, ply);
         best
+    }
+
+    /// The ordering score of a quiet move: butterfly history plus the two
+    /// continuation histories for what led to this node.
+    #[inline]
+    fn quiet_score(&self, pos: &Position, prev1: PieceTo, prev2: PieceTo, m: Move) -> i32 {
+        let pt = PieceTo::of(pos, m);
+        self.history.get(pos.side_to_move(), m)
+            + self.cont1.get(prev1, pt)
+            + self.cont2.get(prev2, pt)
     }
 
     #[inline]
