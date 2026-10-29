@@ -609,9 +609,10 @@ fn the_move_overhead_comes_off_every_budget() {
 }
 
 #[test]
-fn futility_pruning_skips_hopeless_quiets_but_keeps_mates_and_checks() {
+fn futility_pruning_skips_hopeless_quiets_but_keeps_mates() {
     // Mates stay exact, including a quiet key move and checking moves from
-    // a side that is far behind on material (where the futility test bites).
+    // a side that is far behind on material (where the futility test bites),
+    // now that checking moves are pruned as well.
     for (fen, best, mate) in [
         (
             "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",

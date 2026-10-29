@@ -548,8 +548,9 @@ impl Searcher {
             // evaluation is so far below alpha that even a generous margin
             // for the depth left does not reach it, a quiet move cannot be
             // expected to bring the score back; skip it. The first move is
-            // always searched, a checking move never skipped, and never
-            // while being mated.
+            // always searched, and nothing is skipped while being mated.
+            // Checking moves are pruned too: exempting them cost a check
+            // test per candidate, which ate the gain at a clock (#81).
             if quiet
                 && prunable
                 && !pv_node
@@ -557,7 +558,6 @@ impl Searcher {
                 && depth <= FP_MAX_DEPTH
                 && static_eval + FP_BASE + FP_MARGIN * depth as i32 <= alpha
                 && !is_mate_score(best)
-                && !board.position().gives_check(m)
             {
                 stat!(self.stats, futility_skips);
                 index += 1;
