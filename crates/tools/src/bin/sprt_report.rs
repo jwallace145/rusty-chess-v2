@@ -11,7 +11,7 @@
 use std::process::ExitCode;
 
 use rusty_chess_tools::gate::Targets;
-use rusty_chess_tools::sprt::{Meta, Verdict, fastchess_args, parse, render};
+use rusty_chess_tools::sprt::{Meta, fastchess_args, parse, passes, render};
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {
@@ -30,6 +30,7 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     let mut log = None;
     let mut max_rounds = None;
     let mut timed = false;
+    let mut smoke = false;
     let mut meta = Meta {
         head_label: "PR".into(),
         base_label: "base".into(),
@@ -39,6 +40,10 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     while let Some(flag) = it.next() {
         if flag == "--timed" {
             timed = true;
+            continue;
+        }
+        if flag == "--smoke" {
+            smoke = true;
             continue;
         }
         let value = it.next().ok_or_else(|| format!("`{flag}` needs a value"))?;
@@ -81,10 +86,10 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             let text = std::fs::read_to_string(&log).map_err(|e| format!("{log}: {e}"))?;
             let result = parse(&text)?;
             print!("{}", render(&result, &targets.sprt, &meta));
-            Ok(if result.verdict == Verdict::H0 {
-                ExitCode::FAILURE
-            } else {
+            Ok(if passes(result.verdict, smoke) {
                 ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
             })
         }
         other => Err(format!("unknown command `{other}`")),

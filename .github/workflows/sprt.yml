@@ -5,7 +5,7 @@ name: SPRT
 # at a fixed node budget per move (see `[sprt]` in perf-targets.toml), so
 # the verdict does not depend on the runner's speed. Runs when a PR carries
 # the `sprt` label, and again on every push while it does. The result is a
-# sticky PR comment; H0 fails the job. The `sprt-tc` label plays timed games
+# sticky PR comment; only an accepted H1 passes the job. The `sprt-tc` label plays timed games
 # at the `[sprt] tc` time control instead of fixed nodes, for a change that
 # fixed nodes cannot see (time management). The `sprt-quick` label instead plays
 # at most 50 pairs: a pipeline smoke test, never a verdict.
@@ -81,7 +81,7 @@ jobs:
           set +e
           openings=$(grep -c . tests/openings/openings.epd)
           override=""
-          if [ "${{ contains(github.event.pull_request.labels.*.name, 'sprt-quick') && !contains(github.event.pull_request.labels.*.name, 'sprt') }}" = "true" ]; then override="--max-rounds 50"; fi
+          if [ "${{ contains(github.event.pull_request.labels.*.name, 'sprt-quick') && !contains(github.event.pull_request.labels.*.name, 'sprt') }}" = "true" ]; then override="--max-rounds 50 --smoke"; fi
           if [ "${{ contains(github.event.pull_request.labels.*.name, 'sprt-tc') }}" = "true" ]; then override="$override --timed"; fi
           cargo run --release --locked -p rusty-chess-tools --bin sprt-report -- render --config perf-targets.toml $override --log sprt.log \
             --head "${HEAD_SHA:0:7}" --base "$base_label" --fastchess "$FASTCHESS_VERSION" --openings "$openings" > sprt.md
@@ -103,8 +103,11 @@ jobs:
             sprt.pgn
             sprt.md
           if-no-files-found: warn
-      - name: Fail if H0 was accepted or fastchess failed
+      - name: Fail unless H1 was accepted (a smoke test may be inconclusive)
+        # The check passes only on an accepted H1. An inconclusive run is not
+        # evidence of a gain; the owner can merge over the failed check for a
+        # stated reason (a high-LOS inconclusive result, a correctness fix).
         if: steps.report.outputs.status != '0' || steps.play.outputs.exit != '0'
         run: |
-          echo "::error::SPRT verdict status=${{ steps.report.outputs.status }}, fastchess exit=${{ steps.play.outputs.exit }}; see the SPRT comment"
+          echo "::error::SPRT verdict status=${{ steps.report.outputs.status }} (0 only for an accepted H1), fastchess exit=${{ steps.play.outputs.exit }}; see the SPRT comment"
           exit 1
