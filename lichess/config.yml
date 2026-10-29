@@ -20,9 +20,23 @@ engine:
     offer_draw_for_egtb_zero: false
     offer_draw_moves: 10
     offer_draw_pieces: 10
+  # The bot's opening book is Lichess's opening explorer, queried by
+  # lichess-bot: the engine itself stays book-agnostic (UCI engines leave books
+  # to the GUI), so SPRTs, the ladder and CCRL testers see the bare engine.
+  # Masters games only, the best-scoring move for the side to move among those
+  # played at least 50 times; the book ends where the masters data thins out,
+  # and after 10 positions without a book move the bot stops asking.
   online_moves:
     max_out_of_book_moves: 10
     max_retries: 2
+    lichess_opening_explorer:
+      enabled: true
+      min_time: 20                 # seconds left; below this the engine plays, no network round trip
+      max_time: 10800              # every time control the bot accepts
+      source: "masters"
+      player_name: ""
+      sort: "winrate"
+      min_games: 50                # ignore thin lines whose winrate is noise
     chessdb_book:
       enabled: false
     lichess_cloud_analysis:

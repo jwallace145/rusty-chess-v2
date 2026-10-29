@@ -39,6 +39,21 @@ stop (games in progress are resigned by the server after `abort_time`).
 
 Delete `lichess/.lichess-bot/` to refetch everything.
 
+## Opening book
+
+The bot plays its openings from Lichess's
+[opening explorer](https://lichess.org/analysis#explorer) (masters games),
+through lichess-bot's `online_moves.lichess_opening_explorer`, like most
+Lichess bots: instant, sound moves in the opening and the whole clock saved
+for the middlegame. It picks the best-scoring move among those masters played
+at least 50 times, so its book lines are the same game to game; out of book,
+or with under 20 seconds left, the engine searches as usual.
+
+The book belongs to the bot, not the engine. `rusty-chess` has no book and no
+book option: SPRTs, the Stockfish ladder and anyone running the binary see the
+bare engine. So the bot's Lichess rating includes the book, and the ladder
+numbers do not.
+
 `config.yml` is versioned; the token is injected from the environment and
 never written to the repo. The engine's hash size is set there (`Hash: 128`).
 
