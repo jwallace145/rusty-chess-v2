@@ -4,14 +4,17 @@
 //! ```text
 //! sprt-report args --config perf-targets.toml [--max-rounds N]
 //! sprt-report render --config perf-targets.toml --log sprt.log --head SHA --base LABEL --fastchess VERSION --openings N
+//! sprt-report combine --config perf-targets.toml --timed-log T --nodes-log N [--smoke] --head SHA --base LABEL --fastchess VERSION --openings N
 //! ```
 //!
-//! `render` exits 1 when H0 was accepted.
+//! `render` exits 1 unless H1 was accepted (a smoke test may also be
+//! inconclusive). `combine` renders both runs of a dual SPRT and exits by the
+//! timed run, the gate; a missing log is reported as not finished.
 
 use std::process::ExitCode;
 
 use rusty_chess_tools::gate::Targets;
-use rusty_chess_tools::sprt::{Meta, fastchess_args, parse, passes, render};
+use rusty_chess_tools::sprt::{Meta, fastchess_args, parse, passes, render, render_dual};
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {
@@ -28,6 +31,8 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     let command = it.next().ok_or("expected `args` or `render`")?;
     let mut config = None;
     let mut log = None;
+    let mut timed_log = None;
+    let mut nodes_log = None;
     let mut max_rounds = None;
     let mut timed = false;
     let mut smoke = false;
@@ -50,6 +55,8 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
         match flag.as_str() {
             "--config" => config = Some(value),
             "--log" => log = Some(value),
+            "--timed-log" => timed_log = Some(value),
+            "--nodes-log" => nodes_log = Some(value),
             "--max-rounds" => {
                 max_rounds = Some(
                     value
@@ -90,6 +97,28 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
                 ExitCode::SUCCESS
             } else {
                 ExitCode::FAILURE
+            })
+        }
+        "combine" => {
+            // A log that is missing or unreadable means that job failed.
+            let read = |path: Option<String>| {
+                path.and_then(|p| std::fs::read_to_string(p).ok())
+                    .and_then(|t| parse(&t).ok())
+            };
+            let timed_result = read(timed_log);
+            let nodes_result = read(nodes_log);
+            print!(
+                "{}",
+                render_dual(
+                    timed_result.as_ref(),
+                    nodes_result.as_ref(),
+                    &targets.sprt,
+                    &meta
+                )
+            );
+            Ok(match timed_result {
+                Some(r) if passes(r.verdict, smoke) => ExitCode::SUCCESS,
+                _ => ExitCode::FAILURE,
             })
         }
         other => Err(format!("unknown command `{other}`")),

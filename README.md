@@ -47,7 +47,7 @@ Three layers are measured separately because each one fails differently.
 | Move generation speed | `rusty-chess perft --suite tests/perft.epd` | every count in the suite, and perft NPS (bulk counting) |
 | Search speed | `rusty-chess bench` | the node **signature** and NPS |
 | Search efficiency | `cargo build --release --features stats`, then `bench` | fail-high-first rate, EBF, TT hit rate, qsearch share, cutoffs by move-picker stage |
-| Strength | the `sprt` label on a PR (`sprt-tc` for timed games) | Elo against the PR's base, fastchess at fixed nodes per move on a standardized runner |
+| Strength | the `sprt` label on a PR | Elo against the PR's base, timed (the gate) and at fixed nodes per move, on standardized runners |
 | Head-to-head | the `Match` workflow, by hand | Elo between any two refs at any time control or node budget, a fixed number of games |
 
 The `stats` feature compiles the counters in; without it every `stat!` in

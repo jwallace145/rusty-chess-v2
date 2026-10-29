@@ -1,7 +1,9 @@
 //! Parsing fastchess output and rendering the SPRT comment.
 
 use rusty_chess_tools::gate::{Sprt, Targets};
-use rusty_chess_tools::sprt::{Meta, Verdict, fastchess_args, parse, passes, render};
+use rusty_chess_tools::sprt::{
+    Meta, Verdict, fastchess_args, interpret, parse, passes, render, render_dual,
+};
 
 const LOG: &str = "\
 Started game 1 of 3000 (pr vs base)
@@ -159,4 +161,50 @@ fn a_balanced_result_renders_los_as_not_available() {
         },
     );
     assert!(md.contains("| n/a |"), "{md}");
+}
+
+#[test]
+fn the_pair_of_verdicts_is_read_with_the_timed_one_as_the_gate() {
+    use Verdict::{H0, H1, Inconclusive};
+    assert!(interpret(Some(H1), Some(H1)).contains("**merge**"));
+    assert!(interpret(Some(H1), Some(Inconclusive)).contains("`perf` pass"));
+    assert!(interpret(Some(H1), Some(H0)).contains("do not merge"));
+    assert!(interpret(Some(Inconclusive), Some(H1)).contains("speed gain"));
+    assert!(interpret(Some(H0), Some(H0)).contains("no gain at a clock"));
+    assert!(interpret(None, Some(H1)).contains("**merge**"));
+    assert!(interpret(Some(H1), None).contains("did not finish"));
+}
+
+#[test]
+fn a_dual_comment_shows_the_gate_and_both_runs() {
+    let t = Targets::parse("[movegen]\nmin_perft_nps = { local = 0, ci = 0 }\n[search]\nmin_nps = { local = 0, ci = 0 }\n[efficiency]\nmin_fail_high_first = 0.0\nmax_ebf = 0.0\n[sprt]\ntc = \"5+0.05\"\n").unwrap();
+    let meta = Meta {
+        head_label: "abc1234".into(),
+        base_label: "main@def5678".into(),
+        fastchess: "v1".into(),
+        openings: 300,
+    };
+    let h1 = parse(LOG).unwrap();
+    let mut inconclusive = h1.clone();
+    inconclusive.verdict = Verdict::Inconclusive;
+    let md = render_dual(Some(&inconclusive), Some(&h1), &t.sprt, &meta);
+    assert!(md.starts_with("### ⚔️ SPRT\n\n🔴 **Gate: fail**"), "{md}");
+    assert!(md.contains("`perf` pass"), "{md}");
+    assert!(md.contains("#### Timed, 5+0.05 (the gate)"), "{md}");
+    assert!(
+        md.contains("#### Fixed nodes, 200,000 per move (informational)"),
+        "{md}"
+    );
+    assert!(md.contains("Timed games at 5+0.05"), "{md}");
+    assert!(
+        md.contains("200,000 nodes per move: whether the search"),
+        "{md}"
+    );
+    let md = render_dual(Some(&h1), None, &t.sprt, &meta);
+    assert!(
+        md.contains("🟢 **Gate: pass**") && md.contains("Did not finish"),
+        "{md}"
+    );
+    // The single-run comment keeps its heading.
+    assert!(render(&h1, &t.sprt, &meta).starts_with("### ⚔️ SPRT\n\n🟢"));
 }
