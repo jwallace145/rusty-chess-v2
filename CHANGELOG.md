@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.18.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.17.0...v0.18.0) (2026-10-29)
+
+
+### Features
+
+* **search:** order quiet moves with continuation history one and two plies back ([#79](https://github.com/jwallace145/rusty-chess-v2/issues/79)) ([a3ee221](https://github.com/jwallace145/rusty-chess-v2/commit/a3ee221e3bd7325254b7324f683187e5e50af70a))
+
+
+### Documentation
+
+* close phase 4, add the phase 4b search list and the book and ccrl items to phase 5 ([#78](https://github.com/jwallace145/rusty-chess-v2/issues/78)) ([849d2cb](https://github.com/jwallace145/rusty-chess-v2/commit/849d2cb2e96a21994aaf6532e6179b79268f5fc0))
+* tick the quiescence items with their sprt results and releases ([#75](https://github.com/jwallace145/rusty-chess-v2/issues/75)) ([e52e0cb](https://github.com/jwallace145/rusty-chess-v2/commit/e52e0cbe989906d1965b02360eb091f58e3481dc))
+
 ## [0.17.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.16.0...v0.17.0) (2026-10-28)
 
 
