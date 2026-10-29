@@ -37,6 +37,10 @@ name = "rating-report"
 path = "src/bin/rating_report.rs"
 
 [[bin]]
+name = "match-report"
+path = "src/bin/match_report.rs"
+
+[[bin]]
 name = "sprt-report"
 path = "src/bin/sprt_report.rs"
 

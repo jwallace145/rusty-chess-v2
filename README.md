@@ -48,6 +48,7 @@ Three layers are measured separately because each one fails differently.
 | Search speed | `rusty-chess bench` | the node **signature** and NPS |
 | Search efficiency | `cargo build --release --features stats`, then `bench` | fail-high-first rate, EBF, TT hit rate, qsearch share, cutoffs by move-picker stage |
 | Strength | the `sprt` label on a PR (`sprt-tc` for timed games) | Elo against the PR's base, fastchess at fixed nodes per move on a standardized runner |
+| Head-to-head | the `Match` workflow, by hand | Elo between any two refs at any time control or node budget, a fixed number of games |
 
 The `stats` feature compiles the counters in; without it every `stat!` in
 the search expands to nothing. `bench --out FILE` writes JSON lines: one
