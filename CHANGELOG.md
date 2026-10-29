@@ -13,6 +13,12 @@
 * close phase 4, add the phase 4b search list and the book and ccrl items to phase 5 ([#78](https://github.com/jwallace145/rusty-chess-v2/issues/78)) ([849d2cb](https://github.com/jwallace145/rusty-chess-v2/commit/849d2cb2e96a21994aaf6532e6179b79268f5fc0))
 * tick the quiescence items with their sprt results and releases ([#75](https://github.com/jwallace145/rusty-chess-v2/issues/75)) ([e52e0cb](https://github.com/jwallace145/rusty-chess-v2/commit/e52e0cbe989906d1965b02360eb091f58e3481dc))
 
+### Benchmarks
+
+* bench signature 1,991,209, instructions per node 2495, search 4.95M NPS, perft 364.67M NPS (pass (63)), fail-high first 90.2%, EBF 1.77, TT hit 50.1%
+* since v0.17.0: fail-high first -0.3 pt, EBF -0.05, instructions per node +11.7%, search NPS −13.0%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.17.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.16.0...v0.17.0) (2026-10-28)
 
 
