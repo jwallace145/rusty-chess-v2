@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.19.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.18.0...v0.19.0) (2026-10-29)
+
+
+### Features
+
+* **lichess:** play the bot's openings from the lichess masters opening explorer ([#86](https://github.com/jwallace145/rusty-chess-v2/issues/86)) ([17841eb](https://github.com/jwallace145/rusty-chess-v2/commit/17841eb0141c109e05e6db1ad64021596d892796))
+
+
+### Performance
+
+* **search:** store continuation history scores as i16 to halve the tables ([#80](https://github.com/jwallace145/rusty-chess-v2/issues/80)) ([fb44489](https://github.com/jwallace145/rusty-chess-v2/commit/fb444894e3da58ec08d3701d0688cc6f2d8fd591))
+
 ## [0.18.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.17.0...v0.18.0) (2026-10-29)
 
 
