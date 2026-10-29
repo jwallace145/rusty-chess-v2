@@ -124,6 +124,31 @@ Every `feat` that touches search or evaluation must gain Elo. Add the `sprt` lab
 
 A full run is 10–35 minutes of runner time (a clear gain resolves in a few hundred games; "no difference" takes the longest), which is why they are opt-in by label rather than on every push. The `sprt-tc` label plays timed games at the `[sprt] tc` time control instead of fixed nodes, for a change that fixed nodes cannot see, such as time management; the runner's speed is then part of the result, which is why it is not the default. The `sprt-quick` label plays at most 50 pairs: a two-minute smoke test of the pipeline that never reaches a verdict. A quiet dedicated runner can replace `ubuntu-latest` later without changing anything else.
 
+## Head-to-head matches: the Match workflow
+
+An SPRT asks one question about one change and stops as soon as it knows the answer. Some questions need a measurement instead: how much stronger is v0.18.0 than v0.13.0 at a real clock, does a change that passed at 200k nodes still help at 2M, did the last five releases add up. The `Match` workflow answers those. Run it from the Actions tab (**Match → Run workflow**) or from a terminal:
+
+```sh
+gh workflow run Match -f candidate=v0.18.0 -f baseline=v0.13.0 -f tc=10+0.1 -f games=400 \
+  -f note="did Phase 4's fixed-node gains survive a clock?"
+gh workflow run Match -f candidate=main -f baseline=v0.18.0 -f nodes=2000000 -f games=200
+```
+
+| Input | Default | Meaning |
+|:--|:--|:--|
+| `candidate` | `main` | the engine being judged: tag, branch or SHA |
+| `baseline` | | the engine it is judged against |
+| `tc` | `10+0.1` | seconds + increment per game, ignored when `nodes` is set |
+| `nodes` | blank | a fixed node budget per move instead of a clock |
+| `games` | `400` | even: each opening is played from both sides |
+| `concurrency` | `4` | games at once; `ubuntu-latest` has 4 vCPUs |
+| `hash` | `64` | MB per engine |
+| `note` | | why the match is being run, shown at the top of the report |
+
+Both engines are built from source at their refs with the same flags and benched before playing, so the report records the commit and bench signature of exactly what played; the tools, openings and settings come from the workflow's commit. Bad settings fail the first step in seconds, before anything is built. The log shows the running result every 20 games; the report goes to the run's summary page, and the report, the full fastchess log and every game's PGN are attached as an artifact. The result is the candidate's Elo over the baseline with its 95% interval, read as stronger, weaker or no significant difference. Budget: 400 games at 10+0.1 take about an hour at concurrency 4; at 2M nodes per move, about ten times the fixed-node SPRT's per-game cost.
+
+A match is a measurement, not a merge gate. Shared runners vary in speed, so a timed match compares two engines on the same runner but its absolute numbers move between runs; for a decision about one change, use the SPRT.
+
 ## Strength estimate: the rating ladder
 
 The `Rating` workflow estimates absolute strength by playing the engine against Stockfish limited to a ladder of `UCI_Elo` levels (`[rating]` in `perf-targets.toml`: 2200, 2500, 2800 and 3100 at 10+0.1, 100 games each, from our openings; the rungs move up as the engine outgrows them, and the file records every ladder with the releases rated on it). Each level gives "level plus the measured Elo difference"; the levels combine by inverse variance into one estimate with a 95% error bar, and a level won or lost in every game only bounds it.

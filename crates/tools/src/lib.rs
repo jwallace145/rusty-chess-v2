@@ -5,6 +5,7 @@
 
 pub mod gate;
 pub mod history;
+pub mod matchup;
 pub mod openings;
 pub mod perft;
 pub mod rating;
