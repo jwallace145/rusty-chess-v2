@@ -1,7 +1,7 @@
 //! Parsing fastchess output and rendering the SPRT comment.
 
 use rusty_chess_tools::gate::{Sprt, Targets};
-use rusty_chess_tools::sprt::{Meta, Verdict, fastchess_args, parse, render};
+use rusty_chess_tools::sprt::{Meta, Verdict, fastchess_args, parse, passes, render};
 
 const LOG: &str = "\
 Started game 1 of 3000 (pr vs base)
@@ -132,6 +132,15 @@ fn a_timed_run_plays_at_the_configured_time_control_instead_of_nodes() {
     let text = render(&r, &t.sprt, &meta);
     assert!(text.contains("Timed games at 5+0.05"), "{text}");
     assert!(!text.contains("nodes per move"), "{text}");
+}
+
+#[test]
+fn only_an_accepted_h1_passes_and_a_smoke_test_may_be_inconclusive() {
+    assert!(passes(Verdict::H1, false));
+    assert!(!passes(Verdict::H0, false));
+    assert!(!passes(Verdict::Inconclusive, false));
+    assert!(passes(Verdict::Inconclusive, true));
+    assert!(!passes(Verdict::H0, true));
 }
 
 #[test]

@@ -224,6 +224,17 @@ pub struct Meta {
     pub openings: usize,
 }
 
+/// Whether a verdict passes the SPRT check. Only an accepted H1 does: H0 is
+/// a rejection and an inconclusive run is not evidence of a gain. A smoke
+/// test (`sprt-quick`) never reaches a verdict, so it passes on anything but H0.
+pub fn passes(verdict: Verdict, smoke: bool) -> bool {
+    match verdict {
+        Verdict::H1 => true,
+        Verdict::H0 => false,
+        Verdict::Inconclusive => smoke,
+    }
+}
+
 /// Render the sticky comment.
 pub fn render(result: &SprtResult, settings: &Sprt, meta: &Meta) -> String {
     let (glyph, word) = match result.verdict {
