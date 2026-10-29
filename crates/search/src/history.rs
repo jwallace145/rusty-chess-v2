@@ -111,9 +111,12 @@ impl PieceTo {
 /// fixed number of plies earlier, indexed `[earlier piece][earlier to][piece][to]`.
 /// One table per distance (one ply back is the opponent's reply, two plies
 /// back our own previous move). Same bonus, malus and gravity as [`History`].
+/// Scores are stored as `i16` (they stay within `±MAX_HISTORY`, 16,384) so
+/// the table is 1.2 MB rather than 2.4: the arithmetic is done in `i32` and
+/// is identical, only the footprint changes.
 #[derive(Clone)]
 pub struct Continuation {
-    table: Box<[[[[i32; 64]; 12]; 64]; 12]>,
+    table: Box<[[[[i16; 64]; 12]; 64]; 12]>,
 }
 
 impl Default for Continuation {
@@ -126,7 +129,7 @@ impl Continuation {
     /// All zero.
     pub fn new() -> Continuation {
         Continuation {
-            table: vec![[[[0i32; 64]; 12]; 64]; 12]
+            table: vec![[[[0i16; 64]; 12]; 64]; 12]
                 .into_boxed_slice()
                 .try_into()
                 .unwrap_or_else(|_| unreachable!("12 entries")),
@@ -163,7 +166,9 @@ impl Continuation {
         if prev.is_none() || m.is_none() {
             return 0;
         }
-        self.table[prev.piece as usize][prev.to as usize][m.piece as usize][m.to as usize]
+        i32::from(
+            self.table[prev.piece as usize][prev.to as usize][m.piece as usize][m.to as usize],
+        )
     }
 
     /// Apply `delta` with gravity; nothing with no previous move.
@@ -175,6 +180,8 @@ impl Continuation {
         let delta = delta.clamp(-MAX_HISTORY, MAX_HISTORY);
         let entry =
             &mut self.table[prev.piece as usize][prev.to as usize][m.piece as usize][m.to as usize];
-        *entry += delta - *entry * delta.abs() / MAX_HISTORY;
+        let v = i32::from(*entry);
+        // Bounded by ±MAX_HISTORY, which fits an i16.
+        *entry = (v + delta - v * delta.abs() / MAX_HISTORY) as i16;
     }
 }
