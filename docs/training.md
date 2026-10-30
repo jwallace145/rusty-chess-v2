@@ -18,7 +18,11 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
      by `splitmix(fnv("run/task/worker") ^ splitmix(split_seed))`. A game
      never spans shards, so it never spans the split.
    - **Parse:** every record goes through bulletformat 1.8.0's text parser,
-     the one bullet's `convert --from text` uses.
+     the one bullet's `convert --from text` uses. Decompressing and parsing
+     run on `--threads` threads (all cores by default), a window of shards at
+     a time. The scatter then takes the parsed shards in their original
+     order, so the output doesn't depend on the thread count. About 2.9×
+     faster on 4 threads than on 1 (38M records: 33 s → 11 s on an M3 Max).
    - **Write:** bullet's 32-byte records, shuffled with a seeded generator
      (scattered to 256 bucket files, each Fisher-Yates shuffled, so memory
      stays small).
@@ -26,7 +30,9 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
    - **Outputs:** `split.json` (seeds, the validation workers, counts and the
      SHA-256 of both files) and `check.fens` (held-out positions for the
      check).
-   - **Reproducible:** the same shards and seeds give byte-identical files.
+   - **Reproducible:** the same shards and seeds give byte-identical files,
+     on any number of threads. The SHA-256s are computed as the files are
+     written.
      `bullet-utils shuffle` seeds itself from the clock, which is why the
      trainer shuffles itself.
 2. **`rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--checkpoint-every 4] [--val-positions 4000000]`**

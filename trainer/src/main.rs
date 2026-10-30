@@ -2,7 +2,7 @@
 //! bullet.
 //!
 //! ```text
-//! rusty-chess-trainer prepare --shards DIR --out DIR [--val-fraction 0.05] [--split-seed 1] [--shuffle-seed 1]
+//! rusty-chess-trainer prepare --shards DIR --out DIR [--val-fraction 0.05] [--split-seed 1] [--shuffle-seed 1] [--threads N]
 //! rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--scale 400]
 //!                           [--batches-per-superbatch 6104] [--batch-size 16384] [--lr 0.001]
 //!                           [--lr-gamma 0.1] [--lr-step N] [--threads 4] [--out DIR]
@@ -37,7 +37,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
 use bulletformat::{BulletFormat, ChessBoard};
@@ -158,18 +158,70 @@ fn shards(dir: &Path) -> Result<Vec<(PathBuf, PathBuf, serde_json::Value)>, Stri
     Ok(out)
 }
 
-fn sha256_file(p: &Path) -> Result<String, String> {
-    let mut h = Sha256::new();
-    let mut f = File::open(p).map_err(|e| e.to_string())?;
-    let mut buf = vec![0u8; 1 << 20];
-    loop {
-        let n = f.read(&mut buf).map_err(|e| e.to_string())?;
-        if n == 0 {
-            break;
-        }
-        h.update(&buf[..n]);
+/// A writer that hashes what it writes, so a prepared file's SHA-256 needs no
+/// second read of it.
+struct HashingWriter<W: Write> {
+    inner: W,
+    hash: Sha256,
+}
+
+impl<W: Write> Write for HashingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.hash.update(&buf[..n]);
+        Ok(n)
     }
-    Ok(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// One shard's records, parsed, with its decompressed text and each held-out
+/// record's line span in it (the check positions are sampled from those).
+struct Parsed {
+    boards: Vec<ChessBoard>,
+    text: String,
+    lines: Vec<(u32, u32)>,
+}
+
+impl Parsed {
+    /// The FEN of held-out record `r`.
+    fn fen(&self, r: usize) -> &str {
+        let (a, b) = self.lines[r];
+        let line = &self.text[a as usize..b as usize];
+        line.split(" | ").next().unwrap()
+    }
+}
+
+/// Decompress and parse one shard's positions file.
+fn parse_shard(positions: &Path, held_out: bool) -> Result<Parsed, String> {
+    let mut text = String::new();
+    flate2::read::GzDecoder::new(File::open(positions).map_err(|e| e.to_string())?)
+        .read_to_string(&mut text)
+        .map_err(|e| format!("{}: {e}", positions.display()))?;
+    let mut boards = Vec::with_capacity(25_000);
+    let mut lines = Vec::new();
+    let mut at = 0usize;
+    for line in text.split_inclusive('\n') {
+        let start = at;
+        at += line.len();
+        let line = line.trim_end_matches(['\n', '\r']);
+        if line.is_empty() {
+            continue;
+        }
+        let board: ChessBoard = line
+            .parse()
+            .map_err(|e| format!("{}: {e}: {line}", positions.display()))?;
+        boards.push(board);
+        if held_out {
+            lines.push((start as u32, (start + line.len()) as u32));
+        }
+    }
+    Ok(Parsed {
+        boards,
+        text,
+        lines,
+    })
 }
 
 fn prepare(args: &[String]) -> Result<(), String> {
@@ -180,6 +232,12 @@ fn prepare(args: &[String]) -> Result<(), String> {
     let split_seed: u64 = get(&f, "split-seed", Some(1))?;
     let shuffle_seed: u64 = get(&f, "shuffle-seed", Some(1))?;
     let buckets: usize = get(&f, "buckets", Some(256))?;
+    let threads: usize = get(
+        &f,
+        "threads",
+        Some(std::thread::available_parallelism().map_or(1, |n| n.get())),
+    )?;
+    let threads = threads.max(1);
     std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
     let list = shards(&src)?;
     if list.is_empty() {
@@ -202,7 +260,11 @@ fn prepare(args: &[String]) -> Result<(), String> {
     };
 
     // Pass 1: parse every record and scatter it to a random bucket file of its
-    // split, so the shuffle never needs the whole dataset in memory.
+    // split, so the shuffle never needs the whole dataset in memory. Parsing
+    // (gunzip and text) runs on `threads` threads, a window of shards at a
+    // time; the scatter then takes the parsed shards in their original order,
+    // drawing from one generator exactly as a single thread would, so the
+    // output is the same byte for byte whatever the thread count.
     let tmp = out.join("tmp");
     std::fs::create_dir_all(&tmp).map_err(|e| e.to_string())?;
     let mut rng = Rng(splitmix(shuffle_seed));
@@ -219,45 +281,74 @@ fn prepare(args: &[String]) -> Result<(), String> {
     let mut check: Vec<String> = Vec::new();
     let mut manifest_positions = 0u64;
     let started = std::time::Instant::now();
-    for (i, (_, positions, m)) in list.iter().enumerate() {
-        let key = worker_key(m);
-        let split = usize::from(is_val(&key));
-        let workers = if split == 1 {
-            &mut val_workers
-        } else {
-            &mut train_workers
-        };
-        if workers.last() != Some(&key) && !workers.contains(&key) {
-            workers.push(key);
-        }
-        manifest_positions += m["positions"].as_u64().unwrap_or(0);
-        let reader = BufReader::new(flate2::read::GzDecoder::new(
-            File::open(positions).map_err(|e| e.to_string())?,
-        ));
-        for line in reader.lines() {
-            let line = line.map_err(|e| format!("{}: {e}", positions.display()))?;
-            let board: ChessBoard = line
-                .parse()
-                .map_err(|e| format!("{}: {e}: {line}", positions.display()))?;
-            files[split][rng.below(buckets as u64) as usize]
-                .write_all(ChessBoard::as_bytes_slice(&[board]))
-                .map_err(|e| e.to_string())?;
-            counts[split] += 1;
-            if split == 1 && check.len() < 256 && rng.below(2000) == 0 {
-                check.push(line.split(" | ").next().unwrap().to_string());
+    let splits: Vec<usize> = list
+        .iter()
+        .map(|(_, _, m)| usize::from(is_val(&worker_key(m))))
+        .collect();
+    let window = threads * 8;
+    for (w, chunk) in list.chunks(window).enumerate() {
+        let base = w * window;
+        let parsed: Vec<Result<Parsed, String>> = std::thread::scope(|scope| {
+            let per = chunk.len().div_ceil(threads);
+            let handles: Vec<_> = chunk
+                .chunks(per)
+                .enumerate()
+                .map(|(t, part)| {
+                    let splits = &splits;
+                    scope.spawn(move || {
+                        part.iter()
+                            .enumerate()
+                            .map(|(k, (_, positions, _))| {
+                                parse_shard(positions, splits[base + t * per + k] == 1)
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .flat_map(|h| h.join().expect("a parsing thread panicked"))
+                .collect()
+        });
+        for (k, ((_, _, m), shard)) in chunk.iter().zip(parsed).enumerate() {
+            let i = base + k;
+            let shard = shard?;
+            let key = worker_key(m);
+            let split = splits[i];
+            let workers = if split == 1 {
+                &mut val_workers
+            } else {
+                &mut train_workers
+            };
+            if workers.last() != Some(&key) && !workers.contains(&key) {
+                workers.push(key);
             }
-        }
-        if (i + 1) % 500 == 0 {
-            eprintln!(
-                "prepare: {} of {} shards, {} records, {:.0}s",
-                i + 1,
-                list.len(),
-                counts[0] + counts[1],
-                started.elapsed().as_secs_f64()
-            );
+            manifest_positions += m["positions"].as_u64().unwrap_or(0);
+            for (r, board) in shard.boards.iter().enumerate() {
+                files[split][rng.below(buckets as u64) as usize]
+                    .write_all(ChessBoard::as_bytes_slice(std::slice::from_ref(board)))
+                    .map_err(|e| e.to_string())?;
+                counts[split] += 1;
+                if split == 1 && check.len() < 256 && rng.below(2000) == 0 {
+                    check.push(shard.fen(r).to_string());
+                }
+            }
+            if (i + 1).is_multiple_of(500) {
+                eprintln!(
+                    "prepare: {} of {} shards, {} records, {:.0}s",
+                    i + 1,
+                    list.len(),
+                    counts[0] + counts[1],
+                    started.elapsed().as_secs_f64()
+                );
+            }
         }
     }
     drop(files);
+    eprintln!(
+        "prepare: pass 1 (parse and scatter, {threads} threads) {:.1}s",
+        started.elapsed().as_secs_f64()
+    );
     if counts[0] + counts[1] != manifest_positions {
         return Err(format!(
             "parsed {} records but the manifests say {manifest_positions}",
@@ -265,9 +356,14 @@ fn prepare(args: &[String]) -> Result<(), String> {
         ));
     }
 
-    // Pass 2: shuffle each bucket in memory and append it to its output.
+    // Pass 2: shuffle each bucket in memory and append it to its output,
+    // hashing the output as it is written.
+    let mut digests: Vec<String> = Vec::new();
     for (split, name) in [(0usize, "train.data"), (1, "val.data")] {
-        let mut w = BufWriter::new(File::create(out.join(name)).map_err(|e| e.to_string())?);
+        let mut w = HashingWriter {
+            inner: BufWriter::new(File::create(out.join(name)).map_err(|e| e.to_string())?),
+            hash: Sha256::new(),
+        };
         for b in 0..buckets {
             let p = tmp.join(format!("{split}-{b}.bin"));
             let mut bytes = Vec::new();
@@ -278,16 +374,27 @@ fn prepare(args: &[String]) -> Result<(), String> {
             for i in (1..n).rev() {
                 let j = rng.below(i as u64 + 1) as usize;
                 if i != j {
-                    for k in 0..RECORD {
-                        bytes.swap(i * RECORD + k, j * RECORD + k);
-                    }
+                    // j < i: swap the two whole records.
+                    let (low, high) = bytes.split_at_mut(i * RECORD);
+                    low[j * RECORD..(j + 1) * RECORD].swap_with_slice(&mut high[..RECORD]);
                 }
             }
             w.write_all(&bytes).map_err(|e| e.to_string())?;
             std::fs::remove_file(&p).ok();
         }
         w.flush().map_err(|e| e.to_string())?;
+        digests.push(
+            w.hash
+                .finalize()
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect(),
+        );
     }
+    eprintln!(
+        "prepare: pass 2 (shuffle and write) done at {:.1}s",
+        started.elapsed().as_secs_f64()
+    );
     std::fs::remove_dir_all(&tmp).ok();
     std::fs::write(out.join("check.fens"), check.join("\n") + "\n").map_err(|e| e.to_string())?;
 
@@ -304,7 +411,7 @@ fn prepare(args: &[String]) -> Result<(), String> {
         "shuffle_seed": shuffle_seed,
         "shuffle": format!("records scattered to {buckets} buckets by a seeded generator, each bucket Fisher-Yates shuffled"),
         "format": format!("bulletformat 1.8.0 ChessBoard, {RECORD} bytes per record"),
-        "sha256": {"train.data": sha256_file(&out.join("train.data"))?, "val.data": sha256_file(&out.join("val.data"))?},
+        "sha256": {"train.data": digests[0], "val.data": digests[1]},
         "check_fens": check.len(),
         "seconds": started.elapsed().as_secs(),
     });
