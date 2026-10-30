@@ -12,6 +12,12 @@
 
 * **ci:** export CUDA_PATH for bullet's CUDA build on gpu tasks ([#119](https://github.com/jwallace145/rusty-chess-v2/issues/119)) ([1505e24](https://github.com/jwallace145/rusty-chess-v2/commit/1505e240ac1db45f0c55a74735e2762f0c7cde7f))
 
+### Benchmarks
+
+* bench signature 1,201,313, instructions per node 3543, search 2.11M NPS, perft 235.87M NPS (pass (63)), fail-high first 88.8%, EBF 1.90, TT hit 53.1%
+* since v0.27.0: fail-high first +0.5 pt, EBF -0.00, instructions per node +30.2%, search NPS −39.3%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.27.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.26.0...v0.27.0) (2026-10-30)
 
 
