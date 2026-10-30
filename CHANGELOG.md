@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.25.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.24.0...v0.25.0) (2026-10-30)
+
+
+### Features
+
+* **uci:** ponder on the opponent's time with go ponder and ponderhit ([#108](https://github.com/jwallace145/rusty-chess-v2/issues/108)) ([af669ec](https://github.com/jwallace145/rusty-chess-v2/commit/af669ec9357a300b2cf197a1263f217ebe461235))
+
+### Benchmarks
+
+* bench signature 1,697,503, instructions per node 2664, search 2.53M NPS, perft 200.71M NPS (pass (63)), fail-high first 88.2%, EBF 1.90, TT hit 53.5%
+* since v0.24.0: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.1%, search NPS −49.2%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.24.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.23.0...v0.24.0) (2026-10-30)
 
 
