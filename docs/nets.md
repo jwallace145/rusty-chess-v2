@@ -15,7 +15,8 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | Net | Status | Data (generations, training positions) | Architecture | λ | Superbatches | Held-out loss | Engine check (mean / max cp) | Timed SPRT vs previous | Ladder (Stockfish 19) |
 |:--|:--|:--|:--|--:|--:|--:|:--|:--|:--|
 | `net1-l050-r41022503872` | Default `v0.28.0`–; embedded | 0 · 214.6M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.018925 (gen-0 held-out) | 8.72 / 29.82 | **+587.3 ± 82.7** vs PeSTO | 2977 ± 32 (`v0.28.0`) |
-| `net2-l050-r41110004652` | Passed its SPRT; default once #129 merges | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.019273 (gen-0 + gen-1 held-out) | 5.52 / 20.32 | **+112.8 ± 21.1** vs net 1 | after its release |
+| `net2-l050-r41110004652` | Default in `v0.30.0`; replaced by net2x80 if its SPRT passes | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.019273 (gen-0 + gen-1 held-out) | 5.52 / 20.32 | **+112.8 ± 21.1** vs net 1 | after its release |
+| `net2x80-l050-r41131366975` | Candidate (#133): timed SPRT against net 2 | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | **80** | **0.019204** (same held-out set as net 2: 0.019273) | 5.67 / 22.38 | pending | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -65,6 +66,37 @@ by net 1, was added to generation 0.
 |:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
 | Held-out loss | .019734 | .019602 | .019541 | .019509 | .019323 | .019310 | .019302 | .019297 | .019292 | .019273 |
 | Training sample | .019697 | .019557 | .019486 | .019464 | .019266 | .019246 | .019244 | .019238 | .019229 | .019204 |
+
+## net2x80-l050-r41131366975
+
+Net 2's data and settings with **twice the schedule**: 80 superbatches, the
+learning rate falling tenfold every 36 (0.0001 from superbatch 37, 0.00001
+from 73). Net 2's held-out loss was still falling at its last checkpoint, so
+this asks whether it was under-trained.
+
+| | |
+|:--|:--|
+| Data | Same as net 2: generations 0 + 1, the same split and shuffle seeds, so the same 561,653,589 / 37,941,221 records and the **same held-out positions** |
+| Schedule | λ 0.5; 80 superbatches (8.0B positions, about 14 passes over the data); LR 0.001, ×0.1 every 36 |
+| Training | `Train` run [41131366975](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41131366975): NVIDIA L4, CUDA 13.2, bullet `da426a4`, engine `f29b399`. Prepare 868 s, 3,135 s to trained, about 23 s a superbatch at 4.3M positions/s (disk-bound: see [training.md](training.md#when-training-is-slow)); about $0.70 |
+| Loss | Training loss 0.0681 → 0.0191 |
+| Validation | Best at the last checkpoint, **0.019204**, against net 2's **0.019273** on the identical 4M held-out positions: 6.9·10⁻⁵ (0.36%) lower, more than net 2 gained over its whole second half (0.26%). Train and held-out stay within 0.4%: no overfitting at 14 passes |
+| Engine check | 256 held-out positions: mean 5.67 cp, max 22.38 |
+| Bench | Signature 1146589; fail-high-first 0.884, EBF 1.89 |
+| SPRT vs net 2 | Pending (#133) |
+
+| Superbatch | 4 | 12 | 20 | 28 | 36 | 40 | 52 | 64 | 72 | 76 | 80 |
+|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| Held-out loss | .019729 | .019547 | .019502 | .019459 | .019446 | .019261 | .019237 | .019230 | .019223 | .019206 | .019204 |
+| Training sample | .019690 | .019490 | .019453 | .019413 | .019406 | .019185 | .019167 | .019161 | .019159 | .019136 | .019132 |
+
+**Reading the curve:**
+- **Each LR drop gives the largest step.** The rate stayed at 0.001 to
+  superbatch 36 and the loss was nearly flat by then; the drop at 37 is the
+  big step, and the drop at 73 a small one.
+- **Most of the gain is the longer high-LR phase.** At superbatch 40 this run
+  (0.019261) is already level with net 2's final 0.019273, because it spent
+  36 superbatches at 0.001 rather than 18.
 
 ## Before net 1
 

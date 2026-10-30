@@ -80,15 +80,18 @@ passant, promotions and captures, made and unmade.
 
 ## The embedded nets
 
-The binary carries every net that has been the default, so the data each one
-played can still be re-searched and any of them can be selected by id. The
+The binary carries one net for each generation that has data or is about to
+be played, so the data each one played can still be re-searched and any of
+them can be selected by id. A net that replaces another before playing any
+generation replaces its entry: net 2 (`net2-l050-r41110004652`, `v0.30.0`)
+gave generation 2's place to net2x80 before any generation-2 data existed. The
 newest is the default. Each net's full history (data, parameters, validation
 curve, SPRT and ladder results) is in [nets.md](nets.md).
 
 | Net | Plays generation | Trained on | Bench signature |
 |:--|--:|:--|--:|
 | `net1-l050-r41022503872` | 1 | generation 0 (231M positions) | 1201313 |
-| `net2-l050-r41110004652` (default) | 2 | generations 0 and 1 (600M positions) | 1120617 |
+| `net2x80-l050-r41131366975` (default) | 2 | generations 0 and 1 (600M positions), 80 superbatches | 1146589 |
 
 Each file is `crates/search/nets/<net id>.nnue`, listed in `nnue::NETS` with
 its generation and read with `include_bytes!`. Its record (`training.json`,
