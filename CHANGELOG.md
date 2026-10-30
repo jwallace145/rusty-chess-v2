@@ -12,6 +12,12 @@
 
 * **datagen:** upload shards in parallel batches so a 64-core instance never falls behind ([#110](https://github.com/jwallace145/rusty-chess-v2/issues/110)) ([3e3bdbd](https://github.com/jwallace145/rusty-chess-v2/commit/3e3bdbdca83d522411fecbdc75ea5f524d9a803a))
 
+### Benchmarks
+
+* bench signature 1,697,503, instructions per node 2721, search 2.81M NPS, perft 203.34M NPS (pass (63)), fail-high first 88.2%, EBF 1.90, TT hit 53.5%
+* since v0.25.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +2.1%, search NPS +11.1%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.25.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.24.0...v0.25.0) (2026-10-30)
 
 
