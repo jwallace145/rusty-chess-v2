@@ -68,6 +68,8 @@ release, whose telemetry is attached to the GitHub release as assets. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Every release's numbers, with the full history, are in [docs/benchmarks.md](docs/benchmarks.md).
+Every NNUE net and every self-play dataset, with its data, parameters and
+results, is in [docs/nets.md](docs/nets.md) and [docs/datasets.md](docs/datasets.md).
 
 To play it or watch it on Lichess, see [lichess/README.md](lichess/README.md).
 

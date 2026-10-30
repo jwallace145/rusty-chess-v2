@@ -1,8 +1,8 @@
 # Chess Engine Roadmap
 
-A living checklist. Started Oct 26, 2026 · @Jimmy, maintained as the engine is built; last reviewed 2026-10-30 (`v0.26.0`).
+A living checklist. Started Oct 26, 2026 · @Jimmy, maintained as the engine is built; last reviewed 2026-10-30 (`v0.29.0`).
 
-**Status:** Phases 0–4b complete and released (`v0.17.0` closed Phase 4, `v0.25.0` Phase 4b). **Phase 6 (NNUE) is in progress:** generation 0's self-play data (231M positions) is generated and fully audited, the engine's NNUE inference (`v0.26.0`) and the `bullet` trainer are built and cross-checked, and the first net trains on a GPU task as soon as the `gpu` profile is applied. Phase 5 (first public release) runs alongside. Strength: about 2700–2750 on the Stockfish ladder (`v0.26.0`: 2728 ± 38), PeSTO evaluation.
+**Status:** Phases 0–4b complete and released (`v0.17.0` closed Phase 4, `v0.25.0` Phase 4b). **Phase 6 (NNUE) is in its iteration loop.** Net 1, trained on PeSTO's self-play, became the default in `v0.28.0`: +587 over PeSTO in the timed SPRT, and 2977 ± 32 on the Stockfish 19 ladder. The vectorized net followed in `v0.29.0`. Net 2, trained on generations 0 and 1, beat net 1 by +113 and becomes the default with #129. Every net and dataset is logged in [nets.md](nets.md) and [datasets.md](datasets.md). Phase 5 (first public release) runs alongside.
 
 ## How to use this document
 
@@ -163,20 +163,22 @@ The destination named in the goals: our own network, trained on our own games. *
 
 - [x] The trainer: `trainer/`, a separate Cargo project on `bullet` (CUDA or Apple Metal) so the engine never needs a GPU toolkit. `prepare` splits by whole worker (no game spans the split) and shuffles with a recorded seed, byte-reproducibly; `train` builds bullet's reference (768 → 128) × 2 → 1 SCReLU network at the engine's quantization and scale (400, enforced). `ci/train-task.sh` downloads, prepares, trains, checks and uploads with a full `training.json` ([training.md](training.md), #115)
 - [x] The engine-to-trainer check, `nnue-eval`: an independent implementation reproduced the trainer's float evaluation exactly and the engine's quantized evaluation exactly (75 of 75), so the gap is quantization alone (mean 9 cp, worst 28); a perspective bug reads 740 (#115)
-- [ ] GPU training tasks: jwall-engineering-infra v0.15.0's `gpu` profile (one on-demand `g6.xlarge`, NVIDIA L4; G and VT quota 5 vCPUs, spot 0) (#116), the `GPU smoke` acceptance test and the `Train` workflow (#117)
-- [ ] **Net 1:** 40 superbatches (4.0B positions) at λ 0.5 on generation 0; the run's check passes, training loss falls, validation loss flattens rather than turning up (more passes over 231M positions than ideal; fewer next time if it does)
+- [x] GPU training tasks: jwall-engineering-infra's `gpu` profile (one on-demand `g6.xlarge`, NVIDIA L4; G and VT quota 5 vCPUs, spot 0) (#116), the `GPU smoke` acceptance test and the `Train` workflow (#117); bullet's CUDA build needs `CUDA_PATH` (#119); held-out loss every 4 superbatches (#121); several generations in one net (#128)
+- [x] **Net 1:** 40 superbatches (4.0B positions) at λ 0.5 on generation 0, 3.2 minutes of training on an L4; engine check mean 8.7 cp; held-out 0.018925 against 0.018898 on training data, no overfitting. Every net's data, parameters and results: [nets.md](nets.md); every dataset: [datasets.md](datasets.md)
 
 **Engine**
 
 - [x] Inference: the network, its file format (bullet's simple layout; QA 255, QB 64, SCALE 400, SCReLU, N = 128), a per-ply accumulator stack in `Board` updated by make and unmake with nothing allocated in search, the UCI `EvalFile` option and `bench --eval-file`; PeSTO stays the default (#112, v0.26.0)
-- [ ] Net 1 embedded with `include_bytes!` and made the default (PeSTO kept selectable through `EvalFile` for comparisons), `datagen` playing with it; a new bench signature. **The gate:** the timed SPRT against PeSTO. Expected: +80 to +200 Elo at a clock, the fixed-node leg higher (the scalar net is about 19% slower than PeSTO)
-- [ ] SIMD for the accumulator and the output (AVX2 on the x86-64-v3 builds, NEON on Apple silicon): a `perf` PR, signature unchanged, winning back the speed gap
+- [x] Net 1 embedded with `include_bytes!` and made the default (PeSTO kept selectable through `EvalFile`), `datagen` playing with it; signature 1201313. Timed SPRT against PeSTO **+587.3 ± 82.7** (H1 in 304 games), far above the +80 to +200 expected; the ladder measures about +275 to +375 against Stockfish (2977 ± 32 on Stockfish 19) (#122, v0.28.0)
+- [x] SIMD for the accumulator and the output: an exact `i32` output that compiles to `vpmaddwd` on x86-64-v3, and one-pass accumulator updates, in portable Rust with no `unsafe`; signature unchanged, +14.6% speed on the runner, about +30% on Apple silicon (#125). PR benches build for x86-64-v3 like the shipped binaries (#124)
 - [ ] Re-tune what was tuned to PeSTO's scores: the margins of reverse futility, futility, SEE pruning, null move and aspiration windows; revisit the improving heuristic (#95) and one more LMR ply when not improving
-- [ ] **Exit:** the NNUE build beats the PeSTO build under SPRT by a wide margin (100+ Elo is typical for a first net)
+- [x] **Exit:** the NNUE build beats the PeSTO build under SPRT by a wide margin: +587 at a clock with net 1 (#122)
 
 **Iterating**
 
-- [ ] Generation 1, played by the engine with net 1 (`generation = 1` in `datagen.toml`, with the tuned settings), audited; net 2 trained on it and kept on a timed SPRT win over net 1. The λ experiment (λ ∈ {0, 0.25, 0.5, 0.75, 1}, one prepared dataset, strength deciding) alongside ([datagen-runbook.md](datagen-runbook.md))
+- [x] Generation 1, played by net 1: 368,354,466 positions, audited in full with no failures ([datasets.md](datasets.md)). Net 2, trained on generations 0 and 1 with net 1's settings, beat net 1 by **+112.8 ± 21.1** in the timed SPRT (#129); only the data changed
+- [ ] The λ experiment (λ ∈ {0, 0.25, 0.75, 1} against net 2's 0.5, one prepared dataset, strength deciding) and a longer schedule (net 2 was still improving at superbatch 40); queued in [nets.md](nets.md)
+- [ ] Generation 2, played by net 2, and net 3; then a wider hidden layer (256, 512) on the largest dataset
 - [x] The ladder moved up when the engine outgrew 2950: v0.28.0 scored 88% on 2650 (about 3000). Rungs 2800/2950/3100/3190 against an official, pinned Stockfish 19, with v0.26.0–v0.28.0 re-rated for the overlap
 - [ ] A new anchor once the engine outgrows 3190, the top of Stockfish's `UCI_Elo` range (past about 3300 limited Stockfish cannot bracket it): full Stockfish at a fixed node budget, calibrated against the last limited ladder
 
