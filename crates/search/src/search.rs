@@ -87,9 +87,18 @@ const LMP_BASE: usize = 3;
 
 /// The move index from which late move pruning skips quiet moves at `depth`.
 #[inline]
-pub fn lmp_threshold(depth: u32) -> usize {
-    LMP_BASE + (depth * depth) as usize
+///
+/// A node whose position is improving (its static evaluation beats the one
+/// two plies earlier, for the same side) keeps the full count; otherwise
+/// half as many quiet moves are searched before pruning starts.
+pub fn lmp_threshold(depth: u32, improving: bool) -> usize {
+    let full = LMP_BASE + (depth * depth) as usize;
+    if improving { full } else { full / 2 }
 }
+
+/// The static evaluation stored for a ply whose side to move was in check,
+/// where it is meaningless.
+const NO_EVAL: i32 = i32::MIN;
 
 /// Late moves are reduced from this move index on (the first ones get full depth).
 const LMR_MIN_INDEX: usize = 2;
@@ -195,6 +204,9 @@ pub struct Searcher {
     /// The move made at each ply of the current line (`PieceTo::NONE`
     /// after a null move), so a node knows what led to it.
     moved: [PieceTo; MAX_PLY + 2],
+    /// The static evaluation at each ply of the current line, from that
+    /// ply's side to move (`NO_EVAL` when in check), for the improving test.
+    evals: [i32; MAX_PLY + 2],
     stats: SearchStats,
     nodes: u64,
     qnodes: u64,
@@ -217,6 +229,7 @@ impl Searcher {
             cont1: Continuation::new(),
             cont2: Continuation::new(),
             moved: [PieceTo::NONE; MAX_PLY + 2],
+            evals: [NO_EVAL; MAX_PLY + 2],
             stats: SearchStats::new(),
             nodes: 0,
             qnodes: 0,
@@ -284,6 +297,7 @@ impl Searcher {
         self.cont1.age();
         self.cont2.age();
         self.moved = [PieceTo::NONE; MAX_PLY + 2];
+        self.evals = [NO_EVAL; MAX_PLY + 2];
         board.set_root();
         let fen = board.position().to_fen();
 
@@ -481,7 +495,26 @@ impl Searcher {
         // is meaningless, and a mate score in the window must be searched.
         let pv_node = beta - alpha > 1;
         let prunable = ply > 0 && !in_check && !is_mate_score(beta);
-        let static_eval = if prunable { board.evaluate() } else { 0 };
+        let raw_eval = if in_check { NO_EVAL } else { board.evaluate() };
+        let static_eval = if prunable { raw_eval } else { 0 };
+
+        // Improving: the side to move stands better than it did two plies
+        // ago (four, when it was in check then). Pruning trusts a static
+        // evaluation that is rising, and is more careful with one that is
+        // falling: reverse futility pruning gets a ply's less margin when
+        // improving, late move pruning searches half as many quiet moves
+        // when not.
+        self.evals[ply] = raw_eval;
+        let improving = !in_check && {
+            let earlier = if ply >= 2 && self.evals[ply - 2] != NO_EVAL {
+                self.evals[ply - 2]
+            } else if ply >= 4 {
+                self.evals[ply - 4]
+            } else {
+                NO_EVAL
+            };
+            earlier != NO_EVAL && raw_eval > earlier
+        };
 
         // Reverse futility pruning: at shallow depth, when the static
         // evaluation beats beta by a margin that grows with the depth left,
@@ -491,7 +524,7 @@ impl Searcher {
         if prunable
             && !pv_node
             && depth <= RFP_MAX_DEPTH
-            && static_eval - RFP_MARGIN * depth as i32 >= beta
+            && static_eval - RFP_MARGIN * (depth - improving as u32) as i32 >= beta
         {
             stat!(self.stats, rfp_cutoffs);
             return static_eval;
@@ -597,7 +630,7 @@ impl Searcher {
                 && prunable
                 && !pv_node
                 && depth <= LMP_MAX_DEPTH
-                && index >= lmp_threshold(depth)
+                && index >= lmp_threshold(depth, improving)
                 && !is_mate_score(best)
             {
                 if board.position().gives_check(m) {

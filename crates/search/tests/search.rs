@@ -226,8 +226,11 @@ fn stats_counters_match_the_result_when_enabled() {
 fn killer_moves_produce_cutoffs_on_a_real_search() {
     let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
     let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
-    // Depth 7: pruning removes the shallow nodes where quiet moves cut off.
-    s.search(&mut b, &depth(7), &mut |_| {});
+    // Depth 9: pruning removes the shallow nodes where quiet moves cut off,
+    // and since the improving heuristic a depth-7 search of this position
+    // is too small to reach the killer stage (the bench has 22,309 killer
+    // cutoffs).
+    s.search(&mut b, &depth(9), &mut |_| {});
     if let Some(summary) = s.stats().summary() {
         let killers = summary.cutoffs_by_stage[rusty_chess_search::stats::Stage::Killers as usize];
         assert!(
@@ -674,10 +677,12 @@ fn late_move_reductions_reduce_and_research_without_losing_mates() {
             "{fen}"
         );
     }
-    // Quiet moves late in the list are reduced, and some of them are re-searched.
+    // Quiet moves late in the list are reduced, and some of them are
+    // re-searched. Depth 9: since the improving heuristic a depth-7 search
+    // of this position re-searches nothing (the bench has 2,830 re-searches).
     let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
     let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
-    s.search(&mut b, &depth(7), &mut |_| {});
+    s.search(&mut b, &depth(9), &mut |_| {});
     if let Some(summary) = s.stats().summary() {
         assert!(summary.lmr_reductions > 0, "no reductions");
         assert!(summary.lmr_researches > 0, "no re-searches");
@@ -762,5 +767,15 @@ fn see_pruning_skips_hanging_quiets_but_keeps_mates() {
     s.search(&mut b, &depth(8), &mut |_| {});
     if let Some(summary) = s.stats().summary() {
         assert!(summary.see_skips > 0, "no SEE skips");
+    }
+}
+
+#[test]
+fn late_move_pruning_searches_half_as_many_quiets_when_not_improving() {
+    use rusty_chess_search::search::lmp_threshold;
+    for depth in 1..=4 {
+        let full = lmp_threshold(depth, true);
+        assert_eq!(full, 3 + (depth * depth) as usize);
+        assert_eq!(lmp_threshold(depth, false), full / 2);
     }
 }
