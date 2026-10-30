@@ -109,9 +109,11 @@ const LMR_MIN_DEPTH: u32 = 3;
 /// reduction by one ply per this many points, less for a move that has been
 /// cutting off, more for one that has not. Our bonus is depth squared capped
 /// at 1,200, so typical scores are hundreds to a few thousand: 8,192, common
-/// in engines with larger bonuses, changed almost nothing on the bench, and
-/// 512 took fail-high-first close to its bar.
-const LMR_HISTORY_DIVISOR: i32 = 1_024;
+/// in engines with larger bonuses, changed almost nothing on the bench. 1,024
+/// was the first form (#101): H1 at fixed nodes (+7.5 ± 5.1) but only
+/// +2.8 ± 5.6 at a clock when spot interrupted it, too small an effect to
+/// settle; 512 makes the adjustment twice as strong.
+const LMR_HISTORY_DIVISOR: i32 = 512;
 
 /// The reduction table, `[depth][move index]`, in plies: grows with the log
 /// of both, so deep searches of late moves are cut the most.
