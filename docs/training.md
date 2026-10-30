@@ -161,6 +161,11 @@ so 40 passes over generation 0 did not overfit visibly.
 
 ## Then
 
+Record every net, kept or not, in [nets.md](nets.md): its data, its
+parameters, its validation curve, its check, and, when tested, its SPRT and
+ladder results.
+
+
 1. **Load and test the net:** `setoption name EvalFile value net.nnue`, or
    `bench --eval-file`.
 2. **SPRT it against PeSTO.** A first net typically gains 100 Elo or more.

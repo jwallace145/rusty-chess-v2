@@ -103,6 +103,11 @@ fixed.
 
 ## After a run: the audit
 
+Record every run, including smoke tests and failed or cancelled runs, in
+[datasets.md](datasets.md), and the generation's full audit when it is
+complete.
+
+
 1. **Download a sample** with `ci/datagen-sample.sh RUN_PREFIX DIR
    [WORKERS_PER_TASK] [SHARDS_PER_WORKER]`. The default, 8 workers per task
    and 3 shards each, is about 1.8M positions. It is read-only and needs AWS
