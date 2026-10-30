@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.31.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.30.0...v0.31.0) (2026-10-30)
+
+
+### Features
+
+* **nnue:** make net2x80, net 2 trained twice as long, the default for generation 2 ([#134](https://github.com/jwallace145/rusty-chess-v2/issues/134)) ([cee5a01](https://github.com/jwallace145/rusty-chess-v2/commit/cee5a01334667fffd01d99d17d4deddf53fb0559))
+
+
+### Documentation
+
+* **training:** diagnose disk-bound training and correct the learning-rate schedule ([#132](https://github.com/jwallace145/rusty-chess-v2/issues/132)) ([8b284a2](https://github.com/jwallace145/rusty-chess-v2/commit/8b284a2aa8cb6f5a853e3f6c27a7706f99d10bab))
+
+### Benchmarks
+
+* bench signature 1,146,589, instructions per node 3113, search 3.00M NPS, perft 290.54M NPS (pass (63)), fail-high first 88.4%, EBF 1.89, TT hit 54.2%
+* since v0.30.0: fail-high first -0.2 pt, EBF +0.01, instructions per node +1.2%, search NPS +39.3%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.30.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.29.0...v0.30.0) (2026-10-30)
 
 
