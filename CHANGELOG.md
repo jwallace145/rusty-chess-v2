@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.19.0...v0.20.0) (2026-10-30)
+
+
+### Features
+
+* **infra:** add the task-runner component for remote ci tasks ([#85](https://github.com/jwallace145/rusty-chess-v2/issues/85)) ([da17ffb](https://github.com/jwallace145/rusty-chess-v2/commit/da17ffb02bbf281016f8c57a401c29466e15af5e))
+* **search:** add futility pruning of quiet moves at shallow null-window nodes ([#81](https://github.com/jwallace145/rusty-chess-v2/issues/81)) ([22d6ac7](https://github.com/jwallace145/rusty-chess-v2/commit/22d6ac7a22eab5b613442ef8ee289dc78682cefd))
+
 ## [0.19.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.18.0...v0.19.0) (2026-10-29)
 
 
