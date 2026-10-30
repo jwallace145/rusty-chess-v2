@@ -40,6 +40,13 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -C target-cpu=x86-64-v3
   FASTCHESS_VERSION: v1.8.2-alpha
+  # The opponent: an official Stockfish release, pinned by tag and checksum,
+  # never the distribution's package (which lags: Ubuntu's was 17.1 when 19
+  # was current). Changing it moves the scale a little, since the same
+  # UCI_Elo plays stronger in a stronger engine: re-rate the last few
+  # releases for the overlap, as when the rungs move (perf-targets.toml).
+  STOCKFISH_TAG: sf_19
+  STOCKFISH_SHA256: 9defc0d4e55d49c65a6d042f3e571a39fcea499ade6dbe741b53b8c65e03611f
 
 jobs:
   rating:
@@ -68,8 +75,11 @@ jobs:
           echo "Rating $(cd engine-src && git describe --tags --always) with the ladder from $(git rev-parse --short HEAD)"
       - name: Install Stockfish and fastchess
         run: |
-          sudo apt-get install -y -qq stockfish > /dev/null
-          SF=$(command -v stockfish || echo /usr/games/stockfish)
+          curl -sSL -o stockfish.tar.gz \
+            "https://github.com/official-stockfish/Stockfish/releases/download/${STOCKFISH_TAG}/stockfish-linux-x86-64-universal.tar.gz"
+          echo "${STOCKFISH_SHA256}  stockfish.tar.gz" | sha256sum -c -
+          mkdir -p sf && tar -xzf stockfish.tar.gz -C sf
+          SF="$PWD/sf/stockfish/stockfish-linux-x86-64-universal"
           echo "SF=$SF" >> "$GITHUB_ENV"
           echo "SF_VERSION=$(echo quit | "$SF" | head -1 | sed 's/ by .*//')" >> "$GITHUB_ENV"
           curl -sSL -o fastchess.tar "https://github.com/Disservin/fastchess/releases/download/${FASTCHESS_VERSION}/fastchess-linux-x86-64.tar"

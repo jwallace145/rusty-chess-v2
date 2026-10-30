@@ -59,12 +59,14 @@ instructions_noise_pct = 0.5 # instructions per node is deterministic, so a smal
 # 2500/2650/2800/2950 from 2026-10-30, when v0.19.0 to v0.22.0 (about 2700)
 # scored 92-96% on 2200, with v0.18.0 to v0.22.0 re-rated on it. 150-point
 # steps centred on the engine: a level near 50% has the smallest error, so
-# rungs close to its strength say the most. They bracket it up to about
-# 2850; NNUE's expected gain will need the next move, and re-rating the last
-# few releases for the overlap as here. Stockfish's UCI_Elo stops at 3190:
-# past about 3050 limited Stockfish cannot bracket the engine and the ladder
-# needs another anchor, such as full Stockfish at a fixed node budget.
-levels = [2500, 2650, 2800, 2950]
+# rungs close to its strength say the most. 2800/2950/3100/3190 from
+# 2026-10-30, when v0.28.0 (the first NNUE net) scored 88% on 2650 (about
+# 3000), with Stockfish 19 replacing Ubuntu's 17.1 at the same time and
+# v0.26.0 to v0.28.0 re-rated on it for the overlap. 3190 is the top of
+# Stockfish's UCI_Elo range, so this is the last move limited Stockfish
+# allows: past about 3300 it cannot bracket the engine and the ladder needs
+# another anchor, such as full Stockfish at a fixed node budget.
+levels = [2800, 2950, 3100, 3190]
 games_per_level = 100   # 50 openings from both sides; about 10 minutes per level
 tc = "10+0.1"
 concurrency = 4
