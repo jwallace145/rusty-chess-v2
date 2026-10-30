@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.20.0...v0.21.0) (2026-10-30)
+
+
+### Features
+
+* **search:** search nodes without a table move one ply shallower (internal iterative reductions) ([#89](https://github.com/jwallace145/rusty-chess-v2/issues/89)) ([90a9023](https://github.com/jwallace145/rusty-chess-v2/commit/90a9023b97daebbb7df6f74fc49cff108cb52e8b))
+
 ## [0.20.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.19.0...v0.20.0) (2026-10-30)
 
 
