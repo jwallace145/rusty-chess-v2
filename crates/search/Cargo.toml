@@ -1,6 +1,6 @@
 [package]
 name = "rusty-chess-search"
-version = "0.25.0"
+version = "0.26.0"
 description = "Search, transposition table, move picker, evaluation and search telemetry"
 edition.workspace = true
 rust-version.workspace = true
