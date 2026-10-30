@@ -4,7 +4,7 @@
 # `tests/` and `benches/` directories belong to this package.
 [package]
 name = "rusty-chess"
-version = "0.19.0"
+version = "0.20.0"
 description = "A UCI chess engine in Rust: classical search measured to be strong before NNUE"
 edition.workspace = true
 rust-version.workspace = true

@@ -119,7 +119,7 @@ Each item is its own PR with an SPRT run; the first intermediate gate is the EBF
 The standard techniques the engine still lacks, each worth 10–40 Elo and all of them kept by an NNUE engine. One PR and one release each; an accepted H1 is required (#77). Ordered by expected value per effort.
 
 - [ ] Continuation history (one and two plies back) and a counter-move heuristic in the move picker
-- [ ] Futility pruning of quiet moves at low depth (the forward counterpart of reverse futility)
+- [ ] Futility pruning of quiet moves at low depth: at null-window nodes up to depth 6, not in check, after the first move, a quiet move (checking moves included) is skipped when the static evaluation plus 100 + 100 cp per ply of depth left does not reach alpha (`futility_skips`). Depth-10 bench: signature 1991209 → 1717816 (−13.7%), fail-high-first 0.906, a million quiets skipped. The first form exempted checking moves (1890442, −5.1%): +25.6 ± 14.6 at fixed nodes (H1) but +5.9 ± 11.1 at 5+0.05, inconclusive at the 1000-pair cap, the check test per candidate eating the gain; SPRT of this form pending (#81)
 - [ ] SEE pruning in the main search: bad captures and losing quiets skipped at shallow depth
 - [ ] The improving heuristic (static evaluation against two plies ago) driving the reverse futility and late move pruning margins
 - [ ] Singular extensions

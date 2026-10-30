@@ -61,6 +61,14 @@ const RFP_MAX_DEPTH: u32 = 6;
 /// Reverse futility margin per ply of remaining depth, in centipawns.
 const RFP_MARGIN: i32 = 80;
 
+/// Futility pruning applies up to this depth.
+const FP_MAX_DEPTH: u32 = 6;
+
+/// Futility margin: a quiet move at depth `d` is skipped when the static
+/// evaluation plus `FP_BASE + FP_MARGIN * d` still does not reach alpha.
+const FP_BASE: i32 = 100;
+const FP_MARGIN: i32 = 100;
+
 /// Internal iterative reductions apply from this depth.
 const IIR_MIN_DEPTH: u32 = 4;
 
@@ -552,6 +560,25 @@ impl Searcher {
             self.quiet_score(board.position(), prev1, prev2, q)
         }) {
             let quiet = !m.is_capture() && !m.is_promotion();
+            // Futility pruning: at a shallow null-window node whose static
+            // evaluation is so far below alpha that even a generous margin
+            // for the depth left does not reach it, a quiet move cannot be
+            // expected to bring the score back; skip it. The first move is
+            // always searched, and nothing is skipped while being mated.
+            // Checking moves are pruned too: exempting them cost a check
+            // test per candidate, which ate the gain at a clock (#81).
+            if quiet
+                && prunable
+                && !pv_node
+                && index > 0
+                && depth <= FP_MAX_DEPTH
+                && static_eval + FP_BASE + FP_MARGIN * depth as i32 <= alpha
+                && !is_mate_score(best)
+            {
+                stat!(self.stats, futility_skips);
+                index += 1;
+                continue;
+            }
             // Late move pruning: at a shallow null-window node, once the
             // ordered moves have gone past the index that history and the
             // killers make worthwhile, the remaining quiet moves are skipped
