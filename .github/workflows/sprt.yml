@@ -20,7 +20,8 @@ name: SPRT
 # spot instance, launched for the job and terminated after it, through
 # jwall-engineering-infra's remote-task workflow (its docs/remote-tasks.md).
 # The leg's work is ci/strength-task.sh, at the PR's head commit; it plays
-# 60 games at once. Setting the repository variable SPRT_RUNNER to `github`
+# 60 games at once; the timed leg (the gate) on demand, the fixed-node leg on
+# spot. Setting the repository variable SPRT_RUNNER to `github`
 # switches back to the GitHub-hosted runners (4 games at once), the fallback
 # until the remote path has a track record. A spot interruption or a launch
 # with no capacity is reported in the comment as that, with no verdict, and
@@ -59,6 +60,11 @@ jobs:
       script: ci/strength-task.sh
       args: '["--mode", "timed", "--pr", "${{ github.event.pull_request.head.sha }}", "--base", "${{ github.event.pull_request.base.sha }}", "--quick", "${{ contains(github.event.pull_request.labels.*.name, ''sprt-quick'') && !contains(github.event.pull_request.labels.*.name, ''sprt'') }}"]'
       artifact: sprt-timed
+      # The gate runs on demand: a spot reclamation leaves a PR with no
+      # verdict, which happened to two timed legs on 2026-10-30 (#95, #101).
+      # About $3.45 an hour instead of $1.27, roughly $1-3 more per PR. The
+      # fixed-node leg, informational, stays on spot.
+      market: on-demand
     permissions:
       contents: read
       id-token: write # the task role, through OIDC
