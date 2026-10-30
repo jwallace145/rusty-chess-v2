@@ -64,13 +64,23 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
 
 ## Running it
 
-**On a GPU task** (`ci/train-task.sh`, run by the `Train` workflow once
-jwall-engineering-infra's GPU profile exists):
+**On a GPU task:** the `Train` workflow runs `ci/train-task.sh` on
+jwall-engineering-infra's `gpu` profile (one on-demand `g6.xlarge`, an NVIDIA
+L4) from `main`:
 
 ```sh
-ci/train-task.sh --dataset s3://jwall-engineering-rusty-chess-nnue/data/selfplay/v1/gen=0/ \
-  --nets s3://jwall-engineering-rusty-chess-nnue/data/nets --net-id net1-l050 --wdl 0.5 --superbatches 40
+gh workflow run Train --ref main -f net-id=net1 -f wdl=0.5 -f superbatches=40 -f generation=0
 ```
+
+- `wdl` also takes a list (`0.25,0.5,0.75`): one net per λ, one at a time,
+  since the account's G and VT quota fits one GPU instance.
+- Each net's id is `<net-id>-l<λ×100>-r<run id>`, for example
+  `net1-l050-r41234567890`. The GPU role can write `data/nets/` but not list
+  it, so the run id is what keeps ids unique.
+- The run summary lists each net with its records, losses and engine check.
+- **Run `GPU smoke` first** after any change to the profile, the image or the
+  trainer's build. It checks the GPU, CUDA, bullet's CUDA build of the
+  trainer, and the dataset grants in both directions, in a few minutes.
 
 1. It downloads the positions and manifests (not the game records).
 2. It prepares, trains, and runs the check.

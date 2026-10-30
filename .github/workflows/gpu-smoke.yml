@@ -1,0 +1,26 @@
+name: GPU smoke
+
+# The acceptance test of jwall-engineering-infra's GPU task profile
+# (RUSTY_CHESS_GPU_HANDOFF.md, docs/remote-tasks.md there): one fresh,
+# on-demand g6.xlarge runs ci/gpu-smoke.sh, which prints the GPU and CUDA
+# versions, compiles and runs a CUDA kernel, builds the trainer with bullet's
+# CUDA backend, and checks the dataset grants in both directions. Run it from
+# `main` after any change to the profile, the image or the trainer's build.
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  smoke:
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.15.0
+    with:
+      project: rusty-chess
+      profile: gpu
+      script: ci/gpu-smoke.sh
+      artifact: gpu-smoke
+      max-hours: 1
+    permissions:
+      contents: read
+      id-token: write # the task role, through OIDC
