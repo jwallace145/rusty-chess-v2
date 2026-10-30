@@ -138,6 +138,8 @@ pub struct SearchStats {
     pub aspiration_researches: u64,
     /// Nodes searched one ply shallower for having no table move.
     pub iir_reductions: u64,
+    /// Moves skipped in the main search for losing material by static exchange.
+    pub see_skips: u64,
 }
 
 #[cfg(feature = "stats")]
@@ -167,6 +169,7 @@ impl Default for SearchStats {
             lmp_checks_kept: 0,
             aspiration_researches: 0,
             iir_reductions: 0,
+            see_skips: 0,
         }
     }
 }
@@ -211,6 +214,7 @@ impl SearchStats {
             lmp_checks_kept: self.lmp_checks_kept,
             aspiration_researches: self.aspiration_researches,
             iir_reductions: self.iir_reductions,
+            see_skips: self.see_skips,
         })
     }
 }
@@ -300,6 +304,9 @@ pub struct StatsSummary {
     /// Internal iterative reductions. Absent in records written before it existed.
     #[serde(default)]
     pub iir_reductions: u64,
+    /// Main-search moves skipped by static exchange. Absent in records written before it existed.
+    #[serde(default)]
+    pub see_skips: u64,
 }
 
 /// Effective branching factor between two consecutive iterations of

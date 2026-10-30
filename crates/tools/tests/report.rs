@@ -31,6 +31,7 @@ fn stats(fh_first: f64) -> StatsSummary {
         lmp_checks_kept: 0,
         aspiration_researches: 0,
         iir_reductions: 0,
+        see_skips: 0,
     }
 }
 
