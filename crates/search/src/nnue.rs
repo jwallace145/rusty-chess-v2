@@ -29,24 +29,65 @@ use std::sync::{Arc, OnceLock};
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::{Color, PieceKind, Square};
 
-/// The net the engine evaluates with unless told otherwise, embedded in the
-/// binary so an install stays one file. Trained on generation 0's self-play
-/// data (`data/nets/<id>/` in the dataset bucket holds its `training.json`).
-pub const DEFAULT_NET_ID: &str = "net1-l050-r41022503872";
+/// A net embedded in the binary.
+pub struct EmbeddedNet {
+    /// Its id: `data/nets/<id>/` in the dataset bucket holds its
+    /// `training.json`, and `docs/nets.md` its history.
+    pub id: &'static str,
+    /// The self-play generation it plays: `datagen` at this generation
+    /// evaluates with it (generation 0 is PeSTO).
+    pub generation: u32,
+    bytes: &'static [u8],
+}
 
-/// The self-play generation the default net plays: `datagen` at this
-/// generation evaluates with it (generation 0 is PeSTO).
-pub const DEFAULT_NET_GENERATION: u32 = 1;
+/// Every net the binary carries, oldest first; the last is the default.
+/// Older nets stay so the data they played can still be re-searched
+/// (`datagen-audit`) and so they can be selected by id for comparisons. At
+/// 128 hidden neurons a net is about 200 KB.
+pub const NETS: [EmbeddedNet; 2] = [
+    EmbeddedNet {
+        id: "net1-l050-r41022503872",
+        generation: 1,
+        bytes: include_bytes!("../nets/net1-l050-r41022503872.nnue"),
+    },
+    EmbeddedNet {
+        id: "net2-l050-r41110004652",
+        generation: 2,
+        bytes: include_bytes!("../nets/net2-l050-r41110004652.nnue"),
+    },
+];
 
-static DEFAULT_NET_BYTES: &[u8] = include_bytes!("../nets/net1-l050-r41022503872.nnue");
+/// The net the engine evaluates with unless told otherwise.
+pub const DEFAULT_NET_ID: &str = NETS[NETS.len() - 1].id;
 
-/// The embedded default net, parsed once.
+/// The self-play generation the default net plays.
+pub const DEFAULT_NET_GENERATION: u32 = NETS[NETS.len() - 1].generation;
+
+/// The embedded net at `NETS[i]`, parsed once.
+fn embedded(i: usize) -> Arc<Network> {
+    static CACHE: [OnceLock<Arc<Network>>; NETS.len()] = [const { OnceLock::new() }; NETS.len()];
+    CACHE[i]
+        .get_or_init(|| {
+            Arc::new(Network::from_bytes(NETS[i].bytes).expect("an embedded net is well formed"))
+        })
+        .clone()
+}
+
+/// The default net.
 pub fn default_network() -> Arc<Network> {
-    static NET: OnceLock<Arc<Network>> = OnceLock::new();
-    NET.get_or_init(|| {
-        Arc::new(Network::from_bytes(DEFAULT_NET_BYTES).expect("the embedded net is well formed"))
-    })
-    .clone()
+    embedded(NETS.len() - 1)
+}
+
+/// The embedded net that plays `generation`, if the binary carries one.
+pub fn network_for_generation(generation: u32) -> Option<Arc<Network>> {
+    NETS.iter()
+        .position(|n| n.generation == generation)
+        .map(embedded)
+}
+
+/// The embedded net with this id, if the binary carries one.
+pub fn network_by_id(id: &str) -> Option<Arc<Network>> {
+    NETS.iter().position(|n| n.id == id).map(embedded)
 }
 
 /// Hidden neurons per perspective. Must match the net being loaded; raised

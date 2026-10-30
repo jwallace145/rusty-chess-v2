@@ -24,7 +24,7 @@ use rusty_chess_core::movegen::MoveList;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::{Color, PieceKind};
 use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{DEFAULT_NET_GENERATION, Network, default_network};
+use rusty_chess_search::nnue::{Network, network_for_generation};
 use rusty_chess_search::search::{Limits, Searcher, is_mate_score};
 use serde::{Deserialize, Serialize};
 
@@ -89,8 +89,8 @@ impl Settings {
                 "adjudication plies must be positive",
             ),
             (
-                s.generation == 0 || s.generation == DEFAULT_NET_GENERATION,
-                "generation must be 0 (PeSTO) or the embedded net's generation",
+                s.generation == 0 || network_for_generation(s.generation).is_some(),
+                "generation must be 0 (PeSTO) or one an embedded net plays",
             ),
             (
                 s.random_plies % 2 == 0,
@@ -108,16 +108,15 @@ impl Settings {
     }
 
     /// The network this generation plays with: none (PeSTO) for generation
-    /// 0, the embedded net for its generation. `parse` refuses any other;
-    /// settings read back from an older dataset's manifest can name one, and
-    /// then nothing in this build can replay it.
+    /// 0, the embedded net that plays it otherwise. `parse` refuses a
+    /// generation no embedded net plays; settings read back from a dataset's
+    /// manifest can name one, and then this build can't replay it.
     pub fn network(&self) -> Option<Arc<Network>> {
         match self.generation {
             0 => None,
-            g if g == DEFAULT_NET_GENERATION => Some(default_network()),
-            g => panic!(
-                "generation {g} was played with a net this build doesn't embed (it has generation {DEFAULT_NET_GENERATION}'s)"
-            ),
+            g => Some(network_for_generation(g).unwrap_or_else(|| {
+                panic!("generation {g} was played with a net this build doesn't embed")
+            })),
         }
     }
 }
