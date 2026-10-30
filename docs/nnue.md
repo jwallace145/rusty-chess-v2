@@ -108,11 +108,33 @@ bench signature and a timed SPRT against the net it replaces.
 
 ## Speed
 
-The first version is plain Rust, which the compiler vectorizes. On the bench,
-a 128-neuron network searches about 20–30% fewer nodes per second than PeSTO
-(with net 1: about 2.0–2.2M against 2.9M on an Apple M-series core). Explicit
-SIMD through `std::arch` (AVX2 for the x86-64-v3 builds, NEON on Apple
-silicon) is the next `perf` change.
+Both hot paths are plain Rust written in a shape the compiler vectorizes;
+there is no `unsafe` and no per-architecture code.
+
+- **The output** is summed in `i32` as `(c · w) · c`, with `c` the clipped
+  hidden value. On `x86-64-v3` this compiles to 16-bit multiplies and
+  pairwise multiply-adds (`vpmullw`, `vpmaddwd`), 16 values an instruction,
+  where the first version's `i64` sum used 64-bit lanes (4 an instruction).
+  It is exact, so the bench signature is the same:
+  - the loader refuses output weights beyond ±127 (the trainer's clip at
+    `QB = 64`);
+  - with that bound, `c · w` fits an `i16` and the whole sum an `i32`;
+  - a test checks it against the `i64` form at the extremes.
+- **The accumulators** of the next ply are written from the current ones in
+  one pass per perspective (`add_sub`, `add_sub_sub`, `add_add_sub_sub`),
+  instead of a copy followed by one pass per moved piece.
+
+| Bench (M-series, five alternating runs) | Time | Nodes/second |
+|:--|--:|--:|
+| Scalar `i64` output, separate updates (`v0.28.0`) | 534 ms | 2.25M |
+| `i32` output | 425 ms | 2.83M |
+| `i32` output and fused updates | 410 ms | 2.93M |
+| PeSTO, for reference (its own bench tree) | 544–585 ms | 2.9–3.1M |
+
+With net 1 the engine now searches about as many nodes a second as it did
+with PeSTO. Next, if profiles say it pays: updating the accumulators only
+for positions that are evaluated, and larger nets (where the output and
+update costs grow with the hidden layer).
 
 ## Next
 
@@ -121,5 +143,4 @@ silicon) is the next `perf` change.
    engine exactly, apart from quantization error (mean 9 cp).
 2. **Net 1, embedded and the default**, kept on a timed SPRT win over
    PeSTO; `datagen` plays generation 1 with it.
-3. **SIMD** for the accumulator updates and the output layer.
-4. **Net 2** from generation 1, and the λ experiment.
+3. **Net 2** from generation 1, and the λ experiment.

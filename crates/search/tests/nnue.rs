@@ -10,7 +10,8 @@ use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
 use rusty_chess_search::nnue::{
-    FILE_BYTES, HIDDEN, INPUTS, Network, QA, QB, SCALE, default_network,
+    Accumulator, FILE_BYTES, HIDDEN, INPUTS, MAX_OUTPUT_WEIGHT, Network, QA, QB, SCALE,
+    default_network,
 };
 use rusty_chess_search::search::{Limits, Searcher};
 
@@ -235,4 +236,69 @@ fn the_embedded_net_loads_and_judges_material() {
             "a queen up is winning for its side: {fen} {e}"
         );
     }
+}
+
+/// The output as first written: screlu summed in i64. The engine's i32 form
+/// must give exactly this, or the bench signature would move.
+fn reference_output(net_bytes: &[u8], us: &Accumulator, them: &Accumulator) -> i32 {
+    let words: Vec<i16> = net_bytes
+        .chunks_exact(2)
+        .map(|c| i16::from_le_bytes([c[0], c[1]]))
+        .collect();
+    let ow = &words[INPUTS * HIDDEN + HIDDEN..INPUTS * HIDDEN + 3 * HIDDEN];
+    let bias = words[INPUTS * HIDDEN + 3 * HIDDEN];
+    let screlu = |x: i16| i64::from(x.clamp(0, QA as i16)).pow(2);
+    let mut sum = 0i64;
+    for i in 0..HIDDEN {
+        sum += screlu(us.0[i]) * i64::from(ow[i]);
+        sum += screlu(them.0[i]) * i64::from(ow[HIDDEN + i]);
+    }
+    ((sum / i64::from(QA) + i64::from(bias)) * i64::from(SCALE) / i64::from(QA * QB)) as i32
+}
+
+#[test]
+fn the_output_is_exact_at_the_extremes_and_on_random_accumulators() {
+    let mut rng = Rng(11);
+    // Every hidden value clipped to QA and every output weight at the bound:
+    // the largest sum a loadable net can produce, within a few percent of
+    // i32's range.
+    let big = |w: i16| {
+        let fw: Box<[[i16; HIDDEN]; INPUTS]> = vec![[0i16; HIDDEN]; INPUTS]
+            .into_boxed_slice()
+            .try_into()
+            .unwrap_or_else(|_| unreachable!());
+        Network::from_parts(fw, [0; HIDDEN], [w; 2 * HIDDEN], 0)
+    };
+    for net in [
+        big(MAX_OUTPUT_WEIGHT),
+        big(-MAX_OUTPUT_WEIGHT),
+        random_net(5),
+        Network::from_bytes(&default_network().to_bytes()).unwrap(),
+    ] {
+        let bytes = net.to_bytes();
+        let full = Accumulator([i16::MAX; HIDDEN]);
+        assert_eq!(
+            net.evaluate(&full, &full),
+            reference_output(&bytes, &full, &full)
+        );
+        for _ in 0..2000 {
+            let mut us = Accumulator([0; HIDDEN]);
+            let mut them = Accumulator([0; HIDDEN]);
+            us.0.iter_mut().for_each(|x| *x = rng.range(-600, 600));
+            them.0.iter_mut().for_each(|x| *x = rng.range(-600, 600));
+            assert_eq!(
+                net.evaluate(&us, &them),
+                reference_output(&bytes, &us, &them)
+            );
+        }
+    }
+}
+
+#[test]
+fn a_net_with_an_output_weight_beyond_the_bound_is_refused() {
+    let mut bytes = random_net(7).to_bytes();
+    let first_output = 2 * (INPUTS * HIDDEN + HIDDEN);
+    bytes[first_output..first_output + 2].copy_from_slice(&128i16.to_le_bytes());
+    let err = Network::from_bytes(&bytes).err().expect("refused");
+    assert!(err.contains("beyond ±127"), "{err}");
 }
