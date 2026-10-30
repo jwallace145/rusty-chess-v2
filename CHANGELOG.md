@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.23.0...v0.24.0) (2026-10-30)
+
+
+### Features
+
+* **search:** adjust late move reductions by the quiet move's history ([#101](https://github.com/jwallace145/rusty-chess-v2/issues/101)) ([3b6eab6](https://github.com/jwallace145/rusty-chess-v2/commit/3b6eab6330d3d5d97f3558687c9ef65468859055))
+* **tools:** add self-play data generation for nnue with shards uploaded to s3 ([#103](https://github.com/jwallace145/rusty-chess-v2/issues/103)) ([c657f78](https://github.com/jwallace145/rusty-chess-v2/commit/c657f78e56efbc22ce359c61522142c6fd385136))
+
 ## [0.23.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.22.0...v0.23.0) (2026-10-30)
 
 
