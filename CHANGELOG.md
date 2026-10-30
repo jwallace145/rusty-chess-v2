@@ -7,6 +7,12 @@
 
 * **search:** search nodes without a table move one ply shallower (internal iterative reductions) ([#89](https://github.com/jwallace145/rusty-chess-v2/issues/89)) ([90a9023](https://github.com/jwallace145/rusty-chess-v2/commit/90a9023b97daebbb7df6f74fc49cff108cb52e8b))
 
+### Benchmarks
+
+* bench signature 1,416,355, instructions per node 2541, search 3.48M NPS, perft 265.07M NPS (pass (63)), fail-high first 89.9%, EBF 1.78, TT hit 57.0%
+* since v0.20.0: fail-high first -0.7 pt, EBF +0.14, instructions per node +0.0%, search NPS +11.8%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.20.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.19.0...v0.20.0) (2026-10-30)
 
 
