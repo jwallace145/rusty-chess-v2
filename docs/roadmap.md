@@ -163,7 +163,7 @@ The destination named in the goals: our own network, trained on our own games. *
 
 - [x] The trainer: `trainer/`, a separate Cargo project on `bullet` (CUDA or Apple Metal) so the engine never needs a GPU toolkit. `prepare` splits by whole worker (no game spans the split) and shuffles with a recorded seed, byte-reproducibly; `train` builds bullet's reference (768 → 128) × 2 → 1 SCReLU network at the engine's quantization and scale (400, enforced). `ci/train-task.sh` downloads, prepares, trains, checks and uploads with a full `training.json` ([training.md](training.md), #115)
 - [x] The engine-to-trainer check, `nnue-eval`: an independent implementation reproduced the trainer's float evaluation exactly and the engine's quantized evaluation exactly (75 of 75), so the gap is quantization alone (mean 9 cp, worst 28); a perspective bug reads 740 (#115)
-- [ ] GPU training tasks: jwall-engineering-infra v0.15.0's `gpu` profile (one on-demand `g6.xlarge`, NVIDIA L4; G and VT quota 5 vCPUs, spot 0) (#116), the `GPU smoke` acceptance test and the `Train` workflow (#117)
+- [ ] GPU training tasks: jwall-engineering-infra's `gpu` profile (v0.15.0, pinned at v0.15.1) (one on-demand `g6.xlarge`, NVIDIA L4; G and VT quota 5 vCPUs, spot 0) (#116), the `GPU smoke` acceptance test and the `Train` workflow (#117)
 - [ ] **Net 1:** 40 superbatches (4.0B positions) at λ 0.5 on generation 0; the run's check passes, training loss falls, validation loss flattens rather than turning up (more passes over 231M positions than ideal; fewer next time if it does)
 
 **Engine**
