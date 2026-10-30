@@ -15,7 +15,7 @@ Commands:
                --depth N   depth per position (default 10)
                --hash MB   hash size in MB (default 16)
                --out FILE  write JSON lines telemetry to FILE
-               --eval-file NET  evaluate with this NNUE network (default: PeSTO)
+               --eval-file NET  evaluate with this NNUE network, or `pesto` (default: the embedded net)
   perft      Count leaf nodes from a position, split by root move
                --depth N      depth (default 5)
                --fen FEN      position (default: the starting position)
@@ -52,7 +52,8 @@ pub struct BenchArgs {
     pub hash_mb: u32,
     /// Where to write JSON lines telemetry, if anywhere.
     pub out: Option<PathBuf>,
-    /// An NNUE network to evaluate with instead of PeSTO.
+    /// An NNUE network to evaluate with instead of the embedded one, or
+    /// `pesto` for the hand-written evaluation.
     pub eval_file: Option<PathBuf>,
 }
 

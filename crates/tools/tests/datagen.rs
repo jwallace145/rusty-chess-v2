@@ -6,6 +6,7 @@ use std::sync::atomic::AtomicBool;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
+use rusty_chess_search::nnue::DEFAULT_NET_GENERATION;
 use rusty_chess_search::search::Searcher;
 use rusty_chess_tools::datagen::{
     Adjudicator, Manifest, Provenance, SCHEMA, Settings, Termination, board_termination,
@@ -35,7 +36,10 @@ fn searcher() -> Searcher {
 #[test]
 fn the_committed_settings_parse_and_bad_ones_do_not() {
     let s = repo_settings();
-    assert_eq!(s.generation, 0);
+    assert_eq!(
+        s.generation, DEFAULT_NET_GENERATION,
+        "the committed settings play with the embedded net"
+    );
     assert!(s.nodes >= 1000, "{s:?}");
     let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../datagen.toml"))
         .unwrap();
@@ -45,6 +49,13 @@ fn the_committed_settings_parse_and_bad_ones_do_not() {
         Settings::parse(&text.replace("[datagen]\n", "[datagen]\nbogus = 1\n")).is_err(),
         "unknown keys are refused"
     );
+    assert!(
+        Settings::parse(&text.replace("generation = 1", "generation = 7")).is_err(),
+        "a generation without its net is refused"
+    );
+    let pesto = Settings::parse(&text.replace("generation = 1", "generation = 0")).unwrap();
+    assert!(pesto.network().is_none(), "generation 0 is PeSTO");
+    assert!(s.network().is_some(), "{s:?}");
 }
 
 #[test]

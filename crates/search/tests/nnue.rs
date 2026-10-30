@@ -9,7 +9,9 @@ use rusty_chess_core::movegen::MoveList;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{FILE_BYTES, HIDDEN, INPUTS, Network, QA, QB, SCALE};
+use rusty_chess_search::nnue::{
+    FILE_BYTES, HIDDEN, INPUTS, Network, QA, QB, SCALE, default_network,
+};
 use rusty_chess_search::search::{Limits, Searcher};
 
 struct Rng(u64);
@@ -204,4 +206,33 @@ fn a_search_with_a_network_runs_and_without_one_is_unchanged() {
         with_net.nodes, plain.nodes,
         "the network evaluated the search"
     );
+}
+
+#[test]
+fn the_embedded_net_loads_and_judges_material() {
+    // A sanity check on the trained net itself; its accuracy against the
+    // trainer is `nnue-eval --check`'s job (docs/training.md).
+    let net = default_network();
+    let level = board(
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        &net,
+    )
+    .evaluate();
+    assert!(level.abs() < 100, "the start position is level: {level}");
+    for (fen, sign) in [
+        (
+            "rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            1,
+        ),
+        (
+            "rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1",
+            -1,
+        ),
+    ] {
+        let e = board(fen, &net).evaluate();
+        assert!(
+            e * sign > 500,
+            "a queen up is winning for its side: {fen} {e}"
+        );
+    }
 }

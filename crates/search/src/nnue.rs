@@ -24,8 +24,30 @@
 //! trained net is checked against the trainer's own evaluation of a few
 //! positions before it is used (see `docs/nnue.md`).
 
+use std::sync::{Arc, OnceLock};
+
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::{Color, PieceKind, Square};
+
+/// The net the engine evaluates with unless told otherwise, embedded in the
+/// binary so an install stays one file. Trained on generation 0's self-play
+/// data (`data/nets/<id>/` in the dataset bucket holds its `training.json`).
+pub const DEFAULT_NET_ID: &str = "net1-l050-r41022503872";
+
+/// The self-play generation the default net plays: `datagen` at this
+/// generation evaluates with it (generation 0 is PeSTO).
+pub const DEFAULT_NET_GENERATION: u32 = 1;
+
+static DEFAULT_NET_BYTES: &[u8] = include_bytes!("../nets/net1-l050-r41022503872.nnue");
+
+/// The embedded default net, parsed once.
+pub fn default_network() -> Arc<Network> {
+    static NET: OnceLock<Arc<Network>> = OnceLock::new();
+    NET.get_or_init(|| {
+        Arc::new(Network::from_bytes(DEFAULT_NET_BYTES).expect("the embedded net is well formed"))
+    })
+    .clone()
+}
 
 /// Hidden neurons per perspective. Must match the net being loaded; raised
 /// with the nets.
