@@ -55,20 +55,46 @@ bench=$(target/release/rusty-chess bench | awk -F: '/Nodes searched/ {gsub(/ /, 
 echo "engine $(target/release/rusty-chess --version), bench $bench ($(since)s)"
 
 uploaded=0
-upload_ready() {
-  local m name
-  for m in "$shards"/*.json; do
-    [ -e "$m" ] || return 0
-    name=$(basename "$m" .json)
-    gzip -6 -c "$shards/$name.positions.txt" > "$shards/$name.positions.txt.gz"
-    gzip -6 -c "$shards/$name.games.jsonl" > "$shards/$name.games.jsonl.gz"
-    aws s3 cp --only-show-errors "$shards/$name.positions.txt.gz" "$prefix/positions/$name.txt.gz"
-    aws s3 cp --only-show-errors "$shards/$name.games.jsonl.gz" "$prefix/games/$name.jsonl.gz"
-    aws s3 cp --only-show-errors --content-type application/json "$m" "$prefix/manifests/$name.json"
-    rm -f "$m" "$shards/$name".*
-    uploaded=$((uploaded + 1))
-    echo "$(date -u +%FT%TZ) $name" >> "$OUT_DIR/uploaded.log"
+# The AWS CLI uploads a directory's files concurrently; 32 at once keeps a
+# batch of shards well ahead of 64 workers (about 66 shards a minute).
+aws configure set default.s3.max_concurrent_requests 32
+retry() {
+  local i
+  for i in 1 2 3; do
+    "$@" && return 0
+    echo "datagen-task: retrying after a failed upload ($i)" >&2
+    sleep 5
   done
+  return 1
+}
+# Upload every complete shard in one batch: move them into a staging
+# directory, gzip in parallel, then three recursive copies (positions, games,
+# then manifests, so a manifest never lands before its data). One shard at a
+# time with three CLI calls each managed about 24 shards a minute, less than a
+# 64-core instance produces.
+upload_ready() {
+  local batch="$work/batch" m name names=()
+  for m in "$shards"/*.json; do
+    [ -e "$m" ] || break
+    names+=("$(basename "$m" .json)")
+  done
+  [ "${#names[@]}" -gt 0 ] || return 0
+  rm -rf "$batch"
+  mkdir -p "$batch/positions" "$batch/games" "$batch/manifests"
+  for name in "${names[@]}"; do
+    mv "$shards/$name.positions.txt" "$batch/positions/$name.txt"
+    mv "$shards/$name.games.jsonl" "$batch/games/$name.jsonl"
+    mv "$shards/$name.json" "$batch/manifests/$name.json"
+  done
+  find "$batch/positions" "$batch/games" -type f -print0 | xargs -0 -n 8 -P 8 gzip -6
+  retry aws s3 cp --recursive --only-show-errors "$batch/positions" "$prefix/positions/"
+  retry aws s3 cp --recursive --only-show-errors "$batch/games" "$prefix/games/"
+  retry aws s3 cp --recursive --only-show-errors --content-type application/json "$batch/manifests" "$prefix/manifests/"
+  uploaded=$((uploaded + ${#names[@]}))
+  local ts
+  ts=$(date -u +%FT%TZ)
+  for name in "${names[@]}"; do echo "$ts $name"; done >> "$OUT_DIR/uploaded.log"
+  rm -rf "$batch"
 }
 
 target/release/datagen --config datagen.toml --out "$shards" --run "$run" --task "$task" \
