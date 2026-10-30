@@ -15,6 +15,7 @@ Commands:
                --depth N   depth per position (default 10)
                --hash MB   hash size in MB (default 16)
                --out FILE  write JSON lines telemetry to FILE
+               --eval-file NET  evaluate with this NNUE network (default: PeSTO)
   perft      Count leaf nodes from a position, split by root move
                --depth N      depth (default 5)
                --fen FEN      position (default: the starting position)
@@ -51,6 +52,8 @@ pub struct BenchArgs {
     pub hash_mb: u32,
     /// Where to write JSON lines telemetry, if anywhere.
     pub out: Option<PathBuf>,
+    /// An NNUE network to evaluate with instead of PeSTO.
+    pub eval_file: Option<PathBuf>,
 }
 
 impl Default for BenchArgs {
@@ -59,6 +62,7 @@ impl Default for BenchArgs {
             depth: 10,
             hash_mb: 16,
             out: None,
+            eval_file: None,
         }
     }
 }
@@ -127,6 +131,7 @@ fn parse_bench<I: Iterator<Item = String>>(mut args: I) -> Result<BenchArgs, Usa
             "--depth" => out.depth = value(&flag, args.next())?,
             "--hash" => out.hash_mb = value(&flag, args.next())?,
             "--out" => out.out = Some(PathBuf::from(raw(&flag, args.next())?)),
+            "--eval-file" => out.eval_file = Some(PathBuf::from(raw(&flag, args.next())?)),
             other => return Err(UsageError(format!("unknown option `{other}` for bench"))),
         }
     }
@@ -186,6 +191,14 @@ mod tests {
                 depth: 3,
                 hash_mb: 64,
                 out: Some(PathBuf::from("b.jsonl")),
+                eval_file: None,
+            }))
+        );
+        assert_eq!(
+            p(&["bench", "--eval-file", "net.nnue"]),
+            Ok(Command::Bench(BenchArgs {
+                eval_file: Some(PathBuf::from("net.nnue")),
+                ..BenchArgs::default()
             }))
         );
     }
