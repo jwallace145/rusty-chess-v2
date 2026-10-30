@@ -19,7 +19,7 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 | `src/` | The `rusty-chess` binary (root package): UCI protocol, `bench` and `perft` subcommands. |
 | `crates/core` | Board, bitboards, magics, move generation, Zobrist hashing, make/unmake. No dependencies. |
 | `crates/search` | Search, transposition table, move picker, evaluation, `SearchStats` counters and the JSON lines telemetry writer. |
-| `crates/tools` | Perft suite runner, bench and stats diffing, SPRT and match reports, and `datagen`, the self-play data generator for NNUE ([docs/datagen.md](docs/datagen.md)). |
+| `crates/tools` | Perft suite runner, bench and stats diffing, SPRT and match reports, `datagen`, the self-play data generator for NNUE ([docs/datagen.md](docs/datagen.md)), and `datagen-audit`, which checks a dataset before training ([docs/datagen-runbook.md](docs/datagen-runbook.md)). |
 | `tests/` | UCI smoke tests, the perft suite `perft.epd`, mate-in-N positions. |
 | `perf-targets.toml` | The performance bars `perf-gate` enforces; they only go up. |
 | `benches/` | Criterion microbenchmarks for the binary; crates keep their own under `crates/*/benches`. |

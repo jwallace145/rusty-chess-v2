@@ -41,8 +41,10 @@ pub struct Settings {
     pub generation: u32,
     /// Nodes per move for the search that picks the move and scores it.
     pub nodes: u64,
-    /// Random plies before the search takes over; one more is added at
-    /// random so both sides start to move equally often.
+    /// Random plies before the search takes over: this many or two more, at
+    /// random. Always even, so both colours make the same number of random
+    /// moves (an odd count gave white an extra one and black a 1.4-point
+    /// edge in generation 0's results).
     pub random_plies: u32,
     /// An opening is replayed when the search scores it beyond this, in
     /// centipawns: lopsided starts teach little.
@@ -86,7 +88,11 @@ impl Settings {
                 "adjudication plies must be positive",
             ),
             (
-                s.max_plies > s.random_plies + 1 && s.max_plies < 2000,
+                s.random_plies % 2 == 0,
+                "random_plies must be even, so both colours make as many random moves",
+            ),
+            (
+                s.max_plies > s.random_plies + 2 && s.max_plies < 2000,
                 "max_plies must exceed the random plies and stay under 2000",
             ),
         ];
@@ -168,7 +174,7 @@ pub fn keep(pos: &Position, best: Move, score: i32) -> bool {
 fn opening(rng: &mut Rng, searcher: &mut Searcher, s: &Settings) -> Position {
     loop {
         let mut pos = Position::startpos();
-        let plies = s.random_plies + (rng.next_u64() % 2) as u32;
+        let plies = s.random_plies + 2 * (rng.next_u64() % 2) as u32;
         let mut ok = true;
         for _ in 0..plies {
             let mut list = MoveList::new();
@@ -200,6 +206,88 @@ fn opening(rng: &mut Rng, searcher: &mut Searcher, s: &Settings) -> Position {
     }
 }
 
+/// How the board ends a game before the next search, if it does: no legal
+/// move (mate or stalemate), a repetition (one earlier occurrence, which the
+/// engine's own search scores as a draw), fifty moves, insufficient
+/// material, or the ply limit (`plies` engine moves played). The result is
+/// from white's point of view.
+pub fn board_termination(board: &Board, plies: u32, s: &Settings) -> Option<(f32, Termination)> {
+    let pos = board.position();
+    let mut list = MoveList::new();
+    pos.legal_moves(&mut list);
+    if list.is_empty() {
+        let winner_white = pos.side_to_move() == Color::Black;
+        return Some(if pos.in_check() {
+            (if winner_white { 1.0 } else { 0.0 }, Termination::Checkmate)
+        } else {
+            (0.5, Termination::Stalemate)
+        });
+    }
+    if plies > 0 && board.is_repetition() {
+        return Some((0.5, Termination::Repetition));
+    }
+    if board.is_fifty_moves() {
+        return Some((0.5, Termination::FiftyMoves));
+    }
+    if insufficient_material(pos) {
+        return Some((0.5, Termination::InsufficientMaterial));
+    }
+    if plies >= s.max_plies {
+        return Some((0.5, Termination::MaxPlies));
+    }
+    None
+}
+
+/// Adjudication on the search's own scores, fed one search at a time.
+#[derive(Clone, Debug, Default)]
+pub struct Adjudicator {
+    /// Consecutive plies at or beyond `win_cp` for `leader`.
+    win_run: u32,
+    leader: Option<Color>,
+    /// Consecutive plies within `draw_cp` of zero from `draw_after_ply` on.
+    draw_run: u32,
+}
+
+impl Adjudicator {
+    /// Record the score (side to move's view, as the search reports it) of
+    /// the search by `stm` that made engine move number `plies` (1 for the
+    /// first), and say whether the game is decided. A mate score counts as
+    /// a win.
+    pub fn update(
+        &mut self,
+        stm: Color,
+        score: i32,
+        plies: u32,
+        s: &Settings,
+    ) -> Option<(f32, Termination)> {
+        if score.abs() >= s.win_cp {
+            let leader = if score > 0 { stm } else { !stm };
+            self.win_run = if self.leader == Some(leader) {
+                self.win_run + 1
+            } else {
+                1
+            };
+            self.leader = Some(leader);
+            if self.win_run >= s.win_plies {
+                let white = if leader == Color::White { 1.0 } else { 0.0 };
+                return Some((white, Termination::WinAdjudication));
+            }
+        } else {
+            self.win_run = 0;
+            self.leader = None;
+        }
+        if plies >= s.draw_after_ply && score.abs() <= s.draw_cp {
+            self.draw_run += 1;
+            if self.draw_run >= s.draw_plies {
+                return Some((0.5, Termination::DrawAdjudication));
+            }
+        } else {
+            self.draw_run = 0;
+        }
+        None
+    }
+}
+
 /// Play one game. Deterministic for a given `rng` state and settings.
 pub fn play_game(rng: &mut Rng, searcher: &mut Searcher, s: &Settings) -> Game {
     searcher.clear_hash();
@@ -213,30 +301,12 @@ pub fn play_game(rng: &mut Rng, searcher: &mut Searcher, s: &Settings) -> Game {
     let mut moves = Vec::new();
     let mut scores = Vec::new();
     let mut kept: Vec<(String, i32)> = Vec::new();
-    let mut win_run = (0u32, Color::White);
-    let mut draw_run = 0u32;
-    let white_wins = |c: Color| if c == Color::White { 1.0 } else { 0.0 };
+    let mut adjudicator = Adjudicator::default();
     let (result, termination) = loop {
+        if let Some(end) = board_termination(&board, moves.len() as u32, s) {
+            break end;
+        }
         let pos = board.position().clone();
-        let mut list = MoveList::new();
-        pos.legal_moves(&mut list);
-        if list.is_empty() {
-            break if pos.in_check() {
-                (white_wins(!pos.side_to_move()), Termination::Checkmate)
-            } else {
-                (0.5, Termination::Stalemate)
-            };
-        }
-        if board.is_fifty_moves() {
-            break (0.5, Termination::FiftyMoves);
-        }
-        if insufficient_material(&pos) {
-            break (0.5, Termination::InsufficientMaterial);
-        }
-        if moves.len() as u32 >= s.max_plies {
-            break (0.5, Termination::MaxPlies);
-        }
-
         let r = searcher.search(&mut board, &limits, &mut |_| {});
         let stm = pos.side_to_move();
         let white_score = if stm == Color::White {
@@ -249,34 +319,10 @@ pub fn play_game(rng: &mut Rng, searcher: &mut Searcher, s: &Settings) -> Game {
         }
         moves.push(r.best.to_string());
         scores.push(r.score);
-
-        // Adjudication on the search's own scores.
-        if r.score.abs() >= s.win_cp {
-            let leader = if r.score > 0 { stm } else { !stm };
-            win_run = if win_run.1 == leader {
-                (win_run.0 + 1, leader)
-            } else {
-                (1, leader)
-            };
-            if win_run.0 >= s.win_plies {
-                break (white_wins(leader), Termination::WinAdjudication);
-            }
-        } else {
-            win_run.0 = 0;
+        if let Some(end) = adjudicator.update(stm, r.score, moves.len() as u32, s) {
+            break end;
         }
-        if moves.len() as u32 >= s.draw_after_ply && r.score.abs() <= s.draw_cp {
-            draw_run += 1;
-            if draw_run >= s.draw_plies {
-                break (0.5, Termination::DrawAdjudication);
-            }
-        } else {
-            draw_run = 0;
-        }
-
         board.make_move(r.best);
-        if board.is_repetition() {
-            break (0.5, Termination::Repetition);
-        }
     };
     Game {
         start_fen,
@@ -351,6 +397,9 @@ pub struct Manifest {
     pub seconds: f64,
     /// The record files, relative to the manifest.
     pub files: [String; 2],
+    /// SHA-256 of each record file's uncompressed contents, in `files`
+    /// order, as hex. Filled in by [`write_shard`].
+    pub sha256: [String; 2],
 }
 
 /// The shard file name: `<task>-w<worker>-s<seq>`.
@@ -359,7 +408,7 @@ pub fn shard_name(task: &str, worker: u32, seq: u32) -> String {
 }
 
 /// Write a shard's three files into `dir`, each whole and renamed into place,
-/// the manifest last.
+/// the manifest last, with the SHA-256 of each record file in it.
 pub fn write_shard(dir: &Path, games: &[Game], manifest: &Manifest) -> std::io::Result<()> {
     let write = |name: &str, body: &[u8]| -> std::io::Result<()> {
         let tmp: PathBuf = dir.join(format!(".{name}.part"));
@@ -380,11 +429,20 @@ pub fn write_shard(dir: &Path, games: &[Game], manifest: &Manifest) -> std::io::
             serde_json::to_string(g).expect("a game serializes")
         );
     }
+    let hex = |bytes: &[u8]| {
+        use sha2::Digest;
+        sha2::Sha256::digest(bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    };
+    let mut manifest = manifest.clone();
+    manifest.sha256 = [hex(positions.as_bytes()), hex(records.as_bytes())];
     write(&manifest.files[0], positions.as_bytes())?;
     write(&manifest.files[1], records.as_bytes())?;
     write(
         &format!("{}.json", manifest.shard),
-        serde_json::to_string_pretty(manifest)
+        serde_json::to_string_pretty(&manifest)
             .expect("a manifest serializes")
             .as_bytes(),
     )
@@ -495,6 +553,7 @@ pub fn run(r: &Run, report: Duration) -> std::io::Result<Totals> {
                                 format!("{name}.positions.txt"),
                                 format!("{name}.games.jsonl"),
                             ],
+                            sha256: Default::default(),
                         };
                         if let Err(e) = write_shard(&r.out, &batch, &manifest) {
                             // A full disk stops every worker, not just this one.
