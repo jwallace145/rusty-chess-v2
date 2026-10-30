@@ -177,6 +177,11 @@ pub struct Limits {
     /// Time kept back per move for communication latency (the UCI `Move
     /// Overhead` option); 10 ms when unset.
     pub overhead: Option<Duration>,
+    /// Pondering (UCI `go ponder`): while this flag is true the search is
+    /// thinking on the opponent's time and ignores the clock. When it turns
+    /// false (`ponderhit`) the clock starts, and the time limits above apply
+    /// from that moment, as if the search had been started then.
+    pub ponder: Option<Arc<AtomicBool>>,
 }
 
 /// What a search found.
@@ -223,6 +228,13 @@ pub struct Searcher {
     qnodes: u64,
     started: Instant,
     hard_deadline: Option<Instant>,
+    /// The hard time budget, applied from `clock_start`.
+    hard_budget: Option<Duration>,
+    /// When the clock started: the search's start, or a ponderhit; `None`
+    /// while pondering.
+    clock_start: Option<Instant>,
+    /// The ponder flag of the search in progress (see [`Limits::ponder`]).
+    ponder: Option<Arc<AtomicBool>>,
     node_limit: Option<u64>,
     aborted: bool,
     pv: Box<[[Move; MAX_PLY]; MAX_PLY]>,
@@ -247,6 +259,9 @@ impl Searcher {
             qnodes: 0,
             started: Instant::now(),
             hard_deadline: None,
+            hard_budget: None,
+            clock_start: None,
+            ponder: None,
             node_limit: None,
             aborted: false,
             pv: Box::new([[Move::NULL; MAX_PLY]; MAX_PLY]),
@@ -302,7 +317,16 @@ impl Searcher {
         self.aborted = false;
         self.node_limit = limits.nodes;
         let (soft, hard) = time_plan(limits);
-        self.hard_deadline = hard.map(|d| self.started + d);
+        self.hard_budget = hard;
+        self.ponder = limits.ponder.clone();
+        if self.pondering() {
+            // No clock until the ponderhit: see `clock`.
+            self.clock_start = None;
+            self.hard_deadline = None;
+        } else {
+            self.clock_start = Some(self.started);
+            self.hard_deadline = hard.map(|d| self.started + d);
+        }
         self.tt.new_search();
         self.killers.clear();
         self.history.age();
@@ -370,7 +394,11 @@ impl Searcher {
             on_iter(&record);
             iterations.push(record);
 
-            if soft.is_some_and(|s| elapsed >= s) || self.stop.load(Ordering::Relaxed) {
+            let over_soft = match (soft, self.clock()) {
+                (Some(s), Some(t0)) => t0.elapsed() >= s,
+                _ => false,
+            };
+            if over_soft || self.stop.load(Ordering::Relaxed) {
                 break;
             }
             if self.node_limit.is_some_and(|n| total >= n) {
@@ -424,12 +452,32 @@ impl Searcher {
         }
     }
 
+    /// Whether the search is still pondering (no ponderhit yet).
+    #[inline]
+    fn pondering(&self) -> bool {
+        self.ponder
+            .as_ref()
+            .is_some_and(|p| p.load(Ordering::Relaxed))
+    }
+
+    /// When the clock started, starting it now if a ponderhit has arrived
+    /// since the last look; `None` while still pondering.
+    fn clock(&mut self) -> Option<Instant> {
+        if self.clock_start.is_none() && !self.pondering() {
+            let now = Instant::now();
+            self.clock_start = Some(now);
+            self.hard_deadline = self.hard_budget.map(|d| now + d);
+        }
+        self.clock_start
+    }
+
     #[inline]
     fn should_abort(&mut self) -> bool {
         if self.aborted {
             return true;
         }
         if (self.nodes + self.qnodes) % CHECK_EVERY == 0 {
+            self.clock();
             let total = self.nodes + self.qnodes;
             if self.stop.load(Ordering::Relaxed)
                 || self.node_limit.is_some_and(|n| total >= n)
