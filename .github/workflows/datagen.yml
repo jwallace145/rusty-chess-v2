@@ -22,11 +22,11 @@ on:
         options: ["1", "2", "3"]
         default: "1"
       minutes:
-        description: Minutes of generation per instance (at most 330; about 80M positions an hour each)
+        description: Minutes of generation per instance (at most 300, leaving the 6-hour job an hour for slot waits, boot, build and upload; about 80M positions an hour each)
         required: true
         default: "60"
       seed:
-        description: Base seed (blank for this run's id); task i uses base + i
+        description: Base seed (blank for this run's id); task i uses base + i, and a re-run adds 1000 per attempt
         required: false
         default: ""
       note:
@@ -57,9 +57,10 @@ jobs:
           MINUTES: ${{ inputs.minutes }}
           SEED: ${{ inputs.seed }}
           RUN_ID: ${{ github.run_id }}
+          ATTEMPT: ${{ github.run_attempt }}
         run: |
-          [[ "$MINUTES" =~ ^[0-9]+$ ]] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 330 ] \
-            || { echo "::error::minutes must be a whole number from 1 to 330, got $MINUTES"; exit 1; }
+          [[ "$MINUTES" =~ ^[0-9]+$ ]] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 300 ] \
+            || { echo "::error::minutes must be a whole number from 1 to 300 (the task runner's 6-hour limit covers slot waits, boot, build and upload too), got $MINUTES"; exit 1; }
           [ -z "$SEED" ] || [[ "$SEED" =~ ^[0-9]+$ ]] || { echo "::error::seed must be a whole number"; exit 1; }
           bucket=$(yq -r '[.components[] | select(.kind == "dataset")][0].bucket // ""' jwall-engineering-sites.yaml)
           prefix=$(yq -r '[.components[] | select(.kind == "dataset")][0].prefix // ""' jwall-engineering-sites.yaml)
@@ -68,15 +69,21 @@ jobs:
             exit 1
           fi
           generation=$(awk -F= '/^generation *=/ {gsub(/[ \t]/, "", $2); print $2; exit}' datagen.toml)
-          run="$(date -u +%Y%m%d)-$RUN_ID"
-          base=${SEED:-$RUN_ID}
+          # The attempt is part of the run's identity: a "Re-run" gets its own
+          # partition and seeds instead of replaying the games it already
+          # uploaded (generation is deterministic for a seed).
+          run="$(date -u +%Y%m%d)-$RUN_ID-$ATTEMPT"
+          base=$(( ${SEED:-$RUN_ID} + (ATTEMPT - 1) * 1000 ))
           dataset="s3://$bucket/${prefix%/}/selfplay/v1"
           tasks=$(jq -cn --arg dataset "$dataset" --arg run "$run" --argjson n "$INSTANCES" \
             --argjson minutes "$MINUTES" --argjson base "$base" \
             '[range($n) | {task: "t\(.)", args: (["--dataset", $dataset, "--run", $run, "--task", "t\(.)",
               "--minutes", ($minutes | tostring), "--seed", ($base + . | tostring)] | tojson)}]')
           # The instance's hard limit: the generation, plus an hour for build, upload and slack.
+          # Clamped to the runner's limit (task-runner.max_hours, 6), which the
+          # 300-minute cap already respects; the clamp guards later edits.
           hours=$(( (MINUTES + 59) / 60 + 1 ))
+          if [ "$hours" -gt 6 ]; then hours=6; fi
           {
             echo "tasks=$tasks"
             echo "hours=$hours"
