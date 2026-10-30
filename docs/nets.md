@@ -34,7 +34,7 @@ The first net, kept in #122 and released in `v0.28.0`.
 |:--|:--|
 | Data | Generation 0 (PeSTO): 214,568,489 training / 16,671,855 held-out records; whole workers split 297 / 23 at `val_fraction` 0.05, split seed 1, shuffle seed 1 |
 | Network | (768 → 128) × 2 → 1, SCReLU, `Chess768`; QA 255, QB 64, SCALE 400 |
-| Schedule | λ 0.5 (constant); 40 superbatches × 6,104 batches × 16,384 (4.0B positions, about 19 passes over the data); AdamW, LR 0.001, ×0.1 at superbatch 18 |
+| Schedule | λ 0.5 (constant); 40 superbatches × 6,104 batches × 16,384 (4.0B positions, about 19 passes over the data); AdamW, LR 0.001, ×0.1 every 18 superbatches (0.0001 from 19, 0.00001 from 37) |
 | Training | `Train` run [41022503872](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41022503872): NVIDIA L4, CUDA 13.2, bullet `da426a4`, engine `1505e24`. Prepare 217 s, training 194.5 s at 20.7M positions/s, 613 s to trained; about $0.20 |
 | Loss | Training loss 0.0780 → 0.0186. Flat from about superbatch 13, with a step at the LR drop |
 | Validation | Scored afterwards (#121; this bullet doesn't compute it). Held-out 0.018925 over all 16.7M records, against 0.018898 on 1.5M training records: a 0.14% gap, no visible overfitting |
@@ -52,7 +52,7 @@ by net 1, was added to generation 0.
 |:--|:--|
 | Data | Generations 0 + 1: 561,653,589 training / 37,941,221 held-out records; workers 537 / 39 at `val_fraction` 0.05, split seed 1, shuffle seed 1. Generation 0's held-out workers are the same as net 1's |
 | Network | Same as net 1 |
-| Schedule | Same as net 1: λ 0.5, 40 superbatches, LR ×0.1 at superbatch 18. 4.0B positions is about 7 passes over the data |
+| Schedule | Same as net 1: λ 0.5, 40 superbatches, LR ×0.1 every 18 superbatches. 4.0B positions is about 7 passes over the data |
 | Training | `Train` run [41110004652](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41110004652): NVIDIA L4, CUDA 13.2, bullet `da426a4`, engine `8a457b5`. Prepare 880 s, 2,247 s to trained; about $0.50 |
 | Loss | Training loss 0.0681 → 0.0192 |
 | Validation | Every 4 superbatches, on 4M held-out and 4M training records (table below). Best at the last checkpoint; training and held-out stay within 0.4% throughout, so no overfitting, and still improving at 40 |
@@ -85,6 +85,7 @@ by net 1, was added to generation 0.
 | **Net 2 was still improving at superbatch 40** | Held-out loss fell at every checkpoint, best at the last, with no train/held-out gap | Try a longer schedule (80 superbatches, LR drop at 36) on the same data |
 | **Self-play SPRT overstates external Elo** | Net 1: +587 in the SPRT against PeSTO, about +275 to +375 on the Stockfish ladders | Judge nets by the timed SPRT, and track absolute strength on the ladder |
 | **The ladder needs moving as nets improve** | `v0.28.0` scored 89% on `UCI_Elo` 2650; the rungs moved to 2800–3190 (#126). 3190 is Stockfish's limit | After about 3300, anchor to full Stockfish at a fixed node budget |
+| **Training slows about 5× once the data outgrows the GPU instance's memory** | Net 1's 6.9 GB training file trained at 20.7M positions/s. Net 2's 18 GB file trained at 4.3M, the EBS root volume pinned at 131 MB/s: both the gp3 volume and the `g6.xlarge`'s EBS bandwidth are 125 MB/s | Put scratch on the instance's local NVMe (an infra change, proposed). Until then, budget about 23 s a superbatch on generations 0 + 1; diagnosing it is in [training.md](training.md#when-training-is-slow) |
 | **Held-out loss doesn't compare across datasets** | Net 2's 0.019273 against net 1's 0.018925, on different held-out data, while net 2 is +113 stronger | Compare nets on one held-out set |
 
 ## Next experiments
