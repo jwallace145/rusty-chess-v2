@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.30.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.29.0...v0.30.0) (2026-10-30)
+
+
+### Features
+
+* **nnue:** embed net 2 as the default and keep net 1 selectable by id ([#129](https://github.com/jwallace145/rusty-chess-v2/issues/129)) ([83ca209](https://github.com/jwallace145/rusty-chess-v2/commit/83ca209d8b30d4bda0b439d8e4aa2c61203bcc92))
+
+
+### Documentation
+
+* **nnue:** start the dataset and net ledgers and bring phase 6 up to date ([#130](https://github.com/jwallace145/rusty-chess-v2/issues/130)) ([c026924](https://github.com/jwallace145/rusty-chess-v2/commit/c02692438dd83703629753cd50d3707779d5a6aa))
+
 ## [0.29.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.28.0...v0.29.0) (2026-10-30)
 
 
