@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.24.0...v0.25.0) (2026-10-30)
+
+
+### Features
+
+* **uci:** ponder on the opponent's time with go ponder and ponderhit ([#108](https://github.com/jwallace145/rusty-chess-v2/issues/108)) ([af669ec](https://github.com/jwallace145/rusty-chess-v2/commit/af669ec9357a300b2cf197a1263f217ebe461235))
+
 ## [0.24.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.23.0...v0.24.0) (2026-10-30)
 
 
