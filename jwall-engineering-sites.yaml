@@ -59,7 +59,18 @@ components:
     on_demand_fallback: true        # at launch only, after spot fails in every zone
     spot_wait_minutes: 5
     max_hours: 6                    # 1-6; GitHub stops a job at six hours anyway
-    max_vcpus: 192                  # three c8a.16xlarge: one PR's two SPRT legs plus a Match
+    max_vcpus: 256                  # four c8a.16xlarge, the account spot quota: three datagen tasks plus an SPRT leg
     slot_wait_minutes: 30
     results_days: 7                 # task outputs expire from S3 after this
     log_retention_days: 14
+
+  # NNUE training data: a kept-forever, append-only S3 bucket. Task instances
+  # (ci/datagen-task.sh) may add objects under the prefix, never read or
+  # delete them; the Datagen workflow reads bucket and prefix from here.
+  # Layout: docs/datagen.md. Fields and access:
+  # https://github.com/jwallace145/jwall-engineering-infra/blob/main/docs/datasets.md
+  - kind: dataset
+    name: nnue
+    bucket: jwall-engineering-rusty-chess-nnue  # <Organization>-<project>-<name>
+    prefix: data/                   # everything the project writes lives under it
+    writers: [task-runner]          # the task instances: PutObject under the prefix only
