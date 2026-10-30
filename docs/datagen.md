@@ -115,7 +115,7 @@ job (or Athena) can select by prefix:
 ```text
 s3://<dataset bucket>/selfplay/v1/                    schema version 1
   gen=0/                                              the net generation that played
-    run=20261030-<github run id>/                     one Datagen workflow run
+    run=20261030-<github run id>-<attempt>/           one Datagen workflow run (a re-run is a new attempt)
       task=t0/                                        one instance
         positions/t0-w000-s00000.txt.gz
         games/t0-w000-s00000.jsonl.gz
@@ -135,8 +135,19 @@ s3://<dataset bucket>/selfplay/v1/                    schema version 1
   partition, never over the original.
 
 A `task.json` is absent when spot interrupted the instance; its completed
-shards are still valid. Data is never overwritten: a new run always gets a new
-`run=` partition.
+shards are still valid, and nothing needs cleaning up. Data is never
+overwritten: a new run, and a re-run of an old one, always gets a new `run=`
+partition and new seeds. After an interruption, start another run to make up
+the time.
+
+### Size
+
+Measured on the pilot's shards, a stored position costs about 18 bytes:
+11.8 for the gzipped training record, 5.7 for its share of the gzipped game
+records, 0.2 for manifests. 300 million positions are about 5.3 GB, a
+billion about 18 GB: a few dollars a year in S3. Converted to a trainer's
+binary format (about 32 bytes a position, uncompressed) they need more room
+on the training machine than in S3.
 
 ## Running it
 
