@@ -1,0 +1,51 @@
+name: Remote task smoke
+
+# Temporary: an end-to-end check of jwall-engineering-infra's remote tasks
+# (spot and on demand). Never merged; the pull request is closed after the run.
+
+on:
+  pull_request:
+    paths:
+      - ci/remote-task-smoke.sh
+      - .github/workflows/remote-task-smoke.yml
+
+permissions: {}
+
+jobs:
+  spot:
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.13.0
+    with:
+      project: rusty-chess
+      script: ci/remote-task-smoke.sh
+      args: '["24"]' # four minutes: long enough to watch, and to cancel mid-task
+      artifact: smoke-spot
+    permissions:
+      contents: read
+      id-token: write
+
+  on-demand:
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.13.0
+    with:
+      project: rusty-chess
+      script: ci/remote-task-smoke.sh
+      args: '["6"]'
+      instance-type: c8a.xlarge
+      market: on-demand
+      artifact: smoke-on-demand
+    permissions:
+      contents: read
+      id-token: write
+
+  report:
+    needs: [spot, on-demand]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Outcomes
+        env:
+          SPOT: ${{ needs.spot.outputs.outcome }}
+          SPOT_AT: ${{ needs.spot.outputs.interrupted-at }}
+          ON_DEMAND: ${{ needs.on-demand.outputs.outcome }}
+        run: |
+          echo "spot: ${SPOT:-none} ${SPOT_AT}"
+          echo "on-demand: ${ON_DEMAND:-none}"
