@@ -13,8 +13,9 @@ without guessing.
 
 `datagen` (in `crates/tools`) runs one worker per core. Each worker:
 
-1. plays `random_plies` random legal moves from the start position (one more
-   at random, so both sides start to move equally often), and replays the
+1. plays `random_plies` random legal moves from the start position (or two
+   more, at random; always an even number, so both colours make as many
+   random moves), and replays the
    opening if it ends in check, in a finished game, or with the search scoring
    it beyond `max_opening_cp`;
 2. plays the game with the engine's own search at `nodes` per move, both
@@ -98,11 +99,14 @@ first training run.
   "games": 256, "positions": 24330, "results": [88, 83, 85],
   "terminations": {"win-adjudication": 169, "repetition": 51, ...},
   "seconds": 60.0,
-  "files": ["t0-w017-s00042.positions.txt", "t0-w017-s00042.games.jsonl"]
+  "files": ["t0-w017-s00042.positions.txt", "t0-w017-s00042.games.jsonl"],
+  "sha256": ["<hex of the positions file>", "<hex of the games file>"]
 }
 ```
 
-`results` counts white wins, draws and black wins. In S3 the two data files
+`results` counts white wins, draws and black wins. `sha256` is the SHA-256 of
+each record file's *uncompressed* contents, in `files` order; shards written
+before it was added have no `sha256` (gzip's own CRC still catches corruption). In S3 the two data files
 are gzip-compressed and carry a `.gz` suffix; the manifest names them without
 it.
 
@@ -156,8 +160,14 @@ instances (`instances`, at most 3 at once within the task vCPU budget) for a
 set number of `minutes`, every task with its own seed. Each instance builds
 `datagen` at the workflow's commit, generates on every core, compresses and
 uploads each shard as it completes, and on a spot interruption stops the
-workers, uploads what is complete and exits. At the committed settings one
-64-core instance makes about 80 million positions an hour.
+workers (which finish their games and save their partial shards), uploads
+everything complete and exits. At the committed settings one 64-core instance
+makes about 100 million positions an hour.
+
+**[datagen-runbook.md](datagen-runbook.md)** is the procedure for a run: settings
+review, smoke test, monitoring, interruptions, and the audit
+(`datagen-audit check`) every dataset passes before training, with its
+correctness checks, quality bars and generation 0's reference results.
 
 Locally, for a pilot:
 

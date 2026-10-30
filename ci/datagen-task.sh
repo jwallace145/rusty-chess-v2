@@ -97,11 +97,25 @@ upload_ready() {
   rm -rf "$batch"
 }
 
-target/release/datagen --config datagen.toml --out "$shards" --run "$run" --task "$task" \
-  --threads "$cores" --seed "$seed" --max-minutes "$minutes" --stop-file "$stop" \
-  --engine-sha "$sha" --engine-bench "$bench" > >(tee "$OUT_DIR/datagen.log") 2>&1 &
-# $! is datagen itself (not tee), so the wait below gets its exit code.
+launch=(target/release/datagen --config datagen.toml --out "$shards" --run "$run" --task "$task"
+  --threads "$cores" --seed "$seed" --max-minutes "$minutes" --stop-file "$stop"
+  --engine-sha "$sha" --engine-bench "$bench")
+# datagen runs in its own session, writing its log to a file, so the SIGTERM
+# the runner sends this script's process group on a spot notice reaches only
+# this script: the trap below then asks the workers to stop through the stop
+# file, and they finish their games and save their partial shards (on
+# 2026-10-30 the signal killed datagen outright and lost about 350k positions
+# in progress). `setsid` execs in place here (a background job of a
+# non-interactive shell is not a group leader), so $! is datagen itself.
+if command -v setsid >/dev/null; then
+  setsid "${launch[@]}" > "$OUT_DIR/datagen.log" 2>&1 &
+else
+  "${launch[@]}" > "$OUT_DIR/datagen.log" 2>&1 &
+fi
 dg_pid=$!
+# Stream the log into the job's output.
+tail -n +1 -f "$OUT_DIR/datagen.log" &
+tail_pid=$!
 
 interrupted=0
 on_term() {
@@ -121,9 +135,12 @@ wait "$dg_pid"; code=$?
 set -e
 upload_ready
 trap - TERM
+kill "$tail_pid" 2>/dev/null || true
 
-positions=$(grep -o 'done: [0-9]* games, [0-9]* positions' "$OUT_DIR/datagen.log" | awk '{print $4}')
-games=$(grep -o 'done: [0-9]* games' "$OUT_DIR/datagen.log" | awk '{print $2}')
+# `|| true`: a log without its "done" line (datagen killed) must not stop the
+# script before task.json is written.
+positions=$(grep -o 'done: [0-9]* games, [0-9]* positions' "$OUT_DIR/datagen.log" | awk '{print $4}' || true)
+games=$(grep -o 'done: [0-9]* games' "$OUT_DIR/datagen.log" | awk '{print $2}' || true)
 cat > "$OUT_DIR/task.json" <<JSON
 {"schema": "rusty-chess-selfplay/1", "run": "$run", "task": "$task", "generation": $generation,
  "engine_sha": "$sha", "engine_bench": ${bench:-null}, "workers": $cores, "seed": $seed,

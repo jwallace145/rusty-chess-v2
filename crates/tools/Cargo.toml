@@ -33,6 +33,10 @@ name = "datagen"
 path = "src/bin/datagen.rs"
 
 [[bin]]
+name = "datagen-audit"
+path = "src/bin/datagen_audit.rs"
+
+[[bin]]
 name = "speed-report"
 path = "src/bin/speed_report.rs"
 
@@ -53,6 +57,11 @@ rusty-chess-core = { path = "../core" }
 rusty-chess-search = { path = "../search" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sha2 = "0.10"
+flate2 = "1"
+# The text parser and binary writer bullet's `convert --from text` uses; the
+# audit runs every sampled record through it.
+bulletformat = "=1.8.0"
 toml = "1.1"
 
 [lints]
