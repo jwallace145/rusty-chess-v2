@@ -730,3 +730,37 @@ fn internal_iterative_reductions_fire_and_keep_mates() {
         );
     }
 }
+
+#[test]
+fn see_pruning_skips_hanging_quiets_but_keeps_mates() {
+    // Mates stay exact with quiet moves that hang material pruned at shallow
+    // depth, including a quiet key move and a late quiet check.
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - 0 1", "f6a6", 3),
+        ("k7/8/2K5/8/8/8/8/7R w - - 0 1", "", 2),
+    ] {
+        let r = search(fen, depth(8));
+        assert_eq!(
+            mate_in(r.score),
+            Some(mate),
+            "{fen}: {} ({})",
+            r.score,
+            r.pv
+        );
+        if !best.is_empty() {
+            assert_eq!(r.best.to_string(), best, "{fen}");
+        }
+    }
+    // A middlegame has quiet moves that hang pieces at shallow nodes.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(8), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.see_skips > 0, "no SEE skips");
+    }
+}

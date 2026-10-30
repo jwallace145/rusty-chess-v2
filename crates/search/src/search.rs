@@ -72,6 +72,13 @@ const FP_MARGIN: i32 = 100;
 /// Internal iterative reductions apply from this depth.
 const IIR_MIN_DEPTH: u32 = 4;
 
+/// SEE pruning in the main search applies up to this depth.
+const SEE_MAX_DEPTH: u32 = 8;
+
+/// SEE pruning threshold: a quiet move is skipped when its exchange loses
+/// more than `SEE_QUIET_MARGIN * d` centipawns at depth `d`.
+const SEE_QUIET_MARGIN: i32 = 64;
+
 /// Late move pruning applies up to this depth.
 const LMP_MAX_DEPTH: u32 = 4;
 
@@ -600,6 +607,24 @@ impl Searcher {
                     index += 1;
                     continue;
                 }
+            }
+            // SEE pruning: at shallow depth, a quiet move that puts a piece
+            // where the exchange loses more material than a margin per ply of
+            // depth left is skipped: it hangs material the search would only
+            // spend nodes refuting. Not at the first move, in check or while
+            // being mated. Captures are left alone: the picker already
+            // searches losing ones last, and pruning them too dropped
+            // fail-high-first below its 0.88 bar.
+            if quiet
+                && prunable
+                && index > 0
+                && depth <= SEE_MAX_DEPTH
+                && !is_mate_score(best)
+                && !see_ge(board.position(), m, -SEE_QUIET_MARGIN * depth as i32)
+            {
+                stat!(self.stats, see_skips);
+                index += 1;
+                continue;
             }
             self.moved[ply] = PieceTo::of(board.position(), m);
             let undo = board.make_move(m);
