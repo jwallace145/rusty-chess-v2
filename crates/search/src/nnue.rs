@@ -65,6 +65,11 @@ pub const QB: i32 = 64;
 /// The output in centipawns per unit of the network's raw output.
 pub const SCALE: i32 = 400;
 
+/// The largest output weight a net may have, in either sign: the trainer
+/// clips weights to ±1.98, which is ±127 at `QB = 64`. It keeps the output
+/// exact in 16- and 32-bit arithmetic (see [`Network::evaluate`]).
+pub const MAX_OUTPUT_WEIGHT: i16 = 127;
+
 /// The size in bytes of a network file without padding.
 pub const FILE_BYTES: usize = 2 * (INPUTS * HIDDEN + HIDDEN + 2 * HIDDEN + 1);
 
@@ -104,6 +109,11 @@ impl Network {
         let mut output_weights = [0i16; 2 * HIDDEN];
         output_weights.iter_mut().for_each(|w| *w = next());
         let output_bias = next();
+        if let Some(w) = output_weights.iter().find(|w| w.abs() > MAX_OUTPUT_WEIGHT) {
+            return Err(format!(
+                "an output weight is {w}, beyond ±{MAX_OUTPUT_WEIGHT}; this is not a net the trainer saved"
+            ));
+        }
         Ok(Network {
             feature_weights,
             feature_bias,
@@ -130,6 +140,10 @@ impl Network {
         output_weights: [i16; 2 * HIDDEN],
         output_bias: i16,
     ) -> Network {
+        assert!(
+            output_weights.iter().all(|w| w.abs() <= MAX_OUTPUT_WEIGHT),
+            "output weights must be within ±{MAX_OUTPUT_WEIGHT}"
+        );
         Network {
             feature_weights,
             feature_bias,
@@ -141,18 +155,23 @@ impl Network {
     /// The evaluation in centipawns for the side to move, from the
     /// accumulators of the side to move (`us`) and its opponent (`them`).
     pub fn evaluate(&self, us: &Accumulator, them: &Accumulator) -> i32 {
-        let screlu = |x: i16| {
-            let c = i32::from(x).clamp(0, QA);
-            c * c
-        };
-        // i64: QA² · 127 (the trainer's weight clip at QB = 64) over 2 · HIDDEN
-        // terms comes within a few percent of i32's range at 128 neurons.
-        let mut sum = 0i64;
+        // screlu(x) · w computed as (c · w) · c with c = clamp(x, 0, QA). With
+        // every output weight within ±MAX_OUTPUT_WEIGHT (enforced at load),
+        // c · w fits an i16 (255 · 127 = 32,385) and the whole sum an i32
+        // (255² · 127 · 256 = 2,114,092,800), so this is exact: the same
+        // result as summing in i64. In this shape the compiler vectorizes it
+        // into 16-bit multiplies and pairwise multiply-adds (`vpmullw` and
+        // `vpmaddwd` on x86-64-v3), 16 values an instruction.
+        let qa = QA as i16;
+        let (w_us, w_them) = self.output_weights.split_at(HIDDEN);
+        let mut sum = 0i32;
         for i in 0..HIDDEN {
-            sum += i64::from(screlu(us.0[i])) * i64::from(self.output_weights[i]);
-            sum += i64::from(screlu(them.0[i])) * i64::from(self.output_weights[HIDDEN + i]);
+            let u = us.0[i].clamp(0, qa);
+            let t = them.0[i].clamp(0, qa);
+            sum += i32::from(u.wrapping_mul(w_us[i])) * i32::from(u);
+            sum += i32::from(t.wrapping_mul(w_them[i])) * i32::from(t);
         }
-        let out = (sum / i64::from(QA) + i64::from(self.output_bias)) * i64::from(SCALE)
+        let out = (i64::from(sum) / i64::from(QA) + i64::from(self.output_bias)) * i64::from(SCALE)
             / i64::from(QA * QB);
         out as i32
     }
@@ -201,6 +220,60 @@ impl Accumulator {
         let col = &net.feature_weights[feature];
         for (a, w) in self.0.iter_mut().zip(col) {
             *a = a.wrapping_sub(*w);
+        }
+    }
+
+    // The fused updates below write the next ply's accumulator from the
+    // current one in a single pass, instead of a copy and then one pass per
+    // moved piece. Wrapping arithmetic is associative, so the result is the
+    // same as adding and subtracting the columns one at a time.
+
+    /// `old` plus `add`'s column minus `sub`'s: a quiet move.
+    #[inline]
+    pub fn add_sub(&mut self, old: &Accumulator, net: &Network, add: usize, sub: usize) {
+        let (a, s) = (&net.feature_weights[add], &net.feature_weights[sub]);
+        for i in 0..HIDDEN {
+            self.0[i] = old.0[i].wrapping_add(a[i]).wrapping_sub(s[i]);
+        }
+    }
+
+    /// `old` plus `add`'s column minus `sub1`'s and `sub2`'s: a capture.
+    #[inline]
+    pub fn add_sub_sub(
+        &mut self,
+        old: &Accumulator,
+        net: &Network,
+        add: usize,
+        sub1: usize,
+        sub2: usize,
+    ) {
+        let a = &net.feature_weights[add];
+        let (s1, s2) = (&net.feature_weights[sub1], &net.feature_weights[sub2]);
+        for i in 0..HIDDEN {
+            self.0[i] = old.0[i]
+                .wrapping_add(a[i])
+                .wrapping_sub(s1[i])
+                .wrapping_sub(s2[i]);
+        }
+    }
+
+    /// `old` plus two columns minus two: castling.
+    #[inline]
+    pub fn add_add_sub_sub(
+        &mut self,
+        old: &Accumulator,
+        net: &Network,
+        [add1, add2]: [usize; 2],
+        [sub1, sub2]: [usize; 2],
+    ) {
+        let (a1, a2) = (&net.feature_weights[add1], &net.feature_weights[add2]);
+        let (s1, s2) = (&net.feature_weights[sub1], &net.feature_weights[sub2]);
+        for i in 0..HIDDEN {
+            self.0[i] = old.0[i]
+                .wrapping_add(a1[i])
+                .wrapping_add(a2[i])
+                .wrapping_sub(s1[i])
+                .wrapping_sub(s2[i]);
         }
     }
 }

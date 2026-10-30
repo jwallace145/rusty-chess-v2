@@ -87,29 +87,6 @@ impl Board {
         self.nnue.as_ref().map(|n| n.stack[n.top])
     }
 
-    /// Put a piece on a square in the evaluation terms and, with a network,
-    /// in the current accumulators.
-    #[inline]
-    fn piece_on(&mut self, color: Color, kind: PieceKind, sq: Square) {
-        self.eval.add(color, kind, sq);
-        if let Some(n) = &mut self.nnue {
-            let [w, b] = &mut n.stack[n.top];
-            w.add(&n.net, feature(Color::White, color, kind, sq));
-            b.add(&n.net, feature(Color::Black, color, kind, sq));
-        }
-    }
-
-    /// Take a piece off a square, as `piece_on` puts one on.
-    #[inline]
-    fn piece_off(&mut self, color: Color, kind: PieceKind, sq: Square) {
-        self.eval.remove(color, kind, sq);
-        if let Some(n) = &mut self.nnue {
-            let [w, b] = &mut n.stack[n.top];
-            w.sub(&n.net, feature(Color::White, color, kind, sq));
-            b.sub(&n.net, feature(Color::Black, color, kind, sq));
-        }
-    }
-
     /// The position.
     #[inline]
     pub fn position(&self) -> &Position {
@@ -194,33 +171,61 @@ impl Board {
             .piece_at(from)
             .expect("moving from an empty square");
         let undo = self.pos.make_move(m);
-        if let Some(n) = &mut self.nnue {
-            // Push a copy for the updates below. Outside a search (a long game
-            // played move by move) the stack can fill; it then restarts from
-            // the bottom, which is safe because a game is never unmade there.
-            if n.top + 1 == n.stack.len() {
-                n.stack[0] = n.stack[n.top];
-                n.top = 0;
-            }
-            n.stack[n.top + 1] = n.stack[n.top];
-            n.top += 1;
-        }
-
-        if let Some(captured) = undo.captured() {
-            let cap_sq = if flag == MoveFlag::EnPassant {
+        let placed = m.promotion().unwrap_or(piece.kind);
+        let captured = undo.captured().map(|c| {
+            let sq = if flag == MoveFlag::EnPassant {
                 to.offset(0, if us == Color::White { -1 } else { 1 })
                     .expect("en passant capture square")
             } else {
                 to
             };
-            self.piece_off(captured.color, captured.kind, cap_sq);
+            (c, sq)
+        });
+        let castle = m.is_castle().then(|| rook_squares(to));
+
+        if let Some((c, sq)) = captured {
+            self.eval.remove(c.color, c.kind, sq);
         }
-        self.piece_off(us, piece.kind, from);
-        self.piece_on(us, m.promotion().unwrap_or(piece.kind), to);
-        if m.is_castle() {
-            let (rook_from, rook_to) = rook_squares(to);
-            self.piece_off(us, PieceKind::Rook, rook_from);
-            self.piece_on(us, PieceKind::Rook, rook_to);
+        self.eval.remove(us, piece.kind, from);
+        self.eval.add(us, placed, to);
+        if let Some((rook_from, rook_to)) = castle {
+            self.eval.remove(us, PieceKind::Rook, rook_from);
+            self.eval.add(us, PieceKind::Rook, rook_to);
+        }
+
+        if let Some(n) = &mut self.nnue {
+            // Outside a search (a long game played move by move) the stack
+            // can fill; it then restarts from the bottom, which is safe
+            // because a game is never unmade there.
+            if n.top + 1 == n.stack.len() {
+                n.stack[0] = n.stack[n.top];
+                n.top = 0;
+            }
+            // The next ply's accumulators, from the current ones in one pass
+            // per perspective.
+            let (below, above) = n.stack.split_at_mut(n.top + 1);
+            let (old, new) = (&below[n.top], &mut above[0]);
+            for (i, view) in [Color::White, Color::Black].into_iter().enumerate() {
+                let on = feature(view, us, placed, to);
+                let off = feature(view, us, piece.kind, from);
+                match (captured, castle) {
+                    (Some((c, sq)), _) => new[i].add_sub_sub(
+                        &old[i],
+                        &n.net,
+                        on,
+                        off,
+                        feature(view, c.color, c.kind, sq),
+                    ),
+                    (None, Some((rook_from, rook_to))) => new[i].add_add_sub_sub(
+                        &old[i],
+                        &n.net,
+                        [on, feature(view, us, PieceKind::Rook, rook_to)],
+                        [off, feature(view, us, PieceKind::Rook, rook_from)],
+                    ),
+                    (None, None) => new[i].add_sub(&old[i], &n.net, on, off),
+                }
+            }
+            n.top += 1;
         }
 
         debug_assert!(self.len < MAX_HISTORY, "game too long for the key history");
