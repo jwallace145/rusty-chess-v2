@@ -69,14 +69,22 @@ openings = "tests/openings/openings.epd"
 # smarter per node, whatever a node costs). elo1 is the gain a change must
 # plausibly deliver; tighten it as gains get smaller.
 nodes_per_move = 200_000
-# Short enough that the 1000-round cap fits the job limit at concurrency 4.
 tc = "5+0.05"
 elo0 = 0.0
-elo1 = 10.0
+# Gains are now mostly 3-10 Elo, which [0, 10] cannot settle in 2000 games.
+# [0, 5] needs about four times the games; the dedicated 64-core instances
+# play about 210 timed or 470 fixed-node games a minute (#90), so even a run
+# to the cap is under two hours.
+elo1 = 5.0
 alpha = 0.05
 beta = 0.05
-max_rounds = 1000   # pairs of games before giving up without a verdict (~35 min on ubuntu-latest)
-concurrency = 4     # ubuntu-latest has 4 vCPUs; fastchess itself needs almost nothing
+# Pairs of games before giving up without a verdict: at most about 95 minutes
+# timed on the dedicated instances. Too many for the GitHub-hosted fallback
+# (SPRT_RUNNER=github), which would hit its six-hour job limit first.
+max_rounds = 10000
+# The GitHub-hosted fallback's games at once (4 vCPUs). The dedicated
+# instances ignore it and play physical cores less four: 60 on a c8a.16xlarge.
+concurrency = 4
 openings = "tests/openings/openings.epd"
 
 [ratchet]
