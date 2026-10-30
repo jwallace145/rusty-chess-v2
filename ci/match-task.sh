@@ -136,5 +136,5 @@ echo "fastchess exit $code"
 target/release/match-report render "${settings[@]}" --log "$log" \
   --candidate "$cand_label" --candidate-sha "$candidate" --candidate-bench "${bench[candidate]}" \
   --baseline "$base_label" --baseline-sha "$baseline" --baseline-bench "${bench[baseline]}" \
-  --cpu "$cpu, $concurrency games at once" --fastchess "$FASTCHESS_VERSION" --note "$note" > "$OUT_DIR/match.md"
+  --cpu "$cpu" --fastchess "$FASTCHESS_VERSION" --note "$note" > "$OUT_DIR/match.md"
 cat "$OUT_DIR/match.md"

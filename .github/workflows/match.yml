@@ -169,9 +169,12 @@ jobs:
     permissions:
       contents: read
     steps:
+      # A missing artifact (an interrupted or failed run) is handled below.
       - uses: actions/download-artifact@v7
+        continue-on-error: true
         with:
-          pattern: match*
+          name: match
+          path: match
       - name: Write the report to the run summary
         env:
           OUTCOME: ${{ needs.remote.outputs.outcome }}
