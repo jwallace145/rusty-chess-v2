@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.29.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.28.0...v0.29.0) (2026-10-30)
+
+
+### Features
+
+* **trainer:** score every checkpoint's validation loss and add a validate subcommand ([#121](https://github.com/jwallace145/rusty-chess-v2/issues/121)) ([897be30](https://github.com/jwallace145/rusty-chess-v2/commit/897be300997a4dcabbea9d786fa7043e227d181b))
+
+
+### Performance
+
+* **nnue:** vectorizable i32 output and one-pass accumulator updates ([#125](https://github.com/jwallace145/rusty-chess-v2/issues/125)) ([6b8d96b](https://github.com/jwallace145/rusty-chess-v2/commit/6b8d96b65c7651a81b83e06a04e670e2a48544bb))
+
+### Benchmarks
+
+* bench signature 1,201,313, instructions per node 3037, search 1.88M NPS, perft 222.91M NPS (pass (63)), fail-high first 88.8%, EBF 1.90, TT hit 53.1%
+* since v0.28.0: fail-high first +0.0 pt, EBF +0.00, instructions per node −14.3%, search NPS −10.7%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.28.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.27.0...v0.28.0) (2026-10-30)
 
 
