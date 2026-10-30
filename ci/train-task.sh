@@ -5,13 +5,15 @@
 # SCRATCH_DIR for the large files, /tmp if unset). docs/training.md describes
 # the steps and the outputs.
 #
-#   ci/train-task.sh --dataset s3://BUCKET/data/selfplay/v1/gen=0/ --nets s3://BUCKET/data/nets
+#   ci/train-task.sh --dataset s3://BUCKET/data/selfplay/v1/gen=0/ [--dataset .../gen=1/ ...]
+#                    --nets s3://BUCKET/data/nets
 #                    --net-id ID --wdl λ --superbatches N
 #                    [--batches-per-superbatch 6104] [--val-fraction 0.05]
 #                    [--split-seed 1] [--shuffle-seed 1] [--backend cuda|metal]
 #                    [--checkpoint-every 4] [--val-positions 4000000]
 #
-# 1. downloads every complete shard's positions and manifest under --dataset;
+# 1. downloads every complete shard's positions and manifest under each
+#    --dataset (repeat it to train on several generations at once);
 # 2. prepares train.data and val.data: whole workers per split, a seeded
 #    shuffle, every record parsed by bulletformat (rusty-chess-trainer prepare);
 # 3. trains the (768 → 128) × 2 → 1 net (rusty-chess-trainer train), saving a
@@ -27,11 +29,11 @@
 
 set -euo pipefail
 
-dataset="" nets="" net_id="" wdl="" superbatches="" batches=6104 val_fraction=0.05 split_seed=1 shuffle_seed=1 backend=cuda
+datasets=() nets="" net_id="" wdl="" superbatches="" batches=6104 val_fraction=0.05 split_seed=1 shuffle_seed=1 backend=cuda
 checkpoint_every=4 val_positions=4000000
 while [ $# -gt 0 ]; do
   case "$1" in
-    --dataset) dataset="${2%/}"; shift 2 ;;
+    --dataset) datasets+=("${2%/}"); shift 2 ;;
     --nets) nets="${2%/}"; shift 2 ;;
     --net-id) net_id="$2"; shift 2 ;;
     --wdl) wdl="$2"; shift 2 ;;
@@ -46,7 +48,8 @@ while [ $# -gt 0 ]; do
     *) echo "train-task: unknown argument $1" >&2; exit 2 ;;
   esac
 done
-for v in dataset nets net_id wdl superbatches; do
+[ "${#datasets[@]}" -gt 0 ] || { echo "train-task: --dataset is required" >&2; exit 2; }
+for v in nets net_id wdl superbatches; do
   [ -n "${!v}" ] || { echo "train-task: --${v//_/-} is required" >&2; exit 2; }
 done
 [[ "$net_id" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || { echo "train-task: --net-id must be lower-case letters, digits, '.', '_' or '-'" >&2; exit 2; }
@@ -85,8 +88,14 @@ fi
 (cd trainer && cargo build --release --locked --quiet --features "$backend")
 cargo build --release --locked --quiet -p rusty-chess-tools --bin nnue-eval
 
-echo "-- downloading positions and manifests from $dataset ($(since)s)"
-aws s3 sync --only-show-errors "$dataset/" "$scratch/shards/" --exclude "*" --include "*/manifests/*.json" --include "*/positions/*.txt.gz"
+# One directory per dataset (its generation's folder name, gen=N), so shards
+# of different generations never share a path; prepare walks them all, and
+# every worker's key includes its run, so the split stays per worker.
+for d in "${datasets[@]}"; do
+  echo "-- downloading positions and manifests from $d ($(since)s)"
+  aws s3 sync --only-show-errors "$d/" "$scratch/shards/$(basename "$d")/" \
+    --exclude "*" --include "*/manifests/*.json" --include "*/positions/*.txt.gz"
+done
 
 echo "-- preparing ($(since)s)"
 trainer/target/release/rusty-chess-trainer prepare --shards "$scratch/shards" --out "$scratch/data" \
@@ -110,19 +119,19 @@ echo "$check" | tee "$scratch/check.txt"
 
 net_sha=$(sha256sum "$scratch/out/net.nnue" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$scratch/out/net.nnue" | cut -d' ' -f1)
 bullet_rev=$(sed -n 's/^bullet_lib = .*rev = "\([0-9a-f]*\)".*/\1/p' trainer/Cargo.toml)
-python3 - "$scratch" "$OUT_DIR/training.json" <<PY
+python3 - "$scratch" "$OUT_DIR/training.json" "${datasets[@]}" <<PY
 import json, sys
-scratch, out = sys.argv[1], sys.argv[2]
+scratch, out, datasets = sys.argv[1], sys.argv[2], [d + "/" for d in sys.argv[3:]]
 check = open(f"{scratch}/check.txt").read().strip().splitlines()
 split = json.load(open(f"{scratch}/data/split.json"))
 log = open(f"{scratch}/out/$net_id-$superbatches/log.txt").read().split()
 losses = [float(l.split(",")[2]) for l in log if l.count(",") == 2]
 json.dump({
-    "schema": "rusty-chess-net/1",
+    "schema": "rusty-chess-net/2",
     "net_id": "$net_id",
     "net_sha256": "$net_sha",
     "architecture": "(768 -> 128) x 2 -> 1, SCReLU, Chess768 inputs, QA 255, QB 64, SCALE 400",
-    "dataset": "$dataset/",
+    "datasets": datasets,
     "split": {k: v for k, v in split.items() if k != "val_workers"},
     "val_workers": split["val_workers"],
     "schedule": {"wdl": $wdl, "eval_scale": 400, "superbatches": $superbatches, "batches_per_superbatch": $batches,

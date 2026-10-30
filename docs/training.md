@@ -97,8 +97,16 @@ jwall-engineering-infra's `gpu` profile (one on-demand `g6.xlarge`, an NVIDIA
 L4) from `main`:
 
 ```sh
-gh workflow run Train --ref main -f net-id=net1 -f wdl=0.5 -f superbatches=40 -f generation=0
+gh workflow run Train --ref main -f net-id=net2 -f wdl=0.5 -f superbatches=40 -f generations=0,1
 ```
+
+- `generations` takes one generation or a list (`0,1`): the net trains on
+  all of them together. `ci/train-task.sh` takes one `--dataset` per
+  generation and downloads each into its own folder, and `prepare` splits
+  whole workers across all of them. Every worker's key includes its run, so a
+  generation's workers land on the same side of the split whatever else is
+  trained with it (the same split seed puts net 1's validation workers in
+  validation again).
 
 - `wdl` also takes a list (`0.25,0.5,0.75`): one net per λ, one at a time,
   since the account's G and VT quota fits one GPU instance.
@@ -112,7 +120,8 @@ gh workflow run Train --ref main -f net-id=net1 -f wdl=0.5 -f superbatches=40 -f
 
 1. It downloads the positions and manifests (not the game records).
 2. It prepares, trains, and runs the check.
-3. It writes `training.json`: the dataset, the split and its seeds, the
+3. It writes `training.json` (schema `rusty-chess-net/2`; `/1`, net 1's,
+   had a single `dataset`): the datasets, the split and its seeds, the
    schedule, the engine commit, the bullet commit and bulletformat version,
    the GPU, driver and CUDA version, the losses, and the check.
 4. It uploads `net.nnue`, `training.json`, `eval_check.json`,
