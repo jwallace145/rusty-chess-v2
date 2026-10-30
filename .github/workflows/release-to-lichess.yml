@@ -15,7 +15,7 @@ permissions: {}
 
 jobs:
   release:
-    uses: jwallace145/jwall-engineering-infra/.github/workflows/container-release.yml@v0.14.0
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/container-release.yml@v0.15.0
     with:
       project: rusty-chess
     permissions:
