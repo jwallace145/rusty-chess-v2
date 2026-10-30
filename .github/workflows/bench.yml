@@ -22,8 +22,11 @@ permissions: {}
 env:
   CARGO_TERM_COLOR: always
   # Setting RUSTFLAGS also replaces the `target-cpu=native` from
-  # .cargo/config.toml, which is what we want on shared runners.
-  RUSTFLAGS: -D warnings
+  # .cargo/config.toml, which is what we want on shared runners. The portable
+  # x86-64-v3 baseline (AVX2) is what the release binaries, the SPRT, the
+  # rating ladder and datagen build for, so the bench measures the code that
+  # plays, and compares like for like with the release benchmarks.
+  RUSTFLAGS: -D warnings -C target-cpu=x86-64-v3
 
 jobs:
   bench:
