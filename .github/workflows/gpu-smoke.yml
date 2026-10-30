@@ -14,7 +14,7 @@ permissions: {}
 
 jobs:
   smoke:
-    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.15.0
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.15.1
     with:
       project: rusty-chess
       profile: gpu
