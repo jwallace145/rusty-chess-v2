@@ -138,11 +138,12 @@ jobs:
             echo "| Task | Positions | Games | Shards | Minutes | Status |"
             echo "|:--|--:|--:|--:|--:|:--|"
             total=0
-            for f in tasks/*/task.json; do
-              [ -e "$f" ] || continue
+            # One artifact unpacks straight into tasks/, several into
+            # tasks/<name>/: find them wherever they land.
+            while IFS= read -r f; do
               jq -r '"| \(.task) | \(.positions) | \(.games) | \(.shards) | \(.seconds / 60 | floor) | \(if .interrupted then "⚠️ interrupted by spot; its completed shards are in S3" else "complete" end) |"' "$f"
               total=$(( total + $(jq -r .positions "$f") ))
-            done
+            done < <(find tasks -name task.json 2>/dev/null | sort)
             echo
             echo "**$total positions** in this run."
           } | tee -a "$GITHUB_STEP_SUMMARY"
