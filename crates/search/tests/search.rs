@@ -609,6 +609,41 @@ fn the_move_overhead_comes_off_every_budget() {
 }
 
 #[test]
+fn futility_pruning_skips_hopeless_quiets_but_keeps_mates() {
+    // Mates stay exact, including a quiet key move and checking moves from
+    // a side that is far behind on material (where the futility test bites),
+    // now that checking moves are pruned as well.
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - 0 1", "f6a6", 3),
+        ("k7/8/2K5/8/8/8/8/7R w - - 0 1", "", 2),
+    ] {
+        let r = search(fen, depth(8));
+        assert_eq!(
+            mate_in(r.score),
+            Some(mate),
+            "{fen}: {} ({})",
+            r.score,
+            r.pv
+        );
+        if !best.is_empty() {
+            assert_eq!(r.best.to_string(), best, "{fen}");
+        }
+    }
+    // A middlegame skips quiet moves at shallow nodes far below alpha.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(8), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.futility_skips > 0, "no futility skips");
+    }
+}
+
+#[test]
 fn null_move_pruning_does_not_lose_a_known_zugzwang() {
     // White to move; every move loses the rook except Rf1 (Rh1 by the rook's path); the king
     // on h1 is stalemated apart from pawn moves. With naive null-move pruning white would
