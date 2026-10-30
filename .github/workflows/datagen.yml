@@ -100,7 +100,7 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.tasks) }}
-    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.13.0
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.14.0
     with:
       project: rusty-chess
       script: ci/datagen-task.sh
