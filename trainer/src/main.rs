@@ -6,6 +6,8 @@
 //! rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--scale 400]
 //!                           [--batches-per-superbatch 6104] [--batch-size 16384] [--lr 0.001]
 //!                           [--lr-gamma 0.1] [--lr-step N] [--threads 4] [--out DIR]
+//!                           [--checkpoint-every 4] [--val-positions 4000000]
+//! rusty-chess-trainer validate --net FILE --data DIR --wdl λ [--positions 4000000] [--threads 4]
 //! ```
 //!
 //! `prepare` reads every shard under `--shards` (the S3 layout:
@@ -23,6 +25,15 @@
 //! `net.nnue` in the engine's file format, and evaluates `check.fens` with
 //! the trainer's own float network into `eval_check.json`, for comparison with
 //! the engine's quantized evaluation (`nnue-eval`).
+//!
+//! bullet (at the pinned commit) does not score a validation set, so `train`
+//! does: it saves a checkpoint every `--checkpoint-every` superbatches and,
+//! after training, scores each one's float weights on the first
+//! `--val-positions` records of `val.data` and as many of `train.data` (both
+//! files are shuffled, so these are random samples), with the loss bullet
+//! trains on. The curve goes to `val_losses.txt` and `validation.json`.
+//! `validate` scores any net file (bullet's `raw.bin`, or a quantised
+//! `net.nnue`) the same way after the fact.
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -49,8 +60,10 @@ fn main() {
     let result = match args.first().map(String::as_str) {
         Some("prepare") => prepare(&args[1..]),
         Some("train") => train(&args[1..]),
+        Some("validate") => validate(&args[1..]),
         _ => Err(
-            "usage: rusty-chess-trainer prepare ... | train ... (see the source's header)".into(),
+            "usage: rusty-chess-trainer prepare ... | train ... | validate ... (see the source's header)"
+                .into(),
         ),
     };
     if let Err(e) = result {
@@ -336,6 +349,11 @@ fn train(args: &[String]) -> Result<(), String> {
     let lr_step: usize = get(&f, "lr-step", Some((superbatches * 9 / 20).max(1)))?;
     let threads: usize = get(&f, "threads", Some(4))?;
     let out: String = get(&f, "out", Some("checkpoints".to_string()))?;
+    let checkpoint_every: usize = get(&f, "checkpoint-every", Some(4))?;
+    let val_positions: usize = get(&f, "val-positions", Some(4_000_000))?;
+    if checkpoint_every == 0 {
+        return Err("--checkpoint-every must be at least 1".into());
+    }
     if (scale - ENGINE_SCALE).abs() > f32::EPSILON {
         return Err(format!(
             "--scale {scale}: the engine multiplies the output by {ENGINE_SCALE}; train at that scale or change SCALE in the engine too"
@@ -383,7 +401,8 @@ fn train(args: &[String]) -> Result<(), String> {
             gamma: lr_gamma,
             step: lr_step,
         },
-        save_rate: superbatches.max(1),
+        // Every checkpoint is scored on held-out data after training.
+        save_rate: checkpoint_every,
     };
     let settings = LocalSettings {
         threads,
@@ -421,5 +440,354 @@ fn train(args: &[String]) -> Result<(), String> {
         net.len(),
         checks.len()
     );
+
+    // The scorer must be bullet's network: its float forward pass on the
+    // final weights against bullet's own evaluation of the check positions.
+    let final_net = FloatNet::from_file(&ckpt.join("raw.bin"))?;
+    let mut agree = 0f32;
+    for (fen, c) in fens.lines().filter(|l| !l.is_empty()).zip(&checks) {
+        let board = record(fen)?;
+        let ours = final_net.forward(&board) * scale;
+        agree = agree.max((ours - c["trainer_cp"].as_f64().unwrap() as f32).abs());
+    }
+    println!(
+        "validation scorer against bullet's evaluation: max |diff| {agree:.4} cp over {} positions",
+        checks.len()
+    );
+    if agree > 0.5 {
+        return Err(format!(
+            "the validation scorer disagrees with bullet's evaluation by {agree} cp; its losses would be wrong"
+        ));
+    }
+
+    // Held-out loss at every checkpoint.
+    let val = read_records(&val_file, val_positions)?;
+    let train_sample = read_records(&train_file, val.len())?;
+    let mut points = Vec::new();
+    let mut sb = checkpoint_every.min(superbatches);
+    let started = std::time::Instant::now();
+    println!("superbatch  train loss (sample)  val loss");
+    loop {
+        let dir = PathBuf::from(&out).join(format!("{net_id}-{sb}"));
+        let net = FloatNet::from_file(&dir.join("raw.bin"))?;
+        let t = net.loss(&train_sample, wdl_value, scale, threads);
+        let v = net.loss(&val, wdl_value, scale, threads);
+        println!("{sb:>10}  {t:>19.6}  {v:.6}");
+        points.push((sb, t, v));
+        if sb == superbatches {
+            break;
+        }
+        sb = (sb + checkpoint_every).min(superbatches);
+    }
+    let best = points
+        .iter()
+        .min_by(|a, b| a.2.total_cmp(&b.2))
+        .map(|p| p.0)
+        .unwrap_or(superbatches);
+    let curve: String = points
+        .iter()
+        .map(|(s, t, v)| format!("{s},{t},{v}\n"))
+        .collect();
+    std::fs::write(
+        PathBuf::from(&out).join("val_losses.txt"),
+        format!("superbatch,train_loss_sample,val_loss\n{curve}"),
+    )
+    .map_err(|e| e.to_string())?;
+    let validation = serde_json::json!({
+        "loss": "mean over positions of (sigmoid(output) - (λ·result + (1 - λ)·sigmoid(score / 400)))², the float network bullet trains (not the quantised one)",
+        "val_positions": val.len(),
+        "train_sample_positions": train_sample.len(),
+        "checkpoint_every": checkpoint_every,
+        "scorer_max_diff_cp": agree,
+        "points": points.iter().map(|(s, t, v)| serde_json::json!({"superbatch": s, "train_loss_sample": t, "val_loss": v})).collect::<Vec<_>>(),
+        "best_superbatch": best,
+        "seconds": started.elapsed().as_secs(),
+    });
+    std::fs::write(
+        PathBuf::from(&out).join("validation.json"),
+        serde_json::to_string_pretty(&validation).unwrap(),
+    )
+    .map_err(|e| e.to_string())?;
+    println!(
+        "validation: {} held-out positions, best at superbatch {best} of {superbatches}, scored in {:.0}s",
+        val.len(),
+        started.elapsed().as_secs_f64()
+    );
     Ok(())
+}
+
+/// `validate`: the held-out loss of any net file, e.g. a net trained before
+/// `train` scored its checkpoints.
+fn validate(args: &[String]) -> Result<(), String> {
+    let f = flags(args)?;
+    let net = FloatNet::from_file(Path::new(&get::<String>(&f, "net", None)?))?;
+    let data = PathBuf::from(get::<String>(&f, "data", None)?);
+    let wdl_value: f32 = get(&f, "wdl", None)?;
+    let positions: usize = get(&f, "positions", Some(4_000_000))?;
+    let threads: usize = get(&f, "threads", Some(4))?;
+    let started = std::time::Instant::now();
+    let val = read_records(&data.join("val.data"), positions)?;
+    let v = net.loss(&val, wdl_value, ENGINE_SCALE, threads);
+    let mut out = serde_json::json!({"wdl": wdl_value, "val_positions": val.len(), "val_loss": v});
+    let train_file = data.join("train.data");
+    if train_file.exists() {
+        let sample = read_records(&train_file, val.len())?;
+        out["train_sample_positions"] = sample.len().into();
+        out["train_loss_sample"] = net.loss(&sample, wdl_value, ENGINE_SCALE, threads).into();
+    }
+    out["weights"] = net.source.into();
+    out["seconds"] = started.elapsed().as_secs_f64().into();
+    println!("{}", serde_json::to_string_pretty(&out).unwrap());
+    Ok(())
+}
+
+/// One bulletformat record from a FEN (the score and result are placeholders).
+fn record(fen: &str) -> Result<ChessBoard, String> {
+    format!("{fen} | 0 | 0.5")
+        .parse()
+        .map_err(|e| format!("{fen}: {e:?}"))
+}
+
+/// The first `n` records of a prepared file (all of them if it has fewer).
+fn read_records(path: &Path, n: usize) -> Result<Vec<ChessBoard>, String> {
+    let file = File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut bytes = Vec::new();
+    file.take((n * RECORD) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(bytes
+        .as_chunks::<RECORD>()
+        .0
+        .iter()
+        // SAFETY: ChessBoard is `repr(C)` and 32 bytes, with no invalid bit
+        // patterns; the read is unaligned-safe.
+        .map(|c| unsafe { std::ptr::read_unaligned(c.as_ptr().cast::<ChessBoard>()) })
+        .collect())
+}
+
+fn sigmoid(x: f32) -> f32 {
+    1.0 / (1.0 + (-x).exp())
+}
+
+/// The (768 → HIDDEN) × 2 → 1 SCReLU network in floats, as bullet trains it:
+/// output in units of `eval_scale` centipawns.
+struct FloatNet {
+    /// Feature-major: feature `i`'s weights are `l0w[i * HIDDEN..][..HIDDEN]`.
+    l0w: Vec<f32>,
+    l0b: [f32; HIDDEN],
+    /// The side to move's half first.
+    l1w: [f32; 2 * HIDDEN],
+    l1b: f32,
+    source: &'static str,
+}
+
+const PARAMS: usize = 768 * HIDDEN + HIDDEN + 2 * HIDDEN + 1;
+
+impl FloatNet {
+    /// bullet's `raw.bin` (f32 weights in the saved format's order) or a
+    /// quantised net (`quantised.bin`, `net.nnue`: i16, padded to 64 bytes),
+    /// told apart by size.
+    fn from_file(path: &Path) -> Result<FloatNet, String> {
+        let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        if bytes.len() == 4 * PARAMS {
+            let w: Vec<f32> = bytes
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|&c| f32::from_le_bytes(c))
+                .collect();
+            Ok(FloatNet::from_params(&w, "float (raw.bin)"))
+        } else if bytes.len() >= 2 * PARAMS && bytes.len() - 2 * PARAMS < 64 {
+            let q: Vec<f32> = bytes
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .take(PARAMS)
+                .map(|&c| f32::from(i16::from_le_bytes(c)))
+                .collect();
+            let (qa, qb) = (f32::from(QA), f32::from(QB));
+            let l1 = 768 * HIDDEN + HIDDEN;
+            let w: Vec<f32> = q
+                .iter()
+                .enumerate()
+                .map(|(i, &x)| match i {
+                    _ if i < l1 => x / qa,
+                    _ if i < PARAMS - 1 => x / qb,
+                    _ => x / (qa * qb),
+                })
+                .collect();
+            Ok(FloatNet::from_params(
+                &w,
+                "quantised weights, dequantised to floats",
+            ))
+        } else {
+            Err(format!(
+                "{}: {} bytes is neither a float ({}) nor a quantised ({}) (768 → {HIDDEN}) × 2 → 1 net",
+                path.display(),
+                bytes.len(),
+                4 * PARAMS,
+                2 * PARAMS
+            ))
+        }
+    }
+
+    fn from_params(w: &[f32], source: &'static str) -> FloatNet {
+        let (l0w, rest) = w.split_at(768 * HIDDEN);
+        let (l0b, rest) = rest.split_at(HIDDEN);
+        let (l1w, l1b) = rest.split_at(2 * HIDDEN);
+        FloatNet {
+            l0w: l0w.to_vec(),
+            l0b: l0b.try_into().unwrap(),
+            l1w: l1w.try_into().unwrap(),
+            l1b: l1b[0],
+            source,
+        }
+    }
+
+    /// The output for the side to move, with bullet's `Chess768` features:
+    /// records are stored from the side to move's view, so its pieces have
+    /// colour bit 0.
+    fn forward(&self, b: &ChessBoard) -> f32 {
+        let mut us = self.l0b;
+        let mut them = self.l0b;
+        for (piece, square) in *b {
+            let c = usize::from(piece & 8 > 0);
+            let pc = 64 * usize::from(piece & 7);
+            let sq = usize::from(square);
+            let stm = [0, 384][c] + pc + sq;
+            let ntm = [384, 0][c] + pc + (sq ^ 56);
+            let (ws, wn) = (
+                &self.l0w[stm * HIDDEN..][..HIDDEN],
+                &self.l0w[ntm * HIDDEN..][..HIDDEN],
+            );
+            for i in 0..HIDDEN {
+                us[i] += ws[i];
+                them[i] += wn[i];
+            }
+        }
+        let screlu = |x: f32| {
+            let c = x.clamp(0.0, 1.0);
+            c * c
+        };
+        let mut out = self.l1b;
+        for i in 0..HIDDEN {
+            out += screlu(us[i]) * self.l1w[i] + screlu(them[i]) * self.l1w[HIDDEN + i];
+        }
+        out
+    }
+
+    /// Mean of bullet's loss over `records`, on `threads` threads.
+    fn loss(&self, records: &[ChessBoard], wdl: f32, scale: f32, threads: usize) -> f64 {
+        if records.is_empty() {
+            return f64::NAN;
+        }
+        let chunk = records.len().div_ceil(threads.max(1));
+        let total: f64 = std::thread::scope(|s| {
+            records
+                .chunks(chunk)
+                .map(|part| {
+                    s.spawn(move || {
+                        part.iter()
+                            .map(|b| {
+                                let result = f32::from(b.result) / 2.0;
+                                let target = wdl * result
+                                    + (1.0 - wdl) * sigmoid(f32::from(b.score) / scale);
+                                let e = sigmoid(self.forward(b)) - target;
+                                f64::from(e * e)
+                            })
+                            .sum::<f64>()
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|h| h.join().unwrap())
+                .sum()
+        });
+        total / records.len() as f64
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn net_with(l0: impl Fn(usize, usize) -> f32, l1: impl Fn(usize) -> f32, l1b: f32) -> FloatNet {
+        let mut w = Vec::with_capacity(PARAMS);
+        for f in 0..768 {
+            for h in 0..HIDDEN {
+                w.push(l0(f, h));
+            }
+        }
+        w.extend((0..HIDDEN).map(|_| 0.0));
+        w.extend((0..2 * HIDDEN).map(l1));
+        w.push(l1b);
+        FloatNet::from_params(&w, "test")
+    }
+
+    #[test]
+    fn forward_follows_chess768_and_screlu() {
+        // A white pawn on e2 is feature 12 for the side to move (white) and
+        // 384 + (12 ^ 56) = 436 for the other side; weight only the first.
+        let net = net_with(
+            |f, h| match (f, h) {
+                (12, 2) => 0.7,
+                (12, 3) => 3.0, // SCReLU clamps it to 1
+                _ => 0.0,
+            },
+            |i| match i {
+                2 => 1.0,
+                3 => 0.5,
+                i if i >= HIDDEN => 10.0, // the other side's half must stay 0
+                _ => 0.0,
+            },
+            0.25,
+        );
+        let want = 0.25 + 0.7 * 0.7 + 0.5;
+        let white = record("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1").unwrap();
+        assert!(
+            (net.forward(&white) - want).abs() < 1e-6,
+            "{}",
+            net.forward(&white)
+        );
+        // The mirror with black to move is the same position for the side to
+        // move: records are stored from its view.
+        let black = record("4k3/4p3/8/8/8/8/8/4K3 b - - 0 1").unwrap();
+        assert!(
+            (net.forward(&black) - want).abs() < 1e-6,
+            "{}",
+            net.forward(&black)
+        );
+    }
+
+    #[test]
+    fn loss_is_bullets_target() {
+        // A zero net outputs 0: sigmoid 0.5 against the blended target.
+        let net = net_with(|_, _| 0.0, |_| 0.0, 0.0);
+        let mut b = record("4k3/8/8/8/8/8/8/4K3 w - - 0 1").unwrap();
+        b.score = 400;
+        b.result = 2; // a win for the side to move
+        let target = 0.5 * 1.0 + 0.5 * sigmoid(1.0);
+        let want = f64::from((0.5 - target) * (0.5 - target));
+        let got = net.loss(&[b, b, b], 0.5, 400.0, 2);
+        assert!((got - want).abs() < 1e-9, "{got} vs {want}");
+    }
+
+    #[test]
+    fn quantised_file_dequantises() {
+        let dir = std::env::temp_dir().join(format!("rc-trainer-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut q = vec![0i16; PARAMS];
+        q[0] = QA; // l0w → 1.0
+        q[768 * HIDDEN + HIDDEN] = QB; // l1w[0] → 1.0
+        q[PARAMS - 1] = QA * QB / 2; // l1b → 0.5
+        let mut bytes: Vec<u8> = q.iter().flat_map(|w| w.to_le_bytes()).collect();
+        bytes.resize(bytes.len().next_multiple_of(64), 0);
+        let p = dir.join("net.nnue");
+        std::fs::write(&p, &bytes).unwrap();
+        let net = FloatNet::from_file(&p).unwrap();
+        assert_eq!(net.l0w[0], 1.0);
+        assert_eq!(net.l1w[0], 1.0);
+        assert_eq!(net.l1b, 0.5);
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }

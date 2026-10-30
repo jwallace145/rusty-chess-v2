@@ -9,21 +9,26 @@
 #                    --net-id ID --wdl λ --superbatches N
 #                    [--batches-per-superbatch 6104] [--val-fraction 0.05]
 #                    [--split-seed 1] [--shuffle-seed 1] [--backend cuda|metal]
+#                    [--checkpoint-every 4] [--val-positions 4000000]
 #
 # 1. downloads every complete shard's positions and manifest under --dataset;
 # 2. prepares train.data and val.data: whole workers per split, a seeded
 #    shuffle, every record parsed by bulletformat (rusty-chess-trainer prepare);
-# 3. trains the (768 → 128) × 2 → 1 net (rusty-chess-trainer train);
+# 3. trains the (768 → 128) × 2 → 1 net (rusty-chess-trainer train), saving a
+#    checkpoint every --checkpoint-every superbatches and scoring each on
+#    --val-positions held-out records and as many training records;
 # 4. checks the engine's quantized evaluation against the trainer's float one
 #    on held-out positions (nnue-eval --check); a mismatch fails the task;
 # 5. writes training.json (data, split, schedule, versions, hardware, losses,
-#    the check) and uploads the net and its records to --nets/<net id>/,
+#    the validation curve, the check) and uploads the net and its records to
+#    --nets/<net id>/,
 #    refusing to overwrite a net that exists. Never exits 75, which the runner
 #    reserves for spot interruptions.
 
 set -euo pipefail
 
 dataset="" nets="" net_id="" wdl="" superbatches="" batches=6104 val_fraction=0.05 split_seed=1 shuffle_seed=1 backend=cuda
+checkpoint_every=4 val_positions=4000000
 while [ $# -gt 0 ]; do
   case "$1" in
     --dataset) dataset="${2%/}"; shift 2 ;;
@@ -36,6 +41,8 @@ while [ $# -gt 0 ]; do
     --split-seed) split_seed="$2"; shift 2 ;;
     --shuffle-seed) shuffle_seed="$2"; shift 2 ;;
     --backend) backend="$2"; shift 2 ;;
+    --checkpoint-every) checkpoint_every="$2"; shift 2 ;;
+    --val-positions) val_positions="$2"; shift 2 ;;
     *) echo "train-task: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -90,6 +97,7 @@ echo "-- training ($(since)s)"
 threads=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 trainer/target/release/rusty-chess-trainer train --data "$scratch/data" --net-id "$net_id" --wdl "$wdl" \
   --superbatches "$superbatches" --batches-per-superbatch "$batches" --threads "$threads" --out "$scratch/out" \
+  --checkpoint-every "$checkpoint_every" --val-positions "$val_positions" \
   2>&1 | tee "$scratch/train.log"
 trained=$(since)
 
@@ -124,12 +132,13 @@ json.dump({
     "versions": {"engine_commit": "$sha", "bullet_rev": "$bullet_rev", "bulletformat": "1.8.0", "backend": "$backend"},
     "hardware": {"gpu": "$gpu", "nvidia_driver": "$driver", "cuda": "$cuda"},
     "losses": {"first": losses[0] if losses else None, "last": losses[-1] if losses else None, "points": len(losses)},
+    "validation": json.load(open(f"{scratch}/out/validation.json")),
     "check": check[-1] if check else "",
     "check_passed": $check_code == 0,
     "seconds": {"to_trained": $trained},
 }, open(out, "w"), indent=2)
 PY
-cp "$scratch/out/net.nnue" "$scratch/out/eval_check.json" "$scratch/data/split.json" "$OUT_DIR/"
+cp "$scratch/out/net.nnue" "$scratch/out/eval_check.json" "$scratch/out/val_losses.txt" "$scratch/data/split.json" "$OUT_DIR/"
 cp "$scratch/out/$net_id-$superbatches/log.txt" "$OUT_DIR/losses.txt"
 cp "$scratch/train.log" "$OUT_DIR/train.log"
 if [ "$check_code" != 0 ]; then
@@ -138,7 +147,7 @@ if [ "$check_code" != 0 ]; then
 fi
 
 echo "-- uploading to $nets/$net_id/ ($(since)s)"
-for f in net.nnue training.json eval_check.json split.json losses.txt train.log; do
+for f in net.nnue training.json eval_check.json val_losses.txt split.json losses.txt train.log; do
   aws s3 cp --only-show-errors "$OUT_DIR/$f" "$nets/$net_id/$f"
 done
 echo "train-task: $net_id trained and checked in $(since)s; net sha256 $net_sha"

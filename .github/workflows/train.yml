@@ -120,14 +120,14 @@ jobs:
           {
             echo "### 🧠 Train"
             echo
-            echo "| Net | λ | Superbatches | Train / val records | Loss first → last | Engine check | GPU |"
-            echo "|:--|--:|--:|--:|:--|:--|:--|"
+            echo "| Net | λ | Superbatches | Train / val records | Loss first → last | Val loss (best superbatch) | Engine check | GPU |"
+            echo "|:--|--:|--:|--:|:--|:--|:--|:--|"
             found=0
             while IFS= read -r f; do
               found=1
-              jq -r '"| `\(.net_id)` | \(.schedule.wdl) | \(.schedule.superbatches) | \(.split.records.train) / \(.split.records.val) | \(.losses.first) → \(.losses.last) | \(if .check_passed then "✅" else "❌" end) \(.check | capture("mean \\|diff\\| (?<m>[0-9.]+) cp").m // "") cp mean | \(.hardware.gpu) |"' "$f"
+              jq -r '"| `\(.net_id)` | \(.schedule.wdl) | \(.schedule.superbatches) | \(.split.records.train) / \(.split.records.val) | \(.losses.first) → \(.losses.last) | \(if .validation then "\(.validation.points[-1].val_loss * 1e6 | round / 1e6) (\(.validation.best_superbatch))" else "–" end) | \(if .check_passed then "✅" else "❌" end) \(.check | capture("mean \\|diff\\| (?<m>[0-9.]+) cp").m // "") cp mean | \(.hardware.gpu) |"' "$f"
             done < <(find nets -name training.json 2>/dev/null | sort)
-            [ "$found" = 1 ] || echo "| (no net finished; see the train jobs) | | | | | | |"
+            [ "$found" = 1 ] || echo "| (no net finished; see the train jobs) | | | | | | | |"
             echo
             echo "Nets and their records: \`data/nets/<net id>/\` in the dataset bucket, and each job's \`net-<net id>\` artifact."
           } | tee -a "$GITHUB_STEP_SUMMARY"
