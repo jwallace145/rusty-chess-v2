@@ -35,8 +35,11 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
    - **Loss:** `sigmoid(output)` against `λ · result + (1 − λ) · sigmoid(score / 400)`.
    - **Optimiser:** AdamW (bullet's defaults clip weights to ±1.98).
    - **Schedule:** 16,384 positions a batch and 6,104 batches a
-     superbatch (100M positions). The learning rate starts at 0.001 and
-     falls tenfold at 45% of the run.
+     superbatch (100M positions). The learning rate starts at 0.001 and falls tenfold
+     every 45% of the run (bullet's `StepLR`: `0.001 × 0.1^⌊(superbatch − 1) /
+     step⌋`, step = 45% of the superbatches). At 40 superbatches, step 18:
+     0.001 for superbatches 1–18, 0.0001 for 19–36 and 0.00001 for 37–40, two
+     drops; 80 superbatches drop at 37 and 73, the same shape stretched.
    - **Checkpoints** every `--checkpoint-every` superbatches (and the last),
      each scored on held-out data after training (*Validation loss* below).
    - **Saves:** the quantized net as `net.nnue`, in the engine's format
@@ -143,6 +146,47 @@ cargo run --release -p rusty-chess-tools --bin nnue-eval -- --net /tmp/net1/net.
 An M-series GPU trains this network at about 4.7 million positions a second,
 so the 40-superbatch schedule (4 billion positions) takes about 15 minutes.
 The whole pipeline also runs locally with `ci/train-task.sh --backend metal`.
+
+## When training is slow
+
+**Symptom.** Training runs several times below the GPU's speed, and the
+`Train` job's log on GitHub may seem stuck on one superbatch even though
+the task is fine. GitHub's view of a remote task's stream can lag.
+
+**Diagnose:**
+1. **Read the task's own log.** It's the CloudWatch log group
+   `/jwall-engineering/rusty-chess/tasks`, stream
+   `<command id>/<instance id>/aws-runShellScript/stdout`. bullet prints
+   `pos/sec` every second.
+2. **Compare with the disk.** Read the root volume's `VolumeReadBytes` in
+   CloudWatch (`AWS/EBS`). positions/s × 32 bytes ≈ the disk's MB/s means
+   training waits on the disk.
+
+**Cause: the training file outgrew memory** (measured 2026-10-30).
+- **Below the page cache:** bullet streams `train.data` from `SCRATCH_DIR`,
+  in 128 MB chunks, once a pass. While the file fits in the instance's page
+  cache, every pass after the first is read from memory. On a `g6.xlarge`
+  (16 GiB), net 1's 6.9 GB file trained at 20.7M positions/s.
+- **Above it:** past the cache, every pass comes from the EBS root volume.
+  Net 2's 18 GB file trained at **4.3M positions/s**, with the volume reading
+  a flat 131 MB/s.
+- **Why gp3 settings don't help:** the volume is gp3 at its default
+  125 MB/s, and the `g6.xlarge`'s own EBS bandwidth is also 125 MB/s
+  (625 MB/s only in bursts). Raising the volume's throughput can't fix a
+  sustained read.
+
+**Fix: scratch on the instance's local NVMe SSD.** It's 250 GB on a
+`g6.xlarge`, gigabytes a second, at no extra cost. That's a change to
+jwall-engineering-infra's task setup: mount the instance store and put
+`SCRATCH_DIR` there for the `gpu` profile. It's proposed there, not worked
+around here.
+
+**Meanwhile:**
+- The slowdown costs time, not correctness: the net is the same.
+- Budget about 23 seconds a superbatch on generations 0 + 1, against about
+  5 seconds when the data fits in memory.
+- A smaller training file (fewer generations) or a larger-memory type
+  (`g6.2xlarge`, 32 GiB, once the GPU quota allows) also avoids it.
 
 ## Scoring an existing net
 
