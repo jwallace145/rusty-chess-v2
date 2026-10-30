@@ -44,7 +44,7 @@ The goal is a single-threaded Rust UCI engine whose classical search is measurab
 | Search efficiency | Fail-high-first, EBF, TT hit rate, qsearch share, cutoffs by stage | `bench` with `--features stats` | `efficiency.min_fail_high_first`, `max_ebf` (set at the Phase 3 gate) |
 | Strength | Elo against the PR's base, timed (5+0.05) and at fixed nodes (200k), bounds [0, 5], at most 5000 pairs | fastchess SPRT on dedicated 64-core instances, `sprt` label | H1 accepted in the timed test, or the PR does not merge |
 | Head-to-head | Elo between any two refs with a 99% pentanomial interval | the `Match` workflow, on a dedicated instance | A measurement, not a gate |
-| Absolute strength | Rating against Stockfish `UCI_Elo` 2500/2650/2800/2950 at 10+0.1 | the `Rating` workflow, on every release | Tracked per release; ±35–40 at 100 games a rung, a ballpark until a public rating in Phase 5 |
+| Absolute strength | Rating against Stockfish 19 at `UCI_Elo` 2800/2950/3100/3190 at 10+0.1 | the `Rating` workflow, on every release | Tracked per release; ±35–40 at 100 games a rung, a ballpark until a public rating in Phase 5 |
 | Training data | Correctness (every record against its replayed game, every result against its final position, the trainer's parser) and quality (draw rate, duplicates, score spread, phases) | `datagen-audit check` | Zero P0 failures; P1 bars in `datagen.toml` |
 | Nets | The engine's quantized evaluation against the trainer's float evaluation | `nnue-eval --check` | Within max(50 cp, 5%) per position, mean ≤ 20 cp |
 
@@ -140,7 +140,7 @@ The standard techniques the engine still lacked, each worth 10–40 Elo and all 
 
 ### Phase 5: First release
 
-- [x] A rating ladder against limited Stockfish on every release, attached with the logs and PGNs, as a ballpark between public ratings: the `Rating` workflow runs on every published release and writes the Strength section of its notes. Rungs 2500/2650/2800/2950 since #102 (2200/2500/2800/3100 before; 1500/1800/2100/2400 through v0.13.0). Still open: the ladder on a dedicated instance with about 400 games a rung (±19 instead of ±35–40)
+- [x] A rating ladder against limited Stockfish on every release, attached with the logs and PGNs, as a ballpark between public ratings: the `Rating` workflow runs on every published release and writes the Strength section of its notes. Rungs 2800/2950/3100/3190 against Stockfish 19 since v0.28.0's first net (2500/2650/2800/2950 from #102, 2200/2500/2800/3100 before, 1500/1800/2100/2400 through v0.13.0; Ubuntu's Stockfish package, 17.1 last, until then). Still open: the ladder on a dedicated instance with about 400 games a rung (±19 instead of ±35–40)
 - [ ] Homebrew tap bumped by the `release` job after the Release Please PR merges (release notes already carry the signature and telemetry since Phase 0)
 - [x] Lichess bot account: `lichess/run.sh` connects the engine through lichess-bot for development (see `lichess/README.md`), and an always-on `c8a.medium` run by jwall-engineering-infra plays every published release automatically (#74). The rating it earns is the real-world number; it is not comparable to the ladder's or CCRL's
 - [x] The bot's openings: Lichess's opening explorer (masters games, the best-scoring move played at least 50 times) through lichess-bot, never the engine (#86, v0.19.0); pondering on the opponent's clock (#108, v0.25.0)
@@ -177,7 +177,8 @@ The destination named in the goals: our own network, trained on our own games. *
 **Iterating**
 
 - [ ] Generation 1, played by the engine with net 1 (`generation = 1` in `datagen.toml`, with the tuned settings), audited; net 2 trained on it and kept on a timed SPRT win over net 1. The λ experiment (λ ∈ {0, 0.25, 0.5, 0.75, 1}, one prepared dataset, strength deciding) alongside ([datagen-runbook.md](datagen-runbook.md))
-- [ ] The ladder moved up when the engine outgrows 2950: the top of Stockfish's `UCI_Elo` range is 3190, and past about 3050 limited Stockfish cannot bracket the engine (full Stockfish at a fixed node budget is the next anchor)
+- [x] The ladder moved up when the engine outgrew 2950: v0.28.0 scored 88% on 2650 (about 3000). Rungs 2800/2950/3100/3190 against an official, pinned Stockfish 19, with v0.26.0–v0.28.0 re-rated for the overlap
+- [ ] A new anchor once the engine outgrows 3190, the top of Stockfish's `UCI_Elo` range (past about 3300 limited Stockfish cannot bracket it): full Stockfish at a fixed node budget, calibrated against the last limited ladder
 
 ### Phase 7: Optional extensions
 
