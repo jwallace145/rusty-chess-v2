@@ -29,12 +29,21 @@ on:
         description: Base seed (blank for this run's id); task i uses base + i, and a re-run adds 1000 per attempt
         required: false
         default: ""
+      target-cpu:
+        description: What the build targets. native (the instance's own CPU) is fastest; the games are identical on every target
+        type: choice
+        options: [native, x86-64-v3]
+        default: native
+      upload:
+        description: Upload the data. Off for a benchmark run, which keeps only the manifests and checksums in the artifact
+        type: boolean
+        default: true
       note:
         description: Why this run is being made (shown in the summary)
         required: false
         default: ""
 
-run-name: "Datagen: ${{ inputs.instances }} × ${{ inputs.minutes }} min${{ inputs.note != '' && format(' — {0}', inputs.note) || '' }}"
+run-name: "Datagen${{ !inputs.upload && ' benchmark' || '' }}: ${{ inputs.instances }} × ${{ inputs.minutes }} min, ${{ inputs.target-cpu }}${{ inputs.note != '' && format(' — {0}', inputs.note) || '' }}"
 
 permissions: {}
 
@@ -58,6 +67,8 @@ jobs:
           SEED: ${{ inputs.seed }}
           RUN_ID: ${{ github.run_id }}
           ATTEMPT: ${{ github.run_attempt }}
+          TARGET_CPU: ${{ inputs.target-cpu }}
+          UPLOAD: ${{ inputs.upload }}
         run: |
           [[ "$MINUTES" =~ ^[0-9]+$ ]] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 300 ] \
             || { echo "::error::minutes must be a whole number from 1 to 300 (the task runner's 6-hour limit covers slot waits, boot, build and upload too), got $MINUTES"; exit 1; }
@@ -75,10 +86,11 @@ jobs:
           run="$(date -u +%Y%m%d)-$RUN_ID-$ATTEMPT"
           base=$(( ${SEED:-$RUN_ID} + (ATTEMPT - 1) * 1000 ))
           dataset="s3://$bucket/${prefix%/}/selfplay/v1"
+          extra=$(jq -cn --arg cpu "$TARGET_CPU" --arg up "$UPLOAD" '["--target-cpu", $cpu] + (if $up == "true" then [] else ["--no-upload"] end)')
           tasks=$(jq -cn --arg dataset "$dataset" --arg run "$run" --argjson n "$INSTANCES" \
-            --argjson minutes "$MINUTES" --argjson base "$base" \
+            --argjson minutes "$MINUTES" --argjson base "$base" --argjson extra "$extra" \
             '[range($n) | {task: "t\(.)", args: (["--dataset", $dataset, "--run", $run, "--task", "t\(.)",
-              "--minutes", ($minutes | tostring), "--seed", ($base + . | tostring)] | tojson)}]')
+              "--minutes", ($minutes | tostring), "--seed", ($base + . | tostring)] + $extra | tojson)}]')
           # The instance's hard limit: the generation, plus an hour for build, upload and slack.
           # Clamped to the runner's limit (task-runner.max_hours, 6), which the
           # 300-minute cap already respects; the clamp guards later edits.
@@ -90,7 +102,8 @@ jobs:
             echo "prefix=$dataset/gen=$generation/run=$run/"
           } >> "$GITHUB_OUTPUT"
           echo "Run $run, generation $generation, $INSTANCES × $MINUTES minutes, base seed $base"
-          echo "Uploading to $dataset/gen=$generation/run=$run/"
+          if [ "$UPLOAD" = true ]; then echo "Uploading to $dataset/gen=$generation/run=$run/"; else echo "Benchmark: nothing is uploaded"; fi
+          echo "Build target: $TARGET_CPU"
           echo "Settings:"; sed -n '/^\[datagen\]/,$p' datagen.toml | grep -v '^#' | grep .
 
   generate:
@@ -128,20 +141,22 @@ jobs:
         env:
           PREFIX: ${{ needs.plan.outputs.prefix }}
           NOTE: ${{ inputs.note }}
+          UPLOAD: ${{ inputs.upload }}
+          TARGET_CPU: ${{ inputs.target-cpu }}
         run: |
           {
             echo "### 🧪 Datagen"
             echo
             [ -n "$NOTE" ] && { echo "> $NOTE"; echo; }
-            echo "Data: \`$PREFIX\`"
+            if [ "$UPLOAD" = true ]; then echo "Data: \`$PREFIX\`"; else echo "Benchmark run (\`$TARGET_CPU\`): nothing was uploaded; each task's artifact holds its manifests and checksums."; fi
             echo
-            echo "| Task | Positions | Games | Shards | Minutes | Status |"
-            echo "|:--|--:|--:|--:|--:|:--|"
+            echo "| Task | Positions | Games | Shards | Minutes | Positions/s | Status |"
+            echo "|:--|--:|--:|--:|--:|--:|:--|"
             total=0
             # One artifact unpacks straight into tasks/, several into
             # tasks/<name>/: find them wherever they land.
             while IFS= read -r f; do
-              jq -r '"| \(.task) | \(.positions) | \(.games) | \(.shards) | \(.seconds / 60 | floor) | \(if .interrupted then "⚠️ interrupted by spot; its completed shards are in S3" else "complete" end) |"' "$f"
+              jq -r '"| \(.task) | \(.positions) | \(.games) | \(.shards) | \(.seconds / 60 | floor) | \(if .minutes > 0 then (.positions / (.minutes * 60) | floor) else "" end) | \(if .interrupted then "⚠️ interrupted by spot; its completed shards are in S3" else "complete" end) |"' "$f"
               total=$(( total + $(jq -r .positions "$f") ))
             done < <(find tasks -name task.json 2>/dev/null | sort)
             echo

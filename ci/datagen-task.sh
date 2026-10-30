@@ -6,7 +6,14 @@
 # docs/datagen.md specifies the layout and formats.
 #
 #   ci/datagen-task.sh --dataset s3://BUCKET/selfplay/v1 --run RUN --task TASK
-#                      --minutes M --seed S
+#                      --minutes M --seed S [--target-cpu native|x86-64-v3] [--no-upload]
+#
+# --target-cpu: what the build targets (default native: the instance's own
+# CPU, AVX-512 and VNNI on the c8a's Zen 5). The evaluation is exact integer
+# arithmetic, so the games are the same on every target; only the speed
+# differs. --no-upload: a benchmark run. It generates as usual but uploads
+# nothing; each shard's manifest (with its records' SHA-256) is kept in
+# OUT_DIR so two builds' output can be compared byte for byte.
 #
 # Builds datagen at this commit, runs it on every core with the settings in
 # datagen.toml, and uploads each shard as soon as its manifest appears:
@@ -17,7 +24,7 @@
 
 set -euo pipefail
 
-dataset="" run="" task="" minutes="" seed=""
+dataset="" run="" task="" minutes="" seed="" target_cpu=native upload=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --dataset) dataset="${2%/}"; shift 2 ;;
@@ -25,6 +32,8 @@ while [ $# -gt 0 ]; do
     --task) task="$2"; shift 2 ;;
     --minutes) minutes="$2"; shift 2 ;;
     --seed) seed="$2"; shift 2 ;;
+    --target-cpu) target_cpu="$2"; shift 2 ;;
+    --no-upload) upload=0; shift ;;
     *) echo "datagen-task: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -33,8 +42,9 @@ done
 case "$dataset" in s3://*) ;; *) echo "datagen-task: --dataset must be an s3:// URI" >&2; exit 2 ;; esac
 : "${OUT_DIR:?OUT_DIR is not set}"
 
-# x86-64-v3 for the c8a instances; a caller may set its own (a local test on another CPU).
-export RUSTFLAGS="${RUSTFLAGS--C target-cpu=x86-64-v3}" CARGO_TERM_COLOR=never
+[[ "$target_cpu" =~ ^[a-z0-9_-]+$ ]] || { echo "datagen-task: --target-cpu must be a CPU name such as native or x86-64-v3" >&2; exit 2; }
+# A caller may set its own RUSTFLAGS (a local test on another CPU).
+export RUSTFLAGS="${RUSTFLAGS--C target-cpu=$target_cpu}" CARGO_TERM_COLOR=never
 work=$(mktemp -d /tmp/datagen.XXXXXX)
 shards="$work/shards"
 stop="$work/STOP"
@@ -47,7 +57,16 @@ prefix="$dataset/gen=$generation/run=$run/task=$task"
 cores=$(nproc)
 sha=$(git rev-parse HEAD)
 echo "== datagen: run $run task $task, generation $generation, $cores workers, $minutes minutes, seed $seed"
-echo "   commit ${sha:0:7}; uploading to $prefix/"
+read -ra rustflags <<< "$RUSTFLAGS"
+features=$(rustc --print cfg "${rustflags[@]}" 2>/dev/null \
+  | grep -oE '^target_feature="(avx2|avx512f|avx512bw|avx512vnni|avxvnni)"$' | cut -d'"' -f2 | tr '\n' ' ' || true)
+echo "   commit ${sha:0:7}; build: $RUSTFLAGS (${features:-no wide SIMD features})"
+if [ "$upload" = 1 ]; then
+  echo "   uploading to $prefix/"
+else
+  echo "   benchmark: nothing is uploaded; manifests and checksums go to the artifact"
+  mkdir -p "$OUT_DIR/manifests"
+fi
 
 cargo build --release --locked --quiet
 cargo build --release --locked --quiet -p rusty-chess-tools --bin datagen
@@ -79,6 +98,14 @@ upload_ready() {
     names+=("$(basename "$m" .json)")
   done
   [ "${#names[@]}" -gt 0 ] || return 0
+  if [ "$upload" = 0 ]; then
+    for name in "${names[@]}"; do
+      mv "$shards/$name.json" "$OUT_DIR/manifests/$name.json"
+      rm -f "$shards/$name.positions.txt" "$shards/$name.games.jsonl"
+    done
+    uploaded=$((uploaded + ${#names[@]}))
+    return 0
+  fi
   rm -rf "$batch"
   mkdir -p "$batch/positions" "$batch/games" "$batch/manifests"
   for name in "${names[@]}"; do
@@ -146,6 +173,7 @@ cat > "$OUT_DIR/task.json" <<JSON
  "engine_sha": "$sha", "engine_bench": ${bench:-null}, "workers": $cores, "seed": $seed,
  "minutes": $minutes, "games": ${games:-0}, "positions": ${positions:-0}, "shards": $uploaded,
  "seconds": $(since), "interrupted": $([ "$interrupted" = 1 ] && echo true || echo false),
+ "target_cpu": "$target_cpu", "uploaded": $([ "$upload" = 1 ] && echo true || echo false),
  "prefix": "$prefix/"}
 JSON
 cat "$OUT_DIR/task.json"
@@ -153,6 +181,6 @@ if [ "$interrupted" = 1 ]; then
   echo "datagen-task: interrupted; $uploaded complete shards are in S3"
   exit 143
 fi
-aws s3 cp --only-show-errors --content-type application/json "$OUT_DIR/task.json" "$prefix/task.json"
+[ "$upload" = 0 ] || aws s3 cp --only-show-errors --content-type application/json "$OUT_DIR/task.json" "$prefix/task.json"
 [ "$code" = 0 ] || { echo "datagen exited $code"; exit 1; }
 echo "datagen-task: $uploaded shards, ${positions:-0} positions in $(since)s"
