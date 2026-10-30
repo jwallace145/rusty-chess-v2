@@ -4,6 +4,7 @@ Every release, measured on a standardized `ubuntu-latest` runner from the shippe
 
 | Version | Date | Bench signature | Search NPS | Perft NPS | Perft suite | Fail-high first | EBF | TT hit | Instr / node |
 |:--|:--|--:|--:|--:|:-:|--:|--:|--:|--:|
+| v0.27.0 | 2026-10-30 | 1,697,503 | 3.47M | 291.70M | pass (63) | 88.2% | 1.90 | 53.5% | 2721 |
 | v0.26.0 | 2026-10-30 | 1,697,503 | 2.81M | 203.34M | pass (63) | 88.2% | 1.90 | 53.5% | 2721 |
 | v0.25.0 | 2026-10-30 | 1,697,503 | 2.53M | 200.71M | pass (63) | 88.2% | 1.90 | 53.5% | 2664 |
 | v0.24.0 | 2026-10-30 | 1,697,503 | 4.98M | 364.87M | pass (63) | 88.2% | 1.90 | 53.5% | 2667 |
