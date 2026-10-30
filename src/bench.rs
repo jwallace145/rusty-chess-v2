@@ -14,7 +14,7 @@ use std::time::Instant;
 
 use rusty_chess_core::position::Position;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{DEFAULT_NET_ID, Network, default_network};
+use rusty_chess_search::nnue::{DEFAULT_NET_ID, Network, default_network, network_by_id};
 use rusty_chess_search::search::{Limits, Searcher};
 use rusty_chess_search::telemetry::{
     BenchRecord, JsonlWriter, Record, SCHEMA_VERSION, SummaryRecord,
@@ -43,6 +43,14 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         Some(path) if path.as_os_str().eq_ignore_ascii_case("pesto") => {
             writeln!(out, "Evaluating with PeSTO")?;
             None
+        }
+        Some(path) if network_by_id(&path.to_string_lossy()).is_some() => {
+            writeln!(
+                out,
+                "Evaluating with the embedded network {}",
+                path.display()
+            )?;
+            network_by_id(&path.to_string_lossy())
         }
         Some(path) => {
             let bytes = std::fs::read(path)?;

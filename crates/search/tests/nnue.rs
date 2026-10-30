@@ -10,8 +10,8 @@ use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
 use rusty_chess_search::nnue::{
-    Accumulator, FILE_BYTES, HIDDEN, INPUTS, MAX_OUTPUT_WEIGHT, Network, QA, QB, SCALE,
-    default_network,
+    Accumulator, DEFAULT_NET_ID, FILE_BYTES, HIDDEN, INPUTS, MAX_OUTPUT_WEIGHT, NETS, Network, QA,
+    QB, SCALE, default_network, network_by_id,
 };
 use rusty_chess_search::search::{Limits, Searcher};
 
@@ -210,13 +210,32 @@ fn a_search_with_a_network_runs_and_without_one_is_unchanged() {
 }
 
 #[test]
-fn the_embedded_net_loads_and_judges_material() {
-    // A sanity check on the trained net itself; its accuracy against the
-    // trainer is `nnue-eval --check`'s job (docs/training.md).
-    let net = default_network();
+fn the_embedded_nets_are_ordered_and_the_last_is_the_default() {
+    assert!(
+        NETS.windows(2).all(|w| w[0].generation < w[1].generation),
+        "one net per generation, oldest first"
+    );
+    assert_eq!(DEFAULT_NET_ID, NETS[NETS.len() - 1].id);
+    assert_eq!(
+        default_network().to_bytes(),
+        network_by_id(DEFAULT_NET_ID).unwrap().to_bytes()
+    );
+    assert!(network_by_id("no-such-net").is_none());
+}
+
+#[test]
+fn every_embedded_net_loads_and_judges_material() {
+    // A sanity check on the trained nets themselves; their accuracy against
+    // the trainer is `nnue-eval --check`'s job (docs/training.md).
+    for embedded in &NETS {
+        material_sanity(&network_by_id(embedded.id).unwrap());
+    }
+}
+
+fn material_sanity(net: &Arc<Network>) {
     let level = board(
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        &net,
+        net,
     )
     .evaluate();
     assert!(level.abs() < 100, "the start position is level: {level}");
@@ -230,7 +249,7 @@ fn the_embedded_net_loads_and_judges_material() {
             -1,
         ),
     ] {
-        let e = board(fen, &net).evaluate();
+        let e = board(fen, net).evaluate();
         assert!(
             e * sign > 500,
             "a queen up is winning for its side: {fen} {e}"

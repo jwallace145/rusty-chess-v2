@@ -6,7 +6,7 @@ use std::sync::atomic::AtomicBool;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::DEFAULT_NET_GENERATION;
+use rusty_chess_search::nnue::{DEFAULT_NET_GENERATION, NETS, network_by_id};
 use rusty_chess_search::search::Searcher;
 use rusty_chess_tools::datagen::{
     Adjudicator, Manifest, Provenance, SCHEMA, Settings, Termination, board_termination,
@@ -49,13 +49,26 @@ fn the_committed_settings_parse_and_bad_ones_do_not() {
         Settings::parse(&text.replace("[datagen]\n", "[datagen]\nbogus = 1\n")).is_err(),
         "unknown keys are refused"
     );
+    let committed = format!("generation = {DEFAULT_NET_GENERATION}");
+    assert!(text.contains(&committed), "{committed}");
+    let with = |g: u32| Settings::parse(&text.replace(&committed, &format!("generation = {g}")));
+    assert!(with(99).is_err(), "a generation without its net is refused");
     assert!(
-        Settings::parse(&text.replace("generation = 1", "generation = 7")).is_err(),
-        "a generation without its net is refused"
+        with(0).unwrap().network().is_none(),
+        "generation 0 is PeSTO"
     );
-    let pesto = Settings::parse(&text.replace("generation = 1", "generation = 0")).unwrap();
-    assert!(pesto.network().is_none(), "generation 0 is PeSTO");
-    assert!(s.network().is_some(), "{s:?}");
+    // Every embedded net's generation parses and plays with that net, so
+    // older generations' data can still be re-searched.
+    for net in &NETS {
+        let s = with(net.generation).unwrap();
+        let played = s.network().expect("an embedded generation has its net");
+        assert_eq!(
+            played.to_bytes(),
+            network_by_id(net.id).unwrap().to_bytes(),
+            "{}",
+            net.id
+        );
+    }
 }
 
 #[test]

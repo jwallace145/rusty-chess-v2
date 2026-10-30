@@ -15,7 +15,7 @@ Commands:
                --depth N   depth per position (default 10)
                --hash MB   hash size in MB (default 16)
                --out FILE  write JSON lines telemetry to FILE
-               --eval-file NET  evaluate with this NNUE network, or `pesto` (default: the embedded net)
+               --eval-file NET  evaluate with this NNUE file, an embedded net's id, or `pesto` (default: the newest embedded net)
   perft      Count leaf nodes from a position, split by root move
                --depth N      depth (default 5)
                --fen FEN      position (default: the starting position)

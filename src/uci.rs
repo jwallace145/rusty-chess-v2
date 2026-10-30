@@ -22,7 +22,7 @@ use std::time::Duration;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{Network, default_network};
+use rusty_chess_search::nnue::{Network, default_network, network_by_id};
 use rusty_chess_search::search::{DEFAULT_HASH_MB, Limits, Searcher, mate_in};
 use rusty_chess_search::telemetry::IterRecord;
 
@@ -201,8 +201,9 @@ impl<W: Write + Send + 'static> Engine<W> {
                     "info string Hash must be 1..4096 MB, got {v}"
                 )?,
             },
-            // A network file; `<default>` (or empty) for the embedded net,
-            // `pesto` for the hand-written evaluation.
+            // A network file; `<default>` (or empty) for the default net, an
+            // embedded net's id for that net, `pesto` for the hand-written
+            // evaluation.
             (Some("EvalFile"), _) => {
                 let path = value.unwrap_or("<default>");
                 if matches!(path, "<default>" | "<empty>" | "") {
@@ -211,6 +212,13 @@ impl<W: Write + Send + 'static> Engine<W> {
                 } else if path.eq_ignore_ascii_case("pesto") {
                     self.net = None;
                     self.board.set_network(None);
+                } else if let Some(net) = network_by_id(path) {
+                    self.net = Some(net);
+                    self.board.set_network(self.net.clone());
+                    writeln!(
+                        self.out.lock().unwrap(),
+                        "info string EvalFile {path}: the embedded net"
+                    )?;
                 } else {
                     match std::fs::read(path)
                         .map_err(|e| e.to_string())
@@ -508,6 +516,20 @@ mod tests {
         assert!(out.contains("zero.nnue loaded"), "{out}");
         assert_eq!(bestmoves(&out).len(), 1, "{out}");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn eval_file_selects_an_embedded_net_by_id_and_pesto_by_name() {
+        use rusty_chess_search::nnue::NETS;
+        let out = drive(&format!(
+            "setoption name EvalFile value {}\nposition startpos\ngo depth 3\nsetoption name EvalFile value pesto\nposition startpos\ngo depth 3\n",
+            NETS[0].id
+        ));
+        assert!(
+            out.contains(&format!("EvalFile {}: the embedded net", NETS[0].id)),
+            "{out}"
+        );
+        assert_eq!(bestmoves(&out).len(), 2, "{out}");
     }
 
     #[test]
