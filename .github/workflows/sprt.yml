@@ -16,6 +16,16 @@ name: SPRT
 # pair says which of four things happened; see `interpret` in
 # crates/tools/src/sprt.rs and the comment it writes.
 #
+# Where: by default each leg runs on its own dedicated 64-core c8a.16xlarge
+# spot instance, launched for the job and terminated after it, through
+# jwall-engineering-infra's remote-task workflow (its docs/remote-tasks.md).
+# The leg's work is ci/strength-task.sh, at the PR's head commit; it plays
+# 60 games at once. Setting the repository variable SPRT_RUNNER to `github`
+# switches back to the GitHub-hosted runners (4 games at once), the fallback
+# until the remote path has a track record. A spot interruption or a launch
+# with no capacity is reported in the comment as that, with no verdict, and
+# fails the check: re-run.
+#
 # Labels: `sprt` runs both to a verdict. `sprt-quick` runs both capped at 50
 # pairs, a pipeline smoke test that never reaches a verdict. Both re-run on
 # every push while the label is on. A `perf` PR (unchanged bench signature)
@@ -38,9 +48,38 @@ env:
   QUICK: ${{ contains(github.event.pull_request.labels.*.name, 'sprt-quick') && !contains(github.event.pull_request.labels.*.name, 'sprt') }}
 
 jobs:
+  # The remote path: one dedicated instance per leg. Two jobs rather than a
+  # matrix, so the comment job can read each leg's outcome.
+  timed:
+    name: SPRT (timed)
+    if: (contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick')) && vars.SPRT_RUNNER != 'github'
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.13.0
+    with:
+      project: rusty-chess
+      script: ci/strength-task.sh
+      args: '["--mode", "timed", "--pr", "${{ github.event.pull_request.head.sha }}", "--base", "${{ github.event.pull_request.base.sha }}", "--quick", "${{ contains(github.event.pull_request.labels.*.name, ''sprt-quick'') && !contains(github.event.pull_request.labels.*.name, ''sprt'') }}"]'
+      artifact: sprt-timed
+    permissions:
+      contents: read
+      id-token: write # the task role, through OIDC
+
+  nodes:
+    name: SPRT (fixed nodes)
+    if: (contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick')) && vars.SPRT_RUNNER != 'github'
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.13.0
+    with:
+      project: rusty-chess
+      script: ci/strength-task.sh
+      args: '["--mode", "nodes", "--pr", "${{ github.event.pull_request.head.sha }}", "--base", "${{ github.event.pull_request.base.sha }}", "--quick", "${{ contains(github.event.pull_request.labels.*.name, ''sprt-quick'') && !contains(github.event.pull_request.labels.*.name, ''sprt'') }}"]'
+      artifact: sprt-nodes
+    permissions:
+      contents: read
+      id-token: write # the task role, through OIDC
+
+  # The GitHub-hosted fallback (SPRT_RUNNER=github): both legs on 4-vCPU runners.
   play:
-    name: SPRT (${{ matrix.title }})
-    if: contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick')
+    name: SPRT (${{ matrix.title }}, GitHub-hosted)
+    if: (contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick')) && vars.SPRT_RUNNER == 'github'
     runs-on: ubuntu-latest
     timeout-minutes: 300
     permissions:
@@ -130,8 +169,8 @@ jobs:
 
   comment:
     name: SPRT comment
-    needs: play
-    if: always() && needs.play.result != 'skipped' && needs.play.result != 'cancelled'
+    needs: [timed, nodes, play]
+    if: ${{ !cancelled() && (needs.timed.result != 'skipped' || needs.nodes.result != 'skipped' || needs.play.result != 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -147,10 +186,28 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          TIMED_OUTCOME: ${{ needs.timed.outputs.outcome }}
+          TIMED_AT: ${{ needs.timed.outputs.interrupted-at }}
+          NODES_OUTCOME: ${{ needs.nodes.outputs.outcome }}
+          NODES_AT: ${{ needs.nodes.outputs.interrupted-at }}
         run: |
           cargo build --release --locked --quiet -p rusty-chess-tools --bin sprt-report
           smoke=""; if [ "$QUICK" = "true" ]; then smoke="--smoke --max-rounds 50"; fi
+          # A leg the infrastructure stopped gets a note instead of a result;
+          # its partial log (the -interrupted artifact) is never read for one.
+          note() {
+            case "$1" in
+              interrupted) echo "⚠️ **Interrupted by spot reclamation** at ${2:-an unknown time}. There is no verdict; re-run the SPRT (push again, or *Re-run failed jobs*)." ;;
+              no-capacity) echo "⚠️ **No capacity** to launch the test instance, spot or on demand. There is no verdict; re-run the SPRT later." ;;
+            esac
+          }
+          timed_note=$(note "$TIMED_OUTCOME" "$TIMED_AT")
+          nodes_note=$(note "$NODES_OUTCOME" "$NODES_AT")
+          if [ -n "$timed_note" ]; then
+            echo "::error::The timed SPRT was stopped by the infrastructure ($TIMED_OUTCOME), not the engine: re-run it."
+          fi
           target/release/sprt-report combine --config perf-targets.toml $smoke \
+            --timed-note "$timed_note" --nodes-note "$nodes_note" \
             --timed-log sprt-timed/sprt.log --nodes-log sprt-nodes/sprt.log \
             --head "${HEAD_SHA:0:7}" --base "main@${BASE_SHA:0:7}" --fastchess "$FASTCHESS_VERSION" \
             --openings "$(grep -c . tests/openings/openings.epd)" > sprt.md || true

@@ -2,7 +2,8 @@
 
 use rusty_chess_tools::gate::{Sprt, Targets};
 use rusty_chess_tools::sprt::{
-    Meta, Verdict, fastchess_args, interpret, parse, passes, render, render_dual,
+    Meta, Notes, Verdict, fastchess_args, interpret, parse, passes, render, render_dual,
+    render_dual_with_notes,
 };
 
 const LOG: &str = "\
@@ -207,4 +208,43 @@ fn a_dual_comment_shows_the_gate_and_both_runs() {
     );
     // The single-run comment keeps its heading.
     assert!(render(&h1, &t.sprt, &meta).starts_with("### ⚔️ SPRT\n\n🟢"));
+}
+
+#[test]
+fn an_interrupted_leg_shows_its_note_and_never_a_verdict() {
+    let t = Targets::parse("[movegen]\nmin_perft_nps = { local = 0, ci = 0 }\n[search]\nmin_nps = { local = 0, ci = 0 }\n[efficiency]\nmin_fail_high_first = 0.0\nmax_ebf = 0.0\n[sprt]\ntc = \"5+0.05\"\n").unwrap();
+    let meta = Meta {
+        head_label: "abc1234".into(),
+        base_label: "main@def5678".into(),
+        fastchess: "v1".into(),
+        openings: 300,
+    };
+    let h1 = parse(LOG).unwrap();
+    let notes = Notes {
+        timed: Some("⚠️ **Interrupted by spot reclamation** at 12:00.".into()),
+        nodes: None,
+    };
+    // Even with a partial H1 log, a noted timed leg is no result.
+    let md = render_dual_with_notes(Some(&h1), Some(&h1), &notes, &t.sprt, &meta);
+    assert!(md.contains("⚪ **Gate: no result**"), "{md}");
+    assert!(
+        md.contains("the infrastructure stopped the timed test"),
+        "{md}"
+    );
+    assert!(md.contains("Interrupted by spot reclamation"), "{md}");
+    assert!(!md.contains("🟢 **Gate: pass**"), "{md}");
+    // Without notes it is the plain dual comment.
+    assert_eq!(
+        render_dual_with_notes(Some(&h1), None, &Notes::default(), &t.sprt, &meta),
+        render_dual(Some(&h1), None, &t.sprt, &meta)
+    );
+}
+
+#[test]
+fn concurrency_can_be_raised_for_a_bigger_runner() {
+    let t = Targets::parse("[movegen]\nmin_perft_nps = { local = 0, ci = 0 }\n[search]\nmin_nps = { local = 0, ci = 0 }\n[efficiency]\nmin_fail_high_first = 0.0\nmax_ebf = 0.0\n[sprt]\n").unwrap();
+    let mut s = t.sprt.clone();
+    s.concurrency = 60;
+    let args = fastchess_args(&s).join(" ");
+    assert!(args.contains("-concurrency 60"), "{args}");
 }

@@ -2,19 +2,25 @@
 //! its log.
 //!
 //! ```text
-//! sprt-report args --config perf-targets.toml [--max-rounds N]
+//! sprt-report args --config perf-targets.toml [--timed] [--max-rounds N] [--concurrency N]
 //! sprt-report render --config perf-targets.toml --log sprt.log --head SHA --base LABEL --fastchess VERSION --openings N
 //! sprt-report combine --config perf-targets.toml --timed-log T --nodes-log N [--smoke] --head SHA --base LABEL --fastchess VERSION --openings N
+//!                     [--timed-note TEXT] [--nodes-note TEXT]
 //! ```
 //!
 //! `render` exits 1 unless H1 was accepted (a smoke test may also be
 //! inconclusive). `combine` renders both runs of a dual SPRT and exits by the
-//! timed run, the gate; a missing log is reported as not finished.
+//! timed run, the gate; a missing log is reported as not finished, and a
+//! note (a spot interruption, no capacity) replaces a leg's result.
+//! `--concurrency` overrides `[sprt] concurrency` for a runner with more
+//! cores than the GitHub-hosted default.
 
 use std::process::ExitCode;
 
 use rusty_chess_tools::gate::Targets;
-use rusty_chess_tools::sprt::{Meta, fastchess_args, parse, passes, render, render_dual};
+use rusty_chess_tools::sprt::{
+    Meta, Notes, fastchess_args, parse, passes, render, render_dual_with_notes,
+};
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {
@@ -34,6 +40,8 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     let mut timed_log = None;
     let mut nodes_log = None;
     let mut max_rounds = None;
+    let mut concurrency = None;
+    let mut notes = Notes::default();
     let mut timed = false;
     let mut smoke = false;
     let mut meta = Meta {
@@ -64,6 +72,16 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
                         .map_err(|_| format!("`--max-rounds` got `{value}`"))?,
                 )
             }
+            "--concurrency" => {
+                concurrency = Some(
+                    value
+                        .parse()
+                        .map_err(|_| format!("`--concurrency` got `{value}`"))?,
+                )
+            }
+            // An empty note means none, so a workflow can always pass it.
+            "--timed-note" => notes.timed = Some(value).filter(|v| !v.trim().is_empty()),
+            "--nodes-note" => notes.nodes = Some(value).filter(|v| !v.trim().is_empty()),
             "--head" => meta.head_label = value,
             "--base" => meta.base_label = value,
             "--fastchess" => meta.fastchess = value,
@@ -81,6 +99,9 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             .map_err(|e| format!("{config}: {e}"))?;
     if let Some(n) = max_rounds {
         targets.sprt.max_rounds = n;
+    }
+    if let Some(n) = concurrency {
+        targets.sprt.concurrency = n;
     }
     targets.sprt.timed = timed;
     match command.as_str() {
@@ -109,15 +130,16 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             let nodes_result = read(nodes_log);
             print!(
                 "{}",
-                render_dual(
+                render_dual_with_notes(
                     timed_result.as_ref(),
                     nodes_result.as_ref(),
+                    &notes,
                     &targets.sprt,
                     &meta
                 )
             );
             Ok(match timed_result {
-                Some(r) if passes(r.verdict, smoke) => ExitCode::SUCCESS,
+                Some(r) if notes.timed.is_none() && passes(r.verdict, smoke) => ExitCode::SUCCESS,
                 _ => ExitCode::FAILURE,
             })
         }

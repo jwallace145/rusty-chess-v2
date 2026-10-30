@@ -261,6 +261,18 @@ pub fn interpret(nodes: Option<Verdict>, timed: Option<Verdict>) -> &'static str
     }
 }
 
+/// Why a leg of a dual run has no result, when the infrastructure knows: a
+/// spot interruption or no capacity to launch. Shown in place of the leg's
+/// result; a leg with a note never counts as a verdict, whatever partial log
+/// it left.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Notes {
+    /// The timed leg's note.
+    pub timed: Option<String>,
+    /// The fixed-node leg's note.
+    pub nodes: Option<String>,
+}
+
 /// The combined comment for a dual run: the timed result (the gate) and the
 /// fixed-node result (informational), with the reading of the pair. Either
 /// result may be missing when its job failed.
@@ -270,6 +282,21 @@ pub fn render_dual(
     settings: &Sprt,
     meta: &Meta,
 ) -> String {
+    render_dual_with_notes(timed, nodes, &Notes::default(), settings, meta)
+}
+
+/// [`render_dual`], with a note in place of each leg the infrastructure
+/// stopped. A noted timed leg makes the gate "no result" and says the
+/// infrastructure, not the engine, is why.
+pub fn render_dual_with_notes(
+    timed: Option<&SprtResult>,
+    nodes: Option<&SprtResult>,
+    notes: &Notes,
+    settings: &Sprt,
+    meta: &Meta,
+) -> String {
+    let timed = if notes.timed.is_some() { None } else { timed };
+    let nodes = if notes.nodes.is_some() { None } else { nodes };
     let mut out = String::new();
     let _ = writeln!(out, "### ⚔️ SPRT");
     let _ = writeln!(out);
@@ -278,11 +305,12 @@ pub fn render_dual(
         Some(_) => "🔴 **Gate: fail**",
         None => "⚪ **Gate: no result**",
     };
-    let _ = writeln!(
-        out,
-        "{gate}: {}",
+    let reading = if notes.timed.is_some() {
+        "the infrastructure stopped the timed test, not the engine; re-run the SPRT"
+    } else {
         interpret(nodes.map(|r| r.verdict), timed.map(|r| r.verdict))
-    );
+    };
+    let _ = writeln!(out, "{gate}: {reading}");
     let _ = writeln!(out);
     let mut timed_settings = settings.clone();
     timed_settings.timed = true;
@@ -292,6 +320,7 @@ pub fn render_dual(
         (
             format!("#### Timed, {} (the gate)", settings.tc),
             timed,
+            &notes.timed,
             &timed_settings,
         ),
         (
@@ -300,15 +329,19 @@ pub fn render_dual(
                 fmt_int(settings.nodes_per_move)
             ),
             nodes,
+            &notes.nodes,
             &nodes_settings,
         ),
     ];
-    for (title, result, s) in sections {
+    for (title, result, note, s) in sections {
         let _ = writeln!(out, "{title}");
         let _ = writeln!(out);
-        match result {
-            Some(r) => out.push_str(&render_body(r, s, meta)),
-            None => {
+        match (note, result) {
+            (Some(note), _) => {
+                let _ = writeln!(out, "{note}");
+            }
+            (None, Some(r)) => out.push_str(&render_body(r, s, meta)),
+            (None, None) => {
                 let _ = writeln!(out, "Did not finish; see the job log.");
             }
         }
