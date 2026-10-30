@@ -55,8 +55,16 @@ instructions_noise_pct = 0.5 # instructions per node is deterministic, so a smal
 # says little (no finite error bar at 100%). Ladder history, so that ratings
 # are compared on the same rungs: 1500/1800/2100/2400 for v0.3.0 to v0.13.0
 # (v0.12.0 scored 98% on 1500 and 65% on 2400); 2200/2500/2800/3100 from
-# 2026-10-28, with v0.12.0 and v0.13.0 re-rated on it for the overlap.
-levels = [2200, 2500, 2800, 3100]
+# 2026-10-28, with v0.12.0 and v0.13.0 re-rated on it for the overlap;
+# 2600/2800/3000/3190 from 2026-10-30, when v0.19.0 to v0.22.0 (about 2700)
+# scored 92-96% on 2200, with v0.18.0 to v0.22.0 re-rated on it. Two rungs
+# either side of the engine say the most (a level near 50% has the smallest
+# error), and the same rungs still bracket it up to about 3050, so NNUE's
+# expected gain does not force another move. 3190 is the top of Stockfish's
+# UCI_Elo range: past about 3050 limited Stockfish can no longer bracket the
+# engine and the ladder needs another anchor, such as full Stockfish at a
+# fixed node budget.
+levels = [2600, 2800, 3000, 3190]
 games_per_level = 100   # 50 openings from both sides; about 10 minutes per level
 tc = "10+0.1"
 concurrency = 4

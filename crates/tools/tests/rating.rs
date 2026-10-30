@@ -118,3 +118,19 @@ fn the_report_lists_every_level_and_the_json_is_parseable() {
     assert_eq!(v["levels"][1]["stockfish_elo"], 1800);
     assert!(v["rating"].as_f64().unwrap() > 1900.0);
 }
+
+#[test]
+fn the_committed_ladder_is_inside_stockfish_range_and_ascending() {
+    // Stockfish clamps UCI_Elo to 1320..=3190 without complaint, so a rung
+    // outside that range would silently play a different level than it says.
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../perf-targets.toml");
+    let targets =
+        rusty_chess_tools::gate::Targets::parse(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let levels = &targets.rating.levels;
+    assert!(!levels.is_empty());
+    assert!(
+        levels.iter().all(|l| (1320..=3190).contains(l)),
+        "{levels:?}"
+    );
+    assert!(levels.windows(2).all(|w| w[0] < w[1]), "{levels:?}");
+}
