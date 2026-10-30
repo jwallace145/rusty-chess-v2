@@ -64,6 +64,7 @@ fn bench(nps: u64, fh_first: Option<f64>) -> Record {
             qtt_cutoffs: 0,
             lmp_checks_kept: 0,
             aspiration_researches: 0,
+            iir_reductions: 0,
         }),
     })
 }
