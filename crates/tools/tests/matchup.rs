@@ -1,9 +1,10 @@
 //! Head-to-head match settings, fastchess arguments and the report.
 
 use rusty_chess_tools::matchup::{
-    Limit, Meta, Settings, Side, fastchess_args, headline, render, verdict,
+    Limit, Meta, Settings, Side, fastchess_args, headline, read, render, verdict,
 };
 use rusty_chess_tools::sprt::{MatchResult, parse_match};
+use rusty_chess_tools::stats::Confidence;
 
 const LOG: &str = "\
 Started game 1 of 400 (candidate vs baseline)
@@ -96,10 +97,26 @@ fn fastchess_arguments_follow_the_limit() {
 
 #[test]
 fn the_verdict_reads_the_interval() {
-    assert!(verdict(&result(50.0, 20.0)).contains("stronger"));
-    assert!(verdict(&result(-50.0, 20.0)).contains("weaker"));
-    assert!(verdict(&result(10.0, 20.0)).contains("no significant difference"));
-    assert!(verdict(&result(f64::INFINITY, f64::NAN)).contains("won every game"));
+    // Without pentanomial counts, fastchess's 95% interval.
+    let v = |elo, err| verdict(&read(&result(elo, err), Confidence::P99));
+    assert!(v(50.0, 20.0).contains("stronger (the 95% interval"));
+    assert!(v(-50.0, 20.0).contains("weaker"));
+    assert!(v(10.0, 20.0).contains("no significant difference"));
+    assert!(v(f64::INFINITY, f64::NAN).contains("won every game"));
+    // With them, the run's confidence: a +28 Elo match of 1036 games is
+    // conclusive at 99% but not at 99.9%.
+    let mut r = result(0.0, 0.0);
+    r.pentanomial = Some([27, 100, 188, 168, 35]);
+    assert!(verdict(&read(&r, Confidence::P99)).contains("stronger (the 99% interval"));
+    let strict = read(&r, Confidence::P999);
+    assert!(strict.conclusive() || strict.games_to_resolve.is_some());
+    // An inconclusive match says how many games would settle it.
+    r.pentanomial = Some([66, 240, 364, 254, 76]);
+    let weak = read(&r, Confidence::P99);
+    assert!(!weak.conclusive());
+    let n = weak.games_to_resolve.unwrap();
+    // 2000 games gave ±14.6 at 99%; ±5.9 needs (14.6 / 5.9)² times as many.
+    assert!((11_000..=13_500).contains(&n), "{n}");
 }
 
 #[test]
@@ -112,11 +129,16 @@ fn the_report_names_both_engines_and_the_settings() {
         "{md}"
     );
     assert!(md.contains("> cumulative check after Phase 4"), "{md}");
-    assert!(md.contains("🟢 **the candidate is stronger"), "{md}");
     assert!(
-        md.contains("| +120.5 ± 30.2 | 100.0% | 400 | 210 / 80 / 110 | 66.2% |"),
+        md.contains("🟢 **the candidate is stronger (the 99% interval is above zero)**"),
         "{md}"
     );
+    // The interval is the pentanomial one at 99%, not fastchess's 95%.
+    assert!(
+        md.contains("| +117.2 | +82.4 to +154.4 | 100.0% | 400 | 210 / 80 / 110 | 66.2% |"),
+        "{md}"
+    );
+    assert!(md.contains("±5 Elo at 99% would take about"), "{md}");
     assert!(
         md.contains("| Candidate | `v0.18.0` | `ce7b1e2` | 1,991,209 |"),
         "{md}"
@@ -130,9 +152,11 @@ fn the_report_names_both_engines_and_the_settings() {
         md.contains("Pentanomial (pairs: LL, LD, WL+DD, WD, WW): 5 20 60 70 45"),
         "{md}"
     );
-    let line = headline(&r, &meta());
+    let line = headline(&r, &s, &meta());
     assert!(
-        line.starts_with("v0.18.0 vs v0.13.0: +120.5 ± 30.2 Elo, LOS 100.0%, 400 games"),
+        line.starts_with(
+            "v0.18.0 vs v0.13.0: +117.2 Elo (99% interval +82.4 to +154.4), LOS 100.0%, 400 games"
+        ),
         "{line}"
     );
 }

@@ -5,10 +5,17 @@
 //! fixed node budget, from our openings. Unlike an SPRT it plays a fixed
 //! number of games and reports the Elo difference with its interval, so it
 //! answers "how far apart are these two", not "is this change a gain".
+//!
+//! The interval is computed here from the pentanomial counts (see
+//! [`crate::stats`]) at the confidence the run asked for, 99% by default,
+//! with how many games a conclusive answer would take. Decide the number of
+//! games before the run: stopping a fixed-length match early because it looks
+//! significant inflates the false positives.
 
 use std::fmt::Write as _;
 
 use crate::sprt::MatchResult;
+use crate::stats::{Confidence, from_pentanomial, games_for};
 
 /// How each move is limited.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,6 +40,8 @@ pub struct Settings {
     pub hash_mb: u32,
     /// The openings file, one EPD per line.
     pub openings: String,
+    /// The two-sided confidence of the reported interval.
+    pub confidence: Confidence,
 }
 
 impl Settings {
@@ -74,7 +83,13 @@ impl Settings {
             concurrency,
             hash_mb,
             openings: openings.to_string(),
+            confidence: Confidence::P99,
         })
+    }
+
+    /// The same settings at another confidence.
+    pub fn with_confidence(self, confidence: Confidence) -> Settings {
+        Settings { confidence, ..self }
     }
 
     /// The limit as people read it: `10+0.1` or `200,000 nodes per move`.
@@ -173,36 +188,100 @@ pub struct Meta {
     pub note: String,
 }
 
-/// What the interval says, in words.
-pub fn verdict(r: &MatchResult) -> &'static str {
-    if !r.elo.is_finite() {
-        if r.elo > 0.0 {
-            "the candidate won every game"
-        } else {
-            "the candidate lost every game"
+/// What a match result says at the run's confidence.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Reading {
+    /// Elo of the candidate over the baseline; infinite when one side scored
+    /// everything.
+    pub elo: f64,
+    /// The interval's lower end.
+    pub lower: f64,
+    /// Its upper end.
+    pub upper: f64,
+    /// Likelihood the candidate is stronger, percent (NaN when undefined).
+    pub los: f64,
+    /// The confidence the interval is at, as people read it.
+    pub confidence: &'static str,
+    /// Games for an interval of ±5 Elo at this match's variance, when known.
+    pub games_for_5: Option<u64>,
+    /// When inconclusive: games for the interval to exclude zero, if the
+    /// difference measured here is the true one.
+    pub games_to_resolve: Option<u64>,
+}
+
+impl Reading {
+    /// Whether the interval excludes zero.
+    pub fn conclusive(&self) -> bool {
+        self.lower > 0.0 || self.upper < 0.0
+    }
+}
+
+/// Read a result at `confidence`. With pentanomial counts the interval is
+/// computed here; without them it falls back to fastchess's own 95% interval.
+pub fn read(r: &MatchResult, confidence: Confidence) -> Reading {
+    if let Some(e) = r.pentanomial.and_then(|p| from_pentanomial(p, confidence)) {
+        let mut reading = Reading {
+            elo: e.elo,
+            lower: e.lower,
+            upper: e.upper,
+            los: e.los,
+            confidence: confidence.label(),
+            games_for_5: games_for(&e, 5.0),
+            games_to_resolve: None,
+        };
+        if !reading.conclusive() && e.elo.is_finite() && e.elo.abs() >= 1.0 {
+            reading.games_to_resolve = games_for(&e, e.elo.abs());
         }
-    } else if r.elo - r.elo_error > 0.0 {
-        "the candidate is stronger (the 95% interval is above zero)"
-    } else if r.elo + r.elo_error < 0.0 {
-        "the candidate is weaker (the 95% interval is below zero)"
+        return reading;
+    }
+    let (lower, upper) = if r.elo.is_finite() {
+        (r.elo - r.elo_error, r.elo + r.elo_error)
     } else {
-        "no significant difference (the 95% interval includes zero)"
+        (r.elo, r.elo)
+    };
+    Reading {
+        elo: r.elo,
+        lower,
+        upper,
+        los: r.los,
+        confidence: "95%",
+        games_for_5: None,
+        games_to_resolve: None,
+    }
+}
+
+/// What the interval says, in words.
+pub fn verdict(r: &Reading) -> String {
+    let c = r.confidence;
+    if r.elo == f64::INFINITY {
+        "the candidate won every game".into()
+    } else if r.elo == f64::NEG_INFINITY {
+        "the candidate lost every game".into()
+    } else if r.lower > 0.0 {
+        format!("the candidate is stronger (the {c} interval is above zero)")
+    } else if r.upper < 0.0 {
+        format!("the candidate is weaker (the {c} interval is below zero)")
+    } else {
+        format!("no significant difference (the {c} interval includes zero)")
     }
 }
 
 /// One line for the job log.
-pub fn headline(r: &MatchResult, meta: &Meta) -> String {
+pub fn headline(r: &MatchResult, s: &Settings, meta: &Meta) -> String {
+    let reading = read(r, s.confidence);
     format!(
-        "{} vs {}: {} Elo, LOS {}, {} games ({} W / {} L / {} D): {}",
+        "{} vs {}: {} Elo ({} interval {}), LOS {}, {} games ({} W / {} L / {} D): {}",
         meta.candidate.label,
         meta.baseline.label,
-        fmt_elo(r),
-        fmt_los(r.los),
+        fmt_signed(reading.elo),
+        reading.confidence,
+        fmt_interval(&reading),
+        fmt_los(reading.los),
         r.games,
         r.wins,
         r.losses,
         r.draws,
-        verdict(r)
+        verdict(&reading)
     )
 }
 
@@ -219,27 +298,28 @@ pub fn render(r: &MatchResult, s: &Settings, meta: &Meta) -> String {
         let _ = writeln!(out, "> {}", meta.note);
         let _ = writeln!(out);
     }
-    let marker = if r.elo.is_finite() && r.elo - r.elo_error > 0.0 {
+    let reading = read(r, s.confidence);
+    let marker = if reading.elo > 0.0 && reading.lower > 0.0 {
         "🟢"
-    } else if r.elo.is_finite() && r.elo + r.elo_error < 0.0 {
+    } else if reading.elo < 0.0 && reading.upper < 0.0 {
         "🔴"
-    } else if !r.elo.is_finite() {
-        if r.elo > 0.0 { "🟢" } else { "🔴" }
     } else {
         "⚪"
     };
-    let _ = writeln!(out, "{marker} **{}**", verdict(r));
+    let _ = writeln!(out, "{marker} **{}**", verdict(&reading));
     let _ = writeln!(out);
     let _ = writeln!(
         out,
-        "| Elo (candidate − baseline) | LOS | Games | W / L / D | Score |"
+        "| Elo (candidate − baseline) | {} interval | LOS | Games | W / L / D | Score |",
+        reading.confidence
     );
-    let _ = writeln!(out, "|--:|--:|--:|:-:|--:|");
+    let _ = writeln!(out, "|--:|:-:|--:|--:|:-:|--:|");
     let _ = writeln!(
         out,
-        "| {} | {} | {} | {} / {} / {} | {:.1}% |",
-        fmt_elo(r),
-        fmt_los(r.los),
+        "| {} | {} | {} | {} | {} / {} / {} | {:.1}% |",
+        fmt_signed(reading.elo),
+        fmt_interval(&reading),
+        fmt_los(reading.los),
         r.games,
         r.wins,
         r.losses,
@@ -247,6 +327,16 @@ pub fn render(r: &MatchResult, s: &Settings, meta: &Meta) -> String {
         r.score() * 100.0
     );
     let _ = writeln!(out);
+    if let Some(n) = reading.games_to_resolve {
+        let _ = writeln!(
+            out,
+            "Not conclusive at {}. If the true difference is the {} measured, about **{} games** would settle it at this confidence.",
+            reading.confidence,
+            fmt_signed(reading.elo),
+            fmt_int(n)
+        );
+        let _ = writeln!(out);
+    }
     let _ = writeln!(
         out,
         "| | Ref | Commit | Bench signature (its own default depth) |"
@@ -287,23 +377,36 @@ pub fn render(r: &MatchResult, s: &Settings, meta: &Meta) -> String {
     }
     let _ = writeln!(
         out,
-        "- Elo is the candidate's over the baseline with its 95% interval; LOS is the likelihood the candidate is stronger"
+        "- Elo is the candidate's over the baseline. The {} interval is computed from the pentanomial counts (pairs of games from one opening, colours swapped), so it accounts for the pairing; LOS is the likelihood the candidate is stronger",
+        reading.confidence
     );
+    if let Some(n) = reading.games_for_5 {
+        let _ = writeln!(
+            out,
+            "- At this match's variance, ±5 Elo at {} would take about {} games",
+            reading.confidence,
+            fmt_int(n)
+        );
+    }
     let _ = writeln!(out);
     let _ = writeln!(out, "</details>");
     out
 }
 
-fn fmt_elo(r: &MatchResult) -> String {
-    if !r.elo.is_finite() {
-        return if r.elo > 0.0 {
-            "+∞".into()
-        } else {
-            "−∞".into()
-        };
+fn fmt_signed(v: f64) -> String {
+    if v == f64::INFINITY {
+        "+∞".into()
+    } else if v == f64::NEG_INFINITY {
+        "−∞".into()
+    } else if v >= 0.0 {
+        format!("+{v:.1}")
+    } else {
+        format!("−{:.1}", v.abs())
     }
-    let sign = if r.elo >= 0.0 { "+" } else { "−" };
-    format!("{sign}{:.1} ± {:.1}", r.elo.abs(), r.elo_error)
+}
+
+fn fmt_interval(r: &Reading) -> String {
+    format!("{} to {}", fmt_signed(r.lower), fmt_signed(r.upper))
 }
 
 fn fmt_los(los: f64) -> String {

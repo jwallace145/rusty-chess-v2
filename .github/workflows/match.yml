@@ -1,19 +1,22 @@
 name: Match
 
-# A head-to-head match between any two builds of the engine, started by hand.
-# The candidate plays the baseline from our openings, each opening from both
-# sides, at a time control or a fixed node budget, on one runner, and the
-# result is the candidate's Elo over the baseline with its 95% interval.
+# A head-to-head match between any two builds of the engine: candidate vs
+# baseline, each a tag, branch or SHA, at a time control or fixed nodes per
+# move, from our openings. A diagnostic, not a merge gate: it answers "how far
+# apart are these two" with an interval at a chosen confidence (99% by
+# default), computed from the pentanomial counts, and says how many games a
+# conclusive answer would take when this one is not.
 #
-# What it is for: questions an SPRT does not answer. "How much stronger is
-# v0.18.0 than v0.13.0 at a real clock?", "Does this change still help at 2M
-# nodes?", "Did the last three releases add up?" An SPRT asks whether one
-# change gains Elo and stops as soon as it knows; a match plays a fixed number
-# of games and measures the distance.
+# Where: by default on a dedicated 64-core c8a.16xlarge spot instance,
+# launched for the run and terminated after it, through jwall-engineering-infra's
+# remote-task workflow (its docs/remote-tasks.md), playing 60 games at once.
+# The work is ci/match-task.sh. `runner: github` plays on a GitHub-hosted
+# runner instead, `concurrency` games at once. Run it from `main`: the task
+# role trusts only main and pull requests.
 #
-# Both engines are built from source at their refs with the same flags, and
-# each is benched before the match so the report records exactly what played.
-# The tools, openings and settings come from this workflow's commit.
+# Choose the number of games before the run and let it finish: stopping a
+# fixed-length match early because it looks significant inflates the false
+# positives. The report says how many games would settle an inconclusive one.
 
 on:
   workflow_dispatch:
@@ -36,11 +39,12 @@ on:
       games:
         description: Games in total (even; each opening is played from both sides)
         required: false
-        default: "400"
-      concurrency:
-        description: Games at once (ubuntu-latest has 4 vCPUs)
-        required: false
-        default: "4"
+        default: "2000"
+      confidence:
+        description: Two-sided confidence of the reported interval
+        type: choice
+        options: ["99", "95", "99.9"]
+        default: "99"
       hash:
         description: Hash per engine, MB
         required: false
@@ -49,8 +53,17 @@ on:
         description: Why this match is being run (shown at the top of the report)
         required: false
         default: ""
+      runner:
+        description: Where to play
+        type: choice
+        options: [remote, github]
+        default: remote
+      concurrency:
+        description: Games at once on the GitHub-hosted runner (runner = github only; 4 vCPUs)
+        required: false
+        default: "4"
 
-run-name: "Match: ${{ inputs.candidate }} vs ${{ inputs.baseline }} at ${{ inputs.nodes != '' && format('{0} nodes', inputs.nodes) || inputs.tc }}"
+run-name: "Match: ${{ inputs.candidate }} vs ${{ inputs.baseline }} at ${{ inputs.nodes != '' && format('{0} nodes', inputs.nodes) || inputs.tc }}, ${{ inputs.games }} games"
 
 concurrency:
   group: match-${{ inputs.candidate }}-${{ inputs.baseline }}-${{ inputs.tc }}-${{ inputs.nodes }}
@@ -60,125 +73,117 @@ permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -C target-cpu=x86-64-v3
-  FASTCHESS_VERSION: v1.8.2-alpha
-  OPENINGS: tests/openings/openings.epd
 
 jobs:
-  match:
-    name: ${{ inputs.candidate }} vs ${{ inputs.baseline }}
+  resolve:
+    name: Resolve refs and check settings
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      args: ${{ steps.args.outputs.args }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Resolve both refs to commits
+        id: args
+        env:
+          CANDIDATE: ${{ inputs.candidate }}
+          BASELINE: ${{ inputs.baseline }}
+          TC: ${{ inputs.tc }}
+          NODES: ${{ inputs.nodes }}
+          GAMES: ${{ inputs.games }}
+          CONFIDENCE: ${{ inputs.confidence }}
+          HASH_MB: ${{ inputs.hash }}
+          NOTE: ${{ inputs.note }}
+          RUNNER: ${{ inputs.runner }}
+          CONCURRENCY: ${{ inputs.concurrency }}
+        run: |
+          resolve() { git rev-parse --verify --quiet "$1^{commit}" || git rev-parse --verify "origin/$1^{commit}"; }
+          cand=$(resolve "$CANDIDATE") base=$(resolve "$BASELINE")
+          echo "Candidate: $CANDIDATE at ${cand:0:7}"
+          echo "Baseline:  $BASELINE at ${base:0:7}"
+          # Validate the settings here, before an instance is launched.
+          [ "$RUNNER" = github ] && conc="$CONCURRENCY" || conc=60
+          cargo build --release --locked -q -p rusty-chess-tools --bin match-report
+          target/release/match-report args --tc "$TC" --nodes "$NODES" --games "$GAMES" --concurrency "$conc" \
+            --hash "$HASH_MB" --openings tests/openings/openings.epd --confidence "$CONFIDENCE" > /dev/null
+          [ "$RUNNER" = github ] && extra=(--concurrency "$CONCURRENCY") || extra=()
+          # One argument per line into a JSON array of single-line strings,
+          # as remote-task.yml wants; the note loses any newlines.
+          argv=(--candidate "$cand" --baseline "$base" --candidate-label "$CANDIDATE" --baseline-label "$BASELINE"
+            --tc "$TC" --nodes "$NODES" --games "$GAMES" --hash "$HASH_MB" --confidence "$CONFIDENCE"
+            --note "$(tr '\n' ' ' <<< "$NOTE" | sed 's/ *$//')" "${extra[@]}")
+          args=$(printf '%s\n' "${argv[@]}" | jq -R . | jq -cs .)
+          echo "Task arguments: $args"
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+
+  remote:
+    name: Play on a dedicated instance
+    needs: resolve
+    if: inputs.runner == 'remote'
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.13.0
+    with:
+      project: rusty-chess
+      script: ci/match-task.sh
+      args: ${{ needs.resolve.outputs.args }}
+      artifact: match
+    permissions:
+      contents: read
+      id-token: write # the task role, through OIDC
+
+  github:
+    name: Play on a GitHub-hosted runner
+    needs: resolve
+    if: inputs.runner == 'github'
     runs-on: ubuntu-latest
     timeout-minutes: 350
     permissions:
       contents: read
-    env:
-      CANDIDATE: ${{ inputs.candidate }}
-      BASELINE: ${{ inputs.baseline }}
-      TC: ${{ inputs.tc }}
-      NODES: ${{ inputs.nodes }}
-      GAMES: ${{ inputs.games }}
-      CONCURRENCY: ${{ inputs.concurrency }}
-      HASH_MB: ${{ inputs.hash }}
-      NOTE: ${{ inputs.note }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-
-      - name: Check the settings
-        # Fails here, in seconds, on a bad time control or an odd game count,
-        # before anything is built.
+      - name: Play
+        env:
+          ARGS: ${{ needs.resolve.outputs.args }}
         run: |
-          cargo build --release --locked -q -p rusty-chess-tools --bin match-report
-          set -- --tc "$TC" --nodes "$NODES" --games "$GAMES" --concurrency "$CONCURRENCY" --hash "$HASH_MB" --openings "$OPENINGS"
-          target/release/match-report args "$@" > fastchess-args.txt
-          echo "Candidate:   $CANDIDATE"
-          echo "Baseline:    $BASELINE"
-          echo "Limit:       ${NODES:+$NODES nodes per move}${NODES:-$TC}"
-          echo "Games:       $GAMES ($((GAMES / 2)) openings, each from both sides), $CONCURRENCY at once"
-          echo "Hash:        $HASH_MB MB per engine"
-          echo "Note:        ${NOTE:-none}"
-
-      - name: Build the candidate (${{ inputs.candidate }})
-        run: |
-          git fetch --no-tags --quiet origin "+refs/tags/*:refs/tags/*" "+refs/heads/*:refs/remotes/origin/*"
-          sha=$(git rev-parse --verify --quiet "$CANDIDATE^{commit}" || git rev-parse --verify "origin/$CANDIDATE^{commit}")
-          git worktree add --quiet --detach src-candidate "$sha"
-          cargo build --release --locked --quiet --manifest-path src-candidate/Cargo.toml --target-dir target/candidate
-          mkdir -p engines && cp target/candidate/release/rusty-chess engines/candidate
-          echo "CANDIDATE_SHA=$sha" >> "$GITHUB_ENV"
-          echo "Built $CANDIDATE at ${sha:0:7}: $(engines/candidate --version)"
-
-      - name: Build the baseline (${{ inputs.baseline }})
-        run: |
-          sha=$(git rev-parse --verify --quiet "$BASELINE^{commit}" || git rev-parse --verify "origin/$BASELINE^{commit}")
-          git worktree add --quiet --detach src-baseline "$sha"
-          cargo build --release --locked --quiet --manifest-path src-baseline/Cargo.toml --target-dir target/baseline
-          cp target/baseline/release/rusty-chess engines/baseline
-          echo "BASELINE_SHA=$sha" >> "$GITHUB_ENV"
-          echo "Built $BASELINE at ${sha:0:7}: $(engines/baseline --version)"
-
-      - name: Bench both engines (records exactly what plays)
-        run: |
-          # Each build's own default bench (depth 6 before v0.15.0, 10 after).
-          for side in candidate baseline; do
-            out=$(engines/$side bench)
-            sig=$(awk -F: '/Nodes searched/ {gsub(/ /, "", $2); print $2}' <<< "$out")
-            nps=$(awk -F: '/Nodes\/second/ {gsub(/ /, "", $2); print $2}' <<< "$out")
-            depth=$(awk -F: '/^Depth/ {gsub(/ /, "", $2); print $2}' <<< "$out")
-            echo "$side: bench signature $sig at depth $depth, $nps nodes/second on this runner"
-            echo "${side^^}_BENCH=$sig" >> "$GITHUB_ENV"
-          done
-          cpu=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)
-          echo "Runner CPU: $cpu"
-          echo "CPU=$cpu" >> "$GITHUB_ENV"
-
-      - name: Fetch fastchess ${{ env.FASTCHESS_VERSION }}
-        run: |
-          curl -sSL -o fastchess.tar "https://github.com/Disservin/fastchess/releases/download/${FASTCHESS_VERSION}/fastchess-linux-x86-64.tar"
-          mkdir -p fc && tar -xf fastchess.tar -C fc
-          FC=$(find fc -type f -perm -u+x -name 'fastchess*' | head -1)
-          echo "FC=$FC" >> "$GITHUB_ENV"
-          echo "fastchess at $FC, archive sha256 $(sha256sum fastchess.tar | cut -c1-16)…"
-
-      - name: Play ${{ inputs.games }} games
-        # The full game-by-game log is in the artifact; here, only the running
-        # results fastchess prints every 20 games, so progress is readable.
-        run: |
-          set +e
-          read -ra args < fastchess-args.txt
-          "$FC" -engine cmd=engines/candidate name=candidate -engine cmd=engines/baseline name=baseline \
-            "${args[@]}" -pgnout file=match.pgn > match.log 2>&1 &
-          pid=$!
-          shown=0
-          while kill -0 "$pid" 2>/dev/null; do
-            sleep 30
-            n=$(grep -c '^Results of' match.log)
-            if [ "$n" -gt "$shown" ]; then
-              shown=$n
-              awk '/^Results of/ {block=""} /^(Elo|LOS|Games):/ {block=block $0 "\n"} END {printf "%s", block}' match.log | sed 's/^/  /'
-              echo "  ---"
-            fi
-          done
-          wait "$pid"; code=$?
-          echo "fastchess exit $code"
-          exit $code
-
-      - name: Report
-        run: |
-          set -- --tc "$TC" --nodes "$NODES" --games "$GAMES" --concurrency "$CONCURRENCY" --hash "$HASH_MB" --openings "$OPENINGS"
-          target/release/match-report render "$@" --log match.log \
-            --candidate "$CANDIDATE" --candidate-sha "$CANDIDATE_SHA" --candidate-bench "$CANDIDATE_BENCH" \
-            --baseline "$BASELINE" --baseline-sha "$BASELINE_SHA" --baseline-bench "$BASELINE_BENCH" \
-            --cpu "$CPU" --fastchess "$FASTCHESS_VERSION" --note "$NOTE" > match.md
-          cat match.md >> "$GITHUB_STEP_SUMMARY"
-
+          mapfile -t argv < <(jq -r '.[]' <<< "$ARGS")
+          mkdir -p out
+          OUT_DIR=out ci/match-task.sh "${argv[@]}"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: match-${{ github.run_id }}
-          path: |
-            match.md
-            match.log
-            match.pgn
+          name: match
+          path: out
           if-no-files-found: warn
+
+  report:
+    name: Report
+    needs: [remote, github]
+    if: ${{ !cancelled() && (needs.remote.result != 'skipped' || needs.github.result != 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: match*
+      - name: Write the report to the run summary
+        env:
+          OUTCOME: ${{ needs.remote.outputs.outcome }}
+          AT: ${{ needs.remote.outputs.interrupted-at }}
+        run: |
+          case "$OUTCOME" in
+            interrupted) echo "⚠️ **Interrupted by spot reclamation** at ${AT:-an unknown time}. There is no result; re-run the match. The partial log is in the \`match-interrupted\` artifact." | tee -a "$GITHUB_STEP_SUMMARY"; exit 1 ;;
+            no-capacity) echo "⚠️ **No capacity** to launch the instance. There is no result; re-run later, or with \`runner: github\`." | tee -a "$GITHUB_STEP_SUMMARY"; exit 1 ;;
+          esac
+          if [ ! -f match/match.md ]; then
+            echo "The match produced no report; see the play job's log." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          cat match/match.md >> "$GITHUB_STEP_SUMMARY"
+          cat match/match.md

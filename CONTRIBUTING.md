@@ -132,7 +132,7 @@ A full run on GitHub-hosted runners took up to five hours (a clear gain resolves
 An SPRT asks one question about one change and stops as soon as it knows the answer. Some questions need a measurement instead: how much stronger is v0.18.0 than v0.13.0 at a real clock, does a change that passed at 200k nodes still help at 2M, did the last five releases add up. The `Match` workflow answers those. Run it from the Actions tab (**Match → Run workflow**) or from a terminal:
 
 ```sh
-gh workflow run Match -f candidate=v0.18.0 -f baseline=v0.13.0 -f tc=10+0.1 -f games=400 \
+gh workflow run Match -f candidate=v0.18.0 -f baseline=v0.13.0 -f tc=10+0.1 -f games=2000 \
   -f note="did Phase 4's fixed-node gains survive a clock?"
 gh workflow run Match -f candidate=main -f baseline=v0.18.0 -f nodes=2000000 -f games=200
 ```
@@ -143,14 +143,18 @@ gh workflow run Match -f candidate=main -f baseline=v0.18.0 -f nodes=2000000 -f 
 | `baseline` | | the engine it is judged against |
 | `tc` | `10+0.1` | seconds + increment per game, ignored when `nodes` is set |
 | `nodes` | blank | a fixed node budget per move instead of a clock |
-| `games` | `400` | even: each opening is played from both sides |
-| `concurrency` | `4` | games at once; `ubuntu-latest` has 4 vCPUs |
+| `games` | `2000` | even: each opening is played from both sides |
+| `confidence` | `99` | two-sided confidence of the interval: `95`, `99` or `99.9` |
 | `hash` | `64` | MB per engine |
 | `note` | | why the match is being run, shown at the top of the report |
+| `runner` | `remote` | `remote`: a dedicated 64-core `c8a.16xlarge` spot instance, 60 games at once; `github`: a GitHub-hosted runner |
+| `concurrency` | `4` | games at once on the GitHub-hosted runner only; the instance plays its physical cores less four |
 
-Both engines are built from source at their refs with the same flags and benched before playing, so the report records the commit and bench signature of exactly what played; the tools, openings and settings come from the workflow's commit. Bad settings fail the first step in seconds, before anything is built. The log shows the running result every 20 games; the report goes to the run's summary page, and the report, the full fastchess log and every game's PGN are attached as an artifact. The result is the candidate's Elo over the baseline with its 95% interval, read as stronger, weaker or no significant difference. Budget: 400 games at 10+0.1 take about an hour at concurrency 4; at 2M nodes per move, about ten times the fixed-node SPRT's per-game cost.
+Run it from `main`: the instance's AWS role trusts only `main` and pull requests. Refs are resolved to commits on GitHub, and `ci/match-task.sh` then fetches both commits on the instance, builds them at once with the same flags and benches them before playing, so the report records the commit and bench signature of exactly what played; the tools, openings and settings come from the workflow's commit. Bad settings fail the first job in seconds, before an instance is launched. The log shows the running result and games per minute every 30 seconds; the report goes to the run's summary page, and the report, the full fastchess log, every game's PGN and the timings are attached as the `match` artifact. A spot interruption is reported as one, with no result: re-run.
 
-A match is a measurement, not a merge gate. Shared runners vary in speed, so a timed match compares two engines on the same runner but its absolute numbers move between runs; for a decision about one change, use the SPRT.
+**Reading the result.** Games come in pairs from one opening with colours swapped, so the pair is the unit of evidence and its five possible scores (the pentanomial) give the variance. The report computes the candidate's Elo over the baseline and its interval at the chosen confidence from those counts, and reads it as stronger, weaker or no significant difference. At 99%, one match in a hundred shows a difference that isn't there; at 95%, one in twenty. The error shrinks with the square root of the games: at the draw rates we see, 2000 games give about ±14 Elo at 99%, 8000 about ±7. An inconclusive report says how many games would settle the difference it measured, and every report says how many ±5 Elo would take. Choose the number of games before the run and let it finish; stopping early because the result looks significant inflates the false positives. Re-running with more games is fine.
+
+A match is a measurement, not a merge gate. Both engines always share one machine, so the comparison is fair; absolute numbers at a clock depend on that machine's speed, which is why the instance is always the same type. For a decision about one change, use the SPRT.
 
 ## Strength estimate: the rating ladder
 

@@ -1,7 +1,7 @@
 //! `match-report`: settings and report for a head-to-head match.
 //!
 //! ```text
-//! match-report args   [--tc 10+0.1 | --nodes N] --games G --concurrency C --hash MB --openings FILE
+//! match-report args   [--tc 10+0.1 | --nodes N] --games G --concurrency C --hash MB --openings FILE [--confidence 95|99|99.9]
 //! match-report render [same settings] --log FILE --candidate REF --candidate-sha SHA [--candidate-bench N]
 //!                     --baseline REF --baseline-sha SHA [--baseline-bench N]
 //!                     --cpu MODEL --fastchess VERSION [--note TEXT]
@@ -16,6 +16,7 @@ use std::process::ExitCode;
 
 use rusty_chess_tools::matchup::{Meta, Settings, Side, fastchess_args, headline, render};
 use rusty_chess_tools::sprt::parse_match;
+use rusty_chess_tools::stats::Confidence;
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {
@@ -50,6 +51,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
     let mut cpu = "unknown".to_string();
     let mut fastchess = "unknown".to_string();
     let mut note = String::new();
+    let mut confidence = Confidence::P99;
     let num = |flag: &str, v: &str| -> Result<u64, String> {
         v.trim()
             .parse::<u64>()
@@ -76,10 +78,12 @@ fn run(args: Vec<String>) -> Result<(), String> {
             "--cpu" => cpu = value,
             "--fastchess" => fastchess = value,
             "--note" => note = value,
+            "--confidence" => confidence = Confidence::parse(&value)?,
             other => return Err(format!("unknown option `{other}`")),
         }
     }
-    let settings = Settings::new(&tc, nodes, games, concurrency, hash, &openings)?;
+    let settings =
+        Settings::new(&tc, nodes, games, concurrency, hash, &openings)?.with_confidence(confidence);
     match command.as_str() {
         "args" => {
             println!("{}", fastchess_args(&settings).join(" "));
@@ -100,7 +104,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
                 openings: count,
                 note,
             };
-            eprintln!("{}", headline(&result, &meta));
+            eprintln!("{}", headline(&result, &settings, &meta));
             print!("{}", render(&result, &settings, &meta));
             Ok(())
         }

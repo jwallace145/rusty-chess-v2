@@ -12,3 +12,4 @@ pub mod rating;
 pub mod report;
 pub mod speed;
 pub mod sprt;
+pub mod stats;
