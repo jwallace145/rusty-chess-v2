@@ -21,6 +21,25 @@ cargo run --release -p rusty-chess-tools --bin datagen-audit -- check /tmp/sampl
 # 5. Train only on a run whose audit says GO, or INVESTIGATE with every warning explained.
 ```
 
+**Build target.** `target-cpu` defaults to `native`: datagen is built on the
+instance for its own CPU. On the `c8a` (Zen 5) that's AVX-512 with VNNI, so
+the net's output uses `vpdpwssd`, which multiplies and adds in one instruction,
+on 512-bit registers. `x86-64-v3` is the portable AVX2 build the releases ship.
+The evaluation is exact integer arithmetic, so both targets play identical
+games; only the speed differs. The build line in the log lists the SIMD
+features it found.
+
+**Benchmark runs.** `upload: false` generates as usual but uploads nothing:
+each shard's manifest, with its records' SHA-256, goes to the task's artifact
+instead. Use it to measure a change to the generator's speed without adding to
+a generation. Two benchmark runs with the same `seed` and different
+`target-cpu` must produce identical checksums, shard for shard:
+
+```sh
+gh workflow run Datagen --ref main -f instances=1 -f minutes=5 -f upload=false -f seed=7 -f target-cpu=native
+gh workflow run Datagen --ref main -f instances=1 -f minutes=5 -f upload=false -f seed=7 -f target-cpu=x86-64-v3
+```
+
 ## Before a run
 
 1. **Settings.** Everything is in `datagen.toml`, and every shard's manifest
