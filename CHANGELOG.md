@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.26.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.25.0...v0.26.0) (2026-10-30)
+
+
+### Features
+
+* **eval:** add nnue inference with an incremental accumulator and the evalfile option ([#112](https://github.com/jwallace145/rusty-chess-v2/issues/112)) ([cccdc0e](https://github.com/jwallace145/rusty-chess-v2/commit/cccdc0e50e11603a2de0edb05f85cc25f92569c6))
+
+
+### Bug Fixes
+
+* **datagen:** upload shards in parallel batches so a 64-core instance never falls behind ([#110](https://github.com/jwallace145/rusty-chess-v2/issues/110)) ([3e3bdbd](https://github.com/jwallace145/rusty-chess-v2/commit/3e3bdbdca83d522411fecbdc75ea5f524d9a803a))
+
 ## [0.25.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.24.0...v0.25.0) (2026-10-30)
 
 
