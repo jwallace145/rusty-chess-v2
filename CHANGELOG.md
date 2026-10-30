@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.28.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.27.0...v0.28.0) (2026-10-30)
+
+
+### Features
+
+* **nnue:** embed net 1 and make it the default evaluation ([#122](https://github.com/jwallace145/rusty-chess-v2/issues/122)) ([97c6f36](https://github.com/jwallace145/rusty-chess-v2/commit/97c6f3696a512f7a6c26520b171df19c74b037d6))
+
+
+### Bug Fixes
+
+* **ci:** export CUDA_PATH for bullet's CUDA build on gpu tasks ([#119](https://github.com/jwallace145/rusty-chess-v2/issues/119)) ([1505e24](https://github.com/jwallace145/rusty-chess-v2/commit/1505e240ac1db45f0c55a74735e2762f0c7cde7f))
+
 ## [0.27.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.26.0...v0.27.0) (2026-10-30)
 
 
