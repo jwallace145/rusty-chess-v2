@@ -29,6 +29,10 @@ name = "openings"
 path = "src/bin/openings.rs"
 
 [[bin]]
+name = "datagen"
+path = "src/bin/datagen.rs"
+
+[[bin]]
 name = "speed-report"
 path = "src/bin/speed_report.rs"
 

@@ -1,0 +1,35 @@
+# Self-play training data for NNUE: the settings `datagen` plays with. One
+# file for every generation of nets, versioned with the engine that uses it;
+# a run records these values in every shard's manifest, so a dataset always
+# says how it was made. See docs/datagen.md for the layout and the formats.
+
+[datagen]
+# Which net generation plays: 0 is the hand-written PeSTO evaluation, n the
+# engine carrying net n. Raise it when a new net ships.
+generation = 0
+# Nodes per move. The search's score at this budget is the training label
+# (with the game's result); about depth 8-10 for this engine. More nodes give
+# better labels and fewer positions per hour.
+nodes = 5000
+# Random plies from the start position before the search plays (one more at
+# random, so both sides start to move equally often), for varied games.
+random_plies = 8
+# Replay an opening the search scores beyond this many centipawns.
+max_opening_cp = 400
+# Transposition table per worker, MB (one worker per core).
+hash_mb = 16
+# Positions per shard. A shard is written whole when it fills, so a spot
+# interruption loses at most the shard each worker has in progress: about a
+# minute of play at these settings.
+shard_positions = 25000
+# Win adjudication: this many consecutive plies at or beyond win_cp for the
+# same side.
+win_plies = 4
+win_cp = 2000
+# Draw adjudication: from this game ply on, this many consecutive plies
+# within draw_cp of zero.
+draw_after_ply = 80
+draw_plies = 12
+draw_cp = 10
+# A game that reaches this many plies is a draw.
+max_plies = 400

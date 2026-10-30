@@ -3,6 +3,7 @@
 //! generator, the SPRT report, and (later) data generation for NNUE training.
 #![warn(missing_docs)]
 
+pub mod datagen;
 pub mod gate;
 pub mod history;
 pub mod matchup;
