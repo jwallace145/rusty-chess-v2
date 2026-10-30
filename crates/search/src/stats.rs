@@ -136,6 +136,8 @@ pub struct SearchStats {
     pub lmp_checks_kept: u64,
     /// Aspiration windows that failed and were re-searched wider.
     pub aspiration_researches: u64,
+    /// Nodes searched one ply shallower for having no table move.
+    pub iir_reductions: u64,
 }
 
 #[cfg(feature = "stats")]
@@ -164,6 +166,7 @@ impl Default for SearchStats {
             qtt_cutoffs: 0,
             lmp_checks_kept: 0,
             aspiration_researches: 0,
+            iir_reductions: 0,
         }
     }
 }
@@ -207,6 +210,7 @@ impl SearchStats {
             qtt_cutoffs: self.qtt_cutoffs,
             lmp_checks_kept: self.lmp_checks_kept,
             aspiration_researches: self.aspiration_researches,
+            iir_reductions: self.iir_reductions,
         })
     }
 }
@@ -293,6 +297,9 @@ pub struct StatsSummary {
     /// Aspiration windows re-searched wider. Absent in records written before it existed.
     #[serde(default)]
     pub aspiration_researches: u64,
+    /// Internal iterative reductions. Absent in records written before it existed.
+    #[serde(default)]
+    pub iir_reductions: u64,
 }
 
 /// Effective branching factor between two consecutive iterations of

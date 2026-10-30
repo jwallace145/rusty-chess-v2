@@ -69,6 +69,9 @@ const FP_MAX_DEPTH: u32 = 6;
 const FP_BASE: i32 = 100;
 const FP_MARGIN: i32 = 100;
 
+/// Internal iterative reductions apply from this depth.
+const IIR_MIN_DEPTH: u32 = 4;
+
 /// Late move pruning applies up to this depth.
 const LMP_MAX_DEPTH: u32 = 4;
 
@@ -520,6 +523,19 @@ impl Searcher {
                 return if is_mate_score(score) { beta } else { score };
             }
         }
+
+        // Internal iterative reductions: a node with no table move has not
+        // been searched before, or its entry was overwritten, so its move
+        // ordering starts blind. Search it one ply shallower: cheap, and it
+        // leaves a table move for the next iteration's deeper visit, which is
+        // the one that matters. Never at the root, which always has a move
+        // from the previous iteration.
+        let depth = if ply > 0 && tt_move == Move::NULL && depth >= IIR_MIN_DEPTH {
+            stat!(self.stats, iir_reductions);
+            depth - 1
+        } else {
+            depth
+        };
 
         // What led here: the opponent's move one ply back and our own two
         // plies back, for the continuation tables.

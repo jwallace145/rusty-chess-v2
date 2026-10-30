@@ -123,7 +123,7 @@ The standard techniques the engine still lacks, each worth 10–40 Elo and all o
 - [ ] SEE pruning in the main search: bad captures and losing quiets skipped at shallow depth
 - [ ] The improving heuristic (static evaluation against two plies ago) driving the reverse futility and late move pruning margins
 - [ ] Singular extensions
-- [ ] Internal iterative reductions at nodes without a table move
+- [ ] Internal iterative reductions at nodes without a table move: below the root, from depth 4, a node with no table move is searched one ply shallower (`iir_reductions`). Depth-10 bench on top of futility pruning: signature 1717816 → 1416355 (−17.5%), fail-high-first 0.906 → 0.899, time to depth about 18% lower. An early read against v0.19.0 (without futility pruning) on the dedicated instances: +28.2 ± 14.8 timed, H1 (#90); the gating SPRT, against v0.20.0, pending (#89)
 - [ ] History-adjusted late move reductions and reduction tuning
 - [ ] Pondering (`go ponder`, `ponderhit`), for Lichess, where the opponent's clock is free time
 - [ ] **Exit:** the list exhausted (each item kept on H1 or dropped on record); the ladder reads about 2800; then Phase 6
