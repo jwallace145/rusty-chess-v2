@@ -22,7 +22,7 @@ use std::time::Duration;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::Network;
+use rusty_chess_search::nnue::{Network, default_network};
 use rusty_chess_search::search::{DEFAULT_HASH_MB, Limits, Searcher, mate_in};
 use rusty_chess_search::telemetry::IterRecord;
 
@@ -52,7 +52,7 @@ where
                     "option name Move Overhead type spin default {DEFAULT_MOVE_OVERHEAD_MS} min 0 max 5000"
                 )?;
                 writeln!(o, "option name Ponder type check default false")?;
-                writeln!(o, "option name EvalFile type string default <empty>")?;
+                writeln!(o, "option name EvalFile type string default <default>")?;
                 writeln!(o, "uciok")?;
             }
             Some("isready") => writeln!(out.lock().unwrap(), "readyok")?,
@@ -111,7 +111,7 @@ struct Engine<W: Write + Send + 'static> {
     bounded_after_hit: bool,
     /// Time kept back per move for the GUI and the pipe (`Move Overhead`).
     move_overhead: Duration,
-    /// The NNUE network from `EvalFile`; PeSTO when `None`.
+    /// The NNUE network: the embedded one, or `EvalFile`'s; PeSTO when `None`.
     net: Option<Arc<Network>>,
 }
 
@@ -121,8 +121,11 @@ const DEFAULT_MOVE_OVERHEAD_MS: u64 = 10;
 
 impl<W: Write + Send + 'static> Engine<W> {
     fn new(out: Arc<Mutex<W>>) -> Self {
+        let net = Some(default_network());
+        let mut board = Board::from_position(Position::startpos());
+        board.set_network(net.clone());
         Engine {
-            board: Board::from_position(Position::startpos()),
+            board,
             out,
             stop_flag: Arc::new(AtomicBool::new(false)),
             searcher: Some(Searcher::new(Arc::new(AtomicBool::new(false)))),
@@ -131,7 +134,7 @@ impl<W: Write + Send + 'static> Engine<W> {
             ponder: None,
             bounded_after_hit: false,
             move_overhead: Duration::from_millis(DEFAULT_MOVE_OVERHEAD_MS),
-            net: None,
+            net,
         }
     }
 
@@ -198,10 +201,14 @@ impl<W: Write + Send + 'static> Engine<W> {
                     "info string Hash must be 1..4096 MB, got {v}"
                 )?,
             },
-            // A network file, or `<empty>` for the hand-written evaluation.
+            // A network file; `<default>` (or empty) for the embedded net,
+            // `pesto` for the hand-written evaluation.
             (Some("EvalFile"), _) => {
-                let path = value.unwrap_or("<empty>");
-                if path == "<empty>" || path.is_empty() {
+                let path = value.unwrap_or("<default>");
+                if matches!(path, "<default>" | "<empty>" | "") {
+                    self.net = Some(default_network());
+                    self.board.set_network(self.net.clone());
+                } else if path.eq_ignore_ascii_case("pesto") {
                     self.net = None;
                     self.board.set_network(None);
                 } else {
@@ -494,7 +501,7 @@ mod tests {
             good.display()
         ));
         assert!(
-            out.contains("option name EvalFile type string default <empty>"),
+            out.contains("option name EvalFile type string default <default>"),
             "{out}"
         );
         assert!(out.contains("short.nnue: a 768"), "{out}");

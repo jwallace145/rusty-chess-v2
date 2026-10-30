@@ -14,7 +14,7 @@ use std::time::Instant;
 
 use rusty_chess_core::position::Position;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::Network;
+use rusty_chess_search::nnue::{DEFAULT_NET_ID, Network, default_network};
 use rusty_chess_search::search::{Limits, Searcher};
 use rusty_chess_search::telemetry::{
     BenchRecord, JsonlWriter, Record, SCHEMA_VERSION, SummaryRecord,
@@ -36,6 +36,14 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         ..Limits::default()
     };
     let net = match &args.eval_file {
+        None => {
+            writeln!(out, "Evaluating with the embedded network {DEFAULT_NET_ID}")?;
+            Some(default_network())
+        }
+        Some(path) if path.as_os_str().eq_ignore_ascii_case("pesto") => {
+            writeln!(out, "Evaluating with PeSTO")?;
+            None
+        }
         Some(path) => {
             let bytes = std::fs::read(path)?;
             let net = Network::from_bytes(&bytes).map_err(|e| {
@@ -47,7 +55,6 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
             writeln!(out, "Evaluating with the network {}", path.display())?;
             Some(Arc::new(net))
         }
-        None => None,
     };
     let mut searcher = Searcher::new(Arc::new(AtomicBool::new(false)));
     searcher.set_hash_mb(args.hash_mb as usize);

@@ -38,6 +38,7 @@ use rusty_chess_core::movegen::MoveList;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::{Color, PieceKind};
 use rusty_chess_search::board::Board;
+use rusty_chess_search::nnue::Network;
 use rusty_chess_search::search::{Limits, MATE_BOUND, Searcher, is_mate_score};
 use serde::Deserialize;
 use serde_json::Value;
@@ -100,6 +101,21 @@ fn load(dir: &Path) -> Vec<Shard> {
             }
         })
         .collect()
+}
+
+/// The network the dataset's games were played with, from the manifests'
+/// generation: re-searches must evaluate as the games did.
+fn dataset_net(shards: &[Shard]) -> Option<Arc<Network>> {
+    let generation = &shards[0].manifest["settings"]["generation"];
+    assert!(
+        shards
+            .iter()
+            .all(|s| &s.manifest["settings"]["generation"] == generation),
+        "the shards mix generations; audit one at a time"
+    );
+    let settings: rusty_chess_tools::datagen::Settings =
+        serde_json::from_value(shards[0].manifest["settings"].clone()).unwrap();
+    settings.network()
 }
 
 /// The P1 quality bars, from `[audit]` in `datagen.toml`.
@@ -826,6 +842,7 @@ fn research(dir: &Path, n: usize) -> (f64, f64, f64) {
     rusty_chess_core::attacks::init();
     let shards = load(dir);
     let nodes = shards[0].manifest["settings"]["nodes"].as_u64().unwrap();
+    let net = dataset_net(&shards);
     let mut recs: Vec<(String, i32)> = Vec::new();
     for sh in &shards {
         for (i, l) in sh.positions.iter().enumerate() {
@@ -847,6 +864,7 @@ fn research(dir: &Path, n: usize) -> (f64, f64, f64) {
         let pos = Position::from_fen(fen).unwrap();
         s.clear_hash();
         let mut b = Board::from_position(pos.clone());
+        b.set_network(net.clone());
         let r = s.search(
             &mut b,
             &Limits {
@@ -1326,6 +1344,8 @@ fn outcomes(dir: &Path) {
 fn adjudication(dir: &Path, n: usize) {
     rusty_chess_core::attacks::init();
     let shards = load(dir);
+    let dataset = dataset_net(&shards);
+    let net = &dataset;
     let games: Vec<&Value> = shards
         .iter()
         .flat_map(|s| s.games.iter())
@@ -1348,6 +1368,7 @@ fn adjudication(dir: &Path, n: usize) {
                     for g in chunk {
                         let adj = g["result"].as_f64().unwrap();
                         let mut b = replay_game(g, |_, _, _| {});
+                        b.set_network(net.clone());
                         // The adjudication fired on the search before the last move;
                         // the final board is after it. Deep search there.
                         s.clear_hash();
@@ -1475,6 +1496,8 @@ fn adjudication(dir: &Path, n: usize) {
 fn repetition(dir: &Path, n: usize) {
     rusty_chess_core::attacks::init();
     let shards = load(dir);
+    let dataset = dataset_net(&shards);
+    let net = &dataset;
     let games: Vec<&Value> = shards
         .iter()
         .flat_map(|s| s.games.iter())
@@ -1527,6 +1550,7 @@ fn repetition(dir: &Path, n: usize) {
                         let last = moves.len() - 1;
                         let start = Position::from_fen(g["start_fen"].as_str().unwrap()).unwrap();
                         let mut b = Board::from_position(start);
+                        b.set_network(net.clone());
                         for m in &moves[..last] {
                             let mv = b.position().parse_uci_move(m.as_str().unwrap()).unwrap();
                             b.make_move(mv);
