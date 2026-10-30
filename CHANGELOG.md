@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.21.0...v0.22.0) (2026-10-30)
+
+
+### Features
+
+* **search:** skip quiet moves that lose material by static exchange at shallow depth ([#93](https://github.com/jwallace145/rusty-chess-v2/issues/93)) ([2e2fc69](https://github.com/jwallace145/rusty-chess-v2/commit/2e2fc6926e941100b8c9e97c20295e4abcde1474))
+
 ## [0.21.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.20.0...v0.21.0) (2026-10-30)
 
 
