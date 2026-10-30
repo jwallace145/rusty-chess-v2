@@ -23,7 +23,7 @@ check() {  # check NAME EXPECTED(ok|denied) COMMAND...
     pass=$((pass + 1)); echo "PASS $name: $got (expected $want)" | tee -a "$summary"
   else
     fail=$((fail + 1)); echo "FAIL $name: $got (expected $want)" | tee -a "$summary"
-    sed 's/^/    /' "$scratch/check.out" | head -5
+    tail -n 30 "$scratch/check.out" | sed 's/^/    /'
   fi
 }
 
@@ -57,10 +57,15 @@ check "a CUDA kernel compiles with nvcc" ok nvcc -O2 -o "$scratch/add" "$scratch
 check "the kernel runs and adds correctly" ok "$scratch/add"
 
 echo "== bullet's CUDA backend builds the trainer"
+# bullet's build script needs CUDA_PATH; the image puts nvcc on PATH but doesn't export it.
+CUDA_PATH=${CUDA_PATH:-$(dirname "$(dirname "$(readlink -f "$(command -v nvcc)")")")}
+export CUDA_PATH
+echo "CUDA_PATH=$CUDA_PATH" | tee -a "$summary"
 start=$(date +%s)
 check "cargo build trainer --features cuda" ok \
   env CARGO_TARGET_DIR="$scratch/trainer-target" cargo build --release --locked --manifest-path trainer/Cargo.toml --features cuda
 echo "   (build took $(( $(date +%s) - start ))s)" | tee -a "$summary"
+cp "$scratch/check.out" "$OUT_DIR/trainer-build.log"
 
 echo "== dataset grants"
 one=$(aws s3 ls "$bucket/data/selfplay/v1/gen=0/run=20261030-41007876197-1/task=t1/manifests/" | awk 'NR == 1 {print $4}')
