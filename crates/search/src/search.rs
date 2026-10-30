@@ -104,6 +104,15 @@ const LMR_MIN_INDEX: usize = 2;
 /// Late move reductions need at least this much depth.
 const LMR_MIN_DEPTH: u32 = 3;
 
+/// History points per ply of late-move-reduction adjustment: a quiet move's
+/// combined history (butterfly plus both continuation tables) moves its
+/// reduction by one ply per this many points, less for a move that has been
+/// cutting off, more for one that has not. Our bonus is depth squared capped
+/// at 1,200, so typical scores are hundreds to a few thousand: 8,192, common
+/// in engines with larger bonuses, changed almost nothing on the bench, and
+/// 512 took fail-high-first close to its bar.
+const LMR_HISTORY_DIVISOR: i32 = 1_024;
+
 /// The reduction table, `[depth][move index]`, in plies: grows with the log
 /// of both, so deep searches of late moves are cut the most.
 static LMR_TABLE: std::sync::LazyLock<[[u8; 64]; 64]> = std::sync::LazyLock::new(|| {
@@ -695,6 +704,13 @@ impl Searcher {
                 index += 1;
                 continue;
             }
+            // The quiet move's history, read before the move is made, for the
+            // late move reduction below.
+            let history = if quiet {
+                self.quiet_score(board.position(), prev1, prev2, m)
+            } else {
+                0
+            };
             self.moved[ply] = PieceTo::of(board.position(), m);
             let undo = board.make_move(m);
             let new_depth = depth - 1 + if m == tt_move { singular_extension } else { 0 };
@@ -716,7 +732,11 @@ impl Searcher {
                     && !in_check
                     && !board.position().in_check()
                 {
-                    lmr_reduction(depth, index)
+                    // Adjusted by history: one ply less per divisor of good
+                    // history, one more per divisor of bad, never below zero
+                    // or past the depth left.
+                    (lmr_reduction(depth, index) as i32 - history / LMR_HISTORY_DIVISOR)
+                        .clamp(0, new_depth as i32) as u32
                 } else {
                     0
                 };
