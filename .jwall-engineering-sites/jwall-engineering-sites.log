@@ -1,0 +1,8 @@
+2026-10-30 01:08:50,098 DEBUG   jwall-engineering-sites 0.15.0, config /private/tmp/claude-501/-Users-jimmywallace-Projects-chess-rusty-chess-v2/e32adbcb-fa66-4dc9-93c6-5274c9818847/scratchpad/infra/config.yaml
+2026-10-30 01:08:50,101 DEBUG   project rusty-chess (bot), state key project=rusty-chess/env=prod/rusty-chess-prod.tfstate
+2026-10-30 01:08:50,101 INFO    == validate
+2026-10-30 01:08:50,101 DEBUG   phase validate started
+2026-10-30 01:08:50,101 INFO    project file ok: project rusty-chess, kind bot, image jwall-engineering-rusty-chess, instance jwall-engineering-rusty-chess-bot
+2026-10-30 01:08:50,101 INFO    derived: state key project=rusty-chess/env=prod/rusty-chess-prod.tfstate
+2026-10-30 01:08:50,102 DEBUG   phase validate finished
+2026-10-30 01:08:50,102 ERROR   bot stack not found at stacks/bot

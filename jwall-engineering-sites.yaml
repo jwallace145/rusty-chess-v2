@@ -63,6 +63,25 @@ components:
     slot_wait_minutes: 30
     results_days: 7                 # task outputs expire from S3 after this
     log_retention_days: 14
+    # GPU tasks (NNUE training, ci/train-task.sh): their own instance types,
+    # image, budget and dataset grants; CPU tasks (SPRT, Match, Datagen) keep
+    # the fields above as the default `cpu` profile. Exactly these values: the
+    # tool's foundation registers this profile, and the launch role allows
+    # nothing else. Contract: jwall-engineering-infra's docs/remote-tasks.md,
+    # "Task profiles: GPU tasks".
+    profiles:
+      gpu:
+        instance_types: [g6.xlarge, g6.2xlarge, g6e.xlarge]  # NVIDIA L4, L4, L40S
+        default_instance_type: g6.xlarge  # 4 vCPUs; the account's G and VT quota (5) fits one
+        market: on-demand           # G and VT spot quota is 0
+        max_hours: 6
+        max_vcpus: 4                # the gpu profile's own budget; never waits on SPRTs
+        image: deep-learning-gpu    # pinned in the tool's config.yaml: NVIDIA driver + CUDA
+        root_volume_gb: 200         # gp3; SCRATCH_DIR lives on it
+        whole_cores: false          # G types run two threads per core
+        gpu: true                   # setup waits for nvidia-smi; env block records GPU/driver/CUDA
+        datasets:
+          nnue: { read: [selfplay/], write: [nets/] }  # data/selfplay/* in, data/nets/* out
 
   # NNUE training data: a kept-forever, append-only S3 bucket. Task instances
   # (ci/datagen-task.sh) may add objects under the prefix, never read or
