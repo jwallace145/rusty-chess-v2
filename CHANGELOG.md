@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.23.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.22.0...v0.23.0) (2026-10-30)
+
+
+### Features
+
+* **search:** extend singular table moves a ply and cut nodes where several moves clear beta ([#99](https://github.com/jwallace145/rusty-chess-v2/issues/99)) ([86e9e97](https://github.com/jwallace145/rusty-chess-v2/commit/86e9e97c902f99dc98fee83db72eaf301586d4f9))
+
+
+### Documentation
+
+* record phase 4b results and drop the improving heuristic until nnue ([#98](https://github.com/jwallace145/rusty-chess-v2/issues/98)) ([e75f760](https://github.com/jwallace145/rusty-chess-v2/commit/e75f76072c58c064c3ea293f3c279fe306834089))
+
 ## [0.22.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.21.0...v0.22.0) (2026-10-30)
 
 
