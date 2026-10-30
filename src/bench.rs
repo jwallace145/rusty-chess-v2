@@ -14,6 +14,7 @@ use std::time::Instant;
 
 use rusty_chess_core::position::Position;
 use rusty_chess_search::board::Board;
+use rusty_chess_search::nnue::Network;
 use rusty_chess_search::search::{Limits, Searcher};
 use rusty_chess_search::telemetry::{
     BenchRecord, JsonlWriter, Record, SCHEMA_VERSION, SummaryRecord,
@@ -34,6 +35,20 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         depth: Some(args.depth),
         ..Limits::default()
     };
+    let net = match &args.eval_file {
+        Some(path) => {
+            let bytes = std::fs::read(path)?;
+            let net = Network::from_bytes(&bytes).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("{}: {e}", path.display()),
+                )
+            })?;
+            writeln!(out, "Evaluating with the network {}", path.display())?;
+            Some(Arc::new(net))
+        }
+        None => None,
+    };
     let mut searcher = Searcher::new(Arc::new(AtomicBool::new(false)));
     searcher.set_hash_mb(args.hash_mb as usize);
     let mut total_nodes = 0u64;
@@ -43,6 +58,7 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         let position = Position::from_fen(fen)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
         let mut board = Board::from_position(position);
+        board.set_network(net.clone());
         searcher.clear_hash(); // every position is searched cold, so the signature is reproducible
         let mut iterations = Vec::new();
         let result = searcher.search(&mut board, &limits, &mut |it| {

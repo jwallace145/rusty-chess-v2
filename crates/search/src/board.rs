@@ -1,16 +1,25 @@
 //! The search's view of a position: the [`Position`] itself, the evaluation
 //! terms kept up to date through make and unmake, and the Zobrist keys of
-//! the positions on the way here for repetition detection. Nothing here
-//! allocates after construction.
+//! the positions on the way here for repetition detection. With a network
+//! set, also a stack of NNUE accumulators, one entry per ply, pushed by make
+//! and popped by unmake. Nothing here allocates after construction.
 
 use rusty_chess_core::r#move::{Move, MoveFlag};
 use rusty_chess_core::position::{NullUndo, Position, Undo};
 use rusty_chess_core::types::{Color, PieceKind, Square};
 
+use std::sync::Arc;
+
 use crate::eval::Eval;
+use crate::nnue::{Accumulator, Network, feature};
+use crate::stats::MAX_PLY;
 
 /// Game history plus search depth; a game of 400 moves is 800 keys.
 const MAX_HISTORY: usize = 2048;
+
+/// NNUE accumulator entries: a search never goes deeper than `MAX_PLY`
+/// from its root, where the stack is compacted (`set_root`).
+const NNUE_STACK: usize = MAX_PLY + 8;
 
 /// A position with its evaluation and key history.
 #[derive(Clone)]
@@ -20,6 +29,16 @@ pub struct Board {
     keys: [u64; MAX_HISTORY],
     len: usize,
     root: usize,
+    nnue: Option<Nnue>,
+}
+
+/// The network and the accumulators of the current line.
+#[derive(Clone)]
+struct Nnue {
+    net: Arc<Network>,
+    /// `[white's perspective, black's]` per ply; `top` is the current one.
+    stack: Box<[[Accumulator; 2]]>,
+    top: usize,
 }
 
 impl Board {
@@ -39,6 +58,55 @@ impl Board {
             keys,
             len: 1,
             root: 0,
+            nnue: None,
+        }
+    }
+
+    /// Evaluate with `net` from now on (the accumulators are computed from
+    /// scratch), or with the hand-written evaluation when `None`.
+    pub fn set_network(&mut self, net: Option<Arc<Network>>) {
+        self.nnue = net.map(|net| {
+            let mut stack =
+                vec![[Accumulator([0; crate::nnue::HIDDEN]); 2]; NNUE_STACK].into_boxed_slice();
+            stack[0] = [
+                net.refresh(&self.pos, Color::White),
+                net.refresh(&self.pos, Color::Black),
+            ];
+            Nnue { net, stack, top: 0 }
+        });
+    }
+
+    /// Whether a network evaluates this board.
+    pub fn has_network(&self) -> bool {
+        self.nnue.is_some()
+    }
+
+    /// The current accumulators, `[white's perspective, black's]`, when a
+    /// network is set (for tests).
+    pub fn accumulators(&self) -> Option<[Accumulator; 2]> {
+        self.nnue.as_ref().map(|n| n.stack[n.top])
+    }
+
+    /// Put a piece on a square in the evaluation terms and, with a network,
+    /// in the current accumulators.
+    #[inline]
+    fn piece_on(&mut self, color: Color, kind: PieceKind, sq: Square) {
+        self.eval.add(color, kind, sq);
+        if let Some(n) = &mut self.nnue {
+            let [w, b] = &mut n.stack[n.top];
+            w.add(&n.net, feature(Color::White, color, kind, sq));
+            b.add(&n.net, feature(Color::Black, color, kind, sq));
+        }
+    }
+
+    /// Take a piece off a square, as `piece_on` puts one on.
+    #[inline]
+    fn piece_off(&mut self, color: Color, kind: PieceKind, sq: Square) {
+        self.eval.remove(color, kind, sq);
+        if let Some(n) = &mut self.nnue {
+            let [w, b] = &mut n.stack[n.top];
+            w.sub(&n.net, feature(Color::White, color, kind, sq));
+            b.sub(&n.net, feature(Color::Black, color, kind, sq));
         }
     }
 
@@ -54,9 +122,18 @@ impl Board {
         self.eval
     }
 
-    /// The tapered evaluation from the side to move's point of view.
+    /// The evaluation from the side to move's point of view: the network's
+    /// when one is set, the tapered hand-written one otherwise.
     #[inline]
     pub fn evaluate(&self) -> i32 {
+        if let Some(n) = &self.nnue {
+            let [w, b] = &n.stack[n.top];
+            return if self.pos.side_to_move() == Color::White {
+                n.net.evaluate(w, b)
+            } else {
+                n.net.evaluate(b, w)
+            };
+        }
         let white = self.eval.taper();
         if self.pos.side_to_move() == Color::White {
             white
@@ -70,6 +147,12 @@ impl Board {
     #[inline]
     pub fn set_root(&mut self) {
         self.root = self.len - 1;
+        // The search starts from the bottom of the accumulator stack, so it
+        // can go MAX_PLY deep whatever the game's length.
+        if let Some(n) = &mut self.nnue {
+            n.stack[0] = n.stack[n.top];
+            n.top = 0;
+        }
     }
 
     /// Plies played since the root.
@@ -111,6 +194,17 @@ impl Board {
             .piece_at(from)
             .expect("moving from an empty square");
         let undo = self.pos.make_move(m);
+        if let Some(n) = &mut self.nnue {
+            // Push a copy for the updates below. Outside a search (a long game
+            // played move by move) the stack can fill; it then restarts from
+            // the bottom, which is safe because a game is never unmade there.
+            if n.top + 1 == n.stack.len() {
+                n.stack[0] = n.stack[n.top];
+                n.top = 0;
+            }
+            n.stack[n.top + 1] = n.stack[n.top];
+            n.top += 1;
+        }
 
         if let Some(captured) = undo.captured() {
             let cap_sq = if flag == MoveFlag::EnPassant {
@@ -119,14 +213,14 @@ impl Board {
             } else {
                 to
             };
-            self.eval.remove(captured.color, captured.kind, cap_sq);
+            self.piece_off(captured.color, captured.kind, cap_sq);
         }
-        self.eval.remove(us, piece.kind, from);
-        self.eval.add(us, m.promotion().unwrap_or(piece.kind), to);
+        self.piece_off(us, piece.kind, from);
+        self.piece_on(us, m.promotion().unwrap_or(piece.kind), to);
         if m.is_castle() {
             let (rook_from, rook_to) = rook_squares(to);
-            self.eval.remove(us, PieceKind::Rook, rook_from);
-            self.eval.add(us, PieceKind::Rook, rook_to);
+            self.piece_off(us, PieceKind::Rook, rook_from);
+            self.piece_on(us, PieceKind::Rook, rook_to);
         }
 
         debug_assert!(self.len < MAX_HISTORY, "game too long for the key history");
@@ -153,6 +247,10 @@ impl Board {
     /// Take back `m`.
     pub fn unmake_move(&mut self, m: Move, undo: Undo) {
         self.len -= 1;
+        if let Some(n) = &mut self.nnue {
+            debug_assert!(n.top > 0, "unmake past the accumulator stack's bottom");
+            n.top -= 1;
+        }
         self.pos.unmake_move(m, undo);
         let us = self.pos.side_to_move();
         let (from, to, flag) = (m.from(), m.to(), m.flag());

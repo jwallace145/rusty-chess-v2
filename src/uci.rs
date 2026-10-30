@@ -22,6 +22,7 @@ use std::time::Duration;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
+use rusty_chess_search::nnue::Network;
 use rusty_chess_search::search::{DEFAULT_HASH_MB, Limits, Searcher, mate_in};
 use rusty_chess_search::telemetry::IterRecord;
 
@@ -51,12 +52,14 @@ where
                     "option name Move Overhead type spin default {DEFAULT_MOVE_OVERHEAD_MS} min 0 max 5000"
                 )?;
                 writeln!(o, "option name Ponder type check default false")?;
+                writeln!(o, "option name EvalFile type string default <empty>")?;
                 writeln!(o, "uciok")?;
             }
             Some("isready") => writeln!(out.lock().unwrap(), "readyok")?,
             Some("ucinewgame") => {
                 engine.stop();
                 engine.board = Board::from_position(Position::startpos());
+                engine.board.set_network(engine.net.clone());
                 engine.searcher_mut().clear_hash();
             }
             Some("setoption") => {
@@ -108,6 +111,8 @@ struct Engine<W: Write + Send + 'static> {
     bounded_after_hit: bool,
     /// Time kept back per move for the GUI and the pipe (`Move Overhead`).
     move_overhead: Duration,
+    /// The NNUE network from `EvalFile`; PeSTO when `None`.
+    net: Option<Arc<Network>>,
 }
 
 /// The default `Move Overhead`, in milliseconds. Enough for a local GUI;
@@ -126,6 +131,7 @@ impl<W: Write + Send + 'static> Engine<W> {
             ponder: None,
             bounded_after_hit: false,
             move_overhead: Duration::from_millis(DEFAULT_MOVE_OVERHEAD_MS),
+            net: None,
         }
     }
 
@@ -192,6 +198,31 @@ impl<W: Write + Send + 'static> Engine<W> {
                     "info string Hash must be 1..4096 MB, got {v}"
                 )?,
             },
+            // A network file, or `<empty>` for the hand-written evaluation.
+            (Some("EvalFile"), _) => {
+                let path = value.unwrap_or("<empty>");
+                if path == "<empty>" || path.is_empty() {
+                    self.net = None;
+                    self.board.set_network(None);
+                } else {
+                    match std::fs::read(path)
+                        .map_err(|e| e.to_string())
+                        .and_then(|b| Network::from_bytes(&b))
+                    {
+                        Ok(net) => {
+                            self.net = Some(Arc::new(net));
+                            self.board.set_network(self.net.clone());
+                            writeln!(
+                                self.out.lock().unwrap(),
+                                "info string EvalFile {path} loaded"
+                            )?;
+                        }
+                        Err(e) => {
+                            writeln!(self.out.lock().unwrap(), "info string EvalFile {path}: {e}")?
+                        }
+                    }
+                }
+            }
             // The GUI says whether it will send `go ponder`; nothing to set.
             (Some("Ponder"), Some("true" | "false")) => {}
             (Some("Move Overhead"), Some(v)) => match v.parse::<u64>() {
@@ -226,6 +257,7 @@ impl<W: Write + Send + 'static> Engine<W> {
             _ => return Ok(()),
         };
         self.board = Board::from_position(position);
+        self.board.set_network(self.net.clone());
         for word in words {
             if word == "moves" {
                 continue;
@@ -444,6 +476,31 @@ mod tests {
     fn stop_ends_a_pondering_search_with_one_bestmove() {
         let out = drive("position startpos\ngo ponder wtime 60000 btime 60000\nstop\nisready\n");
         assert_eq!(bestmoves(&out).len(), 1, "{out}");
+    }
+
+    #[test]
+    fn eval_file_loads_a_network_and_reports_a_bad_one() {
+        use rusty_chess_search::nnue::FILE_BYTES;
+        let dir = std::env::temp_dir().join(format!("uci-evalfile-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // An all-zero network of the right size: legal, if not very good.
+        let good = dir.join("zero.nnue");
+        std::fs::write(&good, vec![0u8; FILE_BYTES]).unwrap();
+        let bad = dir.join("short.nnue");
+        std::fs::write(&bad, vec![0u8; 10]).unwrap();
+        let out = drive(&format!(
+            "uci\nsetoption name EvalFile value {}\nsetoption name EvalFile value {}\nposition startpos\ngo depth 3\n",
+            bad.display(),
+            good.display()
+        ));
+        assert!(
+            out.contains("option name EvalFile type string default <empty>"),
+            "{out}"
+        );
+        assert!(out.contains("short.nnue: a 768"), "{out}");
+        assert!(out.contains("zero.nnue loaded"), "{out}");
+        assert_eq!(bestmoves(&out).len(), 1, "{out}");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
