@@ -1,0 +1,27 @@
+{
+  "bench": {
+    "depth": 10,
+    "hash_mb": 16,
+    "nps": 2107566,
+    "positions": 50,
+    "signature": 1201313
+  },
+  "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "date": "2026-10-30",
+  "efficiency": {
+    "ebf": 1.8950994234151806,
+    "fail_high_first": 0.887772943520514,
+    "tt_hit": 0.5307345172270396
+  },
+  "instructions_per_node": 3543.262167311933,
+  "perft": {
+    "failures": 0,
+    "max_depth": 7,
+    "nps": 235870349,
+    "positions": 63
+  },
+  "runner": "ubuntu-latest",
+  "target_cpu": "x86-64-v3",
+  "v": 1,
+  "version": "v0.28.0"
+}
