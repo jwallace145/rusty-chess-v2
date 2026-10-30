@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.27.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.26.0...v0.27.0) (2026-10-30)
+
+
+### Features
+
+* **nnue:** add the bullet trainer, the training task and the engine-to-trainer net check ([#115](https://github.com/jwallace145/rusty-chess-v2/issues/115)) ([2bd5d97](https://github.com/jwallace145/rusty-chess-v2/commit/2bd5d97df72595f2c49a6557004605816b9994bd))
+* **tools:** add datagen-audit and harden datagen with checksums, tests and tuned settings ([#113](https://github.com/jwallace145/rusty-chess-v2/issues/113)) ([0c02524](https://github.com/jwallace145/rusty-chess-v2/commit/0c02524a8e77a82bfeaacf4a8d83ef073642a7a2))
+
+
+### Documentation
+
+* **roadmap:** close phase 4b, record phase 6 progress and the plan after net 1 ([#118](https://github.com/jwallace145/rusty-chess-v2/issues/118)) ([12d4e9c](https://github.com/jwallace145/rusty-chess-v2/commit/12d4e9c927c23aab1b7a1c07669e6939a4ac3601))
+
+### Benchmarks
+
+* bench signature 1,697,503, instructions per node 2721, search 3.47M NPS, perft 291.70M NPS (pass (63)), fail-high first 88.2%, EBF 1.90, TT hit 53.5%
+* since v0.26.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.0%, search NPS +23.5%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.26.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.25.0...v0.26.0) (2026-10-30)
 
 
