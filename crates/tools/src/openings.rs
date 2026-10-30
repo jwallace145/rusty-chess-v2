@@ -41,19 +41,22 @@ impl Default for Settings {
     }
 }
 
-struct Rng(u64);
+/// A small, fast, seeded xorshift generator: reproducible streams for
+/// openings and self-play, no dependency.
+pub struct Rng(u64);
 
 impl Rng {
     /// Seeded through splitmix64 so that nearby seeds give unrelated streams
     /// and no seed yields the all-zero state xorshift cannot leave.
-    fn seeded(seed: u64) -> Rng {
+    pub fn seeded(seed: u64) -> Rng {
         let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
         z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
         Rng((z ^ (z >> 31)) | 1)
     }
 
-    fn next(&mut self) -> u64 {
+    /// The next number in the stream.
+    pub fn next_u64(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
         self.0 ^= self.0 << 17;
@@ -88,7 +91,7 @@ pub fn generate(settings: &Settings) -> Vec<String> {
                 ok = false;
                 break;
             }
-            let m = list.as_slice()[(rng.next() % list.len() as u64) as usize];
+            let m = list.as_slice()[(rng.next_u64() % list.len() as u64) as usize];
             pos.make_move(m);
         }
         if !ok || pos.in_check() || !seen.insert(pos.key()) {

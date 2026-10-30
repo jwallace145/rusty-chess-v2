@@ -1,6 +1,6 @@
 [package]
 name = "rusty-chess-tools"
-version = "0.22.0"
+version = "0.23.0"
 description = "Developer tools: perft suite runner, performance gate, bench and stats diffing, data generation"
 edition.workspace = true
 rust-version.workspace = true
@@ -27,6 +27,10 @@ path = "src/bin/bench_report.rs"
 [[bin]]
 name = "openings"
 path = "src/bin/openings.rs"
+
+[[bin]]
+name = "datagen"
+path = "src/bin/datagen.rs"
 
 [[bin]]
 name = "speed-report"

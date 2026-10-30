@@ -1,0 +1,141 @@
+name: Datagen
+
+# Self-play training data for NNUE on dedicated spot instances: each task runs
+# ci/datagen-task.sh on its own c8a.16xlarge through jwall-engineering-infra's
+# remote-task workflow, generating with the settings in datagen.toml and
+# uploading shards to the dataset bucket as they complete. docs/datagen.md
+# specifies the formats and the S3 layout.
+#
+# The bucket and prefix come from the `dataset` component in
+# jwall-engineering-sites.yaml, so the data's home is infrastructure config,
+# not workflow code. Run it from `main`: the task role trusts only main and
+# pull requests. A spot interruption costs at most each worker's shard in
+# progress; the completed shards are already in S3, and a re-run starts a new
+# run partition with new seeds.
+
+on:
+  workflow_dispatch:
+    inputs:
+      instances:
+        description: Instances in parallel (each 64 cores; the task budget is 3 at once, shared with SPRT and Match)
+        type: choice
+        options: ["1", "2", "3"]
+        default: "1"
+      minutes:
+        description: Minutes of generation per instance (at most 330; about 80M positions an hour each)
+        required: true
+        default: "60"
+      seed:
+        description: Base seed (blank for this run's id); task i uses base + i
+        required: false
+        default: ""
+      note:
+        description: Why this run is being made (shown in the summary)
+        required: false
+        default: ""
+
+run-name: "Datagen: ${{ inputs.instances }} × ${{ inputs.minutes }} min${{ inputs.note != '' && format(' — {0}', inputs.note) || '' }}"
+
+permissions: {}
+
+jobs:
+  plan:
+    name: Plan the run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tasks: ${{ steps.plan.outputs.tasks }}
+      hours: ${{ steps.plan.outputs.hours }}
+      prefix: ${{ steps.plan.outputs.prefix }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Read the dataset location and the settings
+        id: plan
+        env:
+          INSTANCES: ${{ inputs.instances }}
+          MINUTES: ${{ inputs.minutes }}
+          SEED: ${{ inputs.seed }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          [[ "$MINUTES" =~ ^[0-9]+$ ]] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 330 ] \
+            || { echo "::error::minutes must be a whole number from 1 to 330, got $MINUTES"; exit 1; }
+          [ -z "$SEED" ] || [[ "$SEED" =~ ^[0-9]+$ ]] || { echo "::error::seed must be a whole number"; exit 1; }
+          bucket=$(yq -r '[.components[] | select(.kind == "dataset")][0].bucket // ""' jwall-engineering-sites.yaml)
+          prefix=$(yq -r '[.components[] | select(.kind == "dataset")][0].prefix // ""' jwall-engineering-sites.yaml)
+          if [ -z "$bucket" ] || [ -z "$prefix" ]; then
+            echo "::error::jwall-engineering-sites.yaml has no dataset component with a bucket and prefix; see docs/datagen.md"
+            exit 1
+          fi
+          generation=$(awk -F= '/^generation *=/ {gsub(/[ \t]/, "", $2); print $2; exit}' datagen.toml)
+          run="$(date -u +%Y%m%d)-$RUN_ID"
+          base=${SEED:-$RUN_ID}
+          dataset="s3://$bucket/${prefix%/}/selfplay/v1"
+          tasks=$(jq -cn --arg dataset "$dataset" --arg run "$run" --argjson n "$INSTANCES" \
+            --argjson minutes "$MINUTES" --argjson base "$base" \
+            '[range($n) | {task: "t\(.)", args: (["--dataset", $dataset, "--run", $run, "--task", "t\(.)",
+              "--minutes", ($minutes | tostring), "--seed", ($base + . | tostring)] | tojson)}]')
+          # The instance's hard limit: the generation, plus an hour for build, upload and slack.
+          hours=$(( (MINUTES + 59) / 60 + 1 ))
+          {
+            echo "tasks=$tasks"
+            echo "hours=$hours"
+            echo "prefix=$dataset/gen=$generation/run=$run/"
+          } >> "$GITHUB_OUTPUT"
+          echo "Run $run, generation $generation, $INSTANCES × $MINUTES minutes, base seed $base"
+          echo "Uploading to $dataset/gen=$generation/run=$run/"
+          echo "Settings:"; sed -n '/^\[datagen\]/,$p' datagen.toml | grep -v '^#' | grep .
+
+  generate:
+    name: Generate (${{ matrix.task }})
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.tasks) }}
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.13.0
+    with:
+      project: rusty-chess
+      script: ci/datagen-task.sh
+      args: ${{ matrix.args }}
+      artifact: datagen-${{ matrix.task }}
+      max-hours: ${{ fromJSON(needs.plan.outputs.hours) }}
+    permissions:
+      contents: read
+      id-token: write # the task role, through OIDC
+
+  summary:
+    name: Summary
+    needs: [plan, generate]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          pattern: datagen-*
+          path: tasks
+      - name: Write the run summary
+        env:
+          PREFIX: ${{ needs.plan.outputs.prefix }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          {
+            echo "### 🧪 Datagen"
+            echo
+            [ -n "$NOTE" ] && { echo "> $NOTE"; echo; }
+            echo "Data: \`$PREFIX\`"
+            echo
+            echo "| Task | Positions | Games | Shards | Minutes | Status |"
+            echo "|:--|--:|--:|--:|--:|:--|"
+            total=0
+            for f in tasks/*/task.json; do
+              [ -e "$f" ] || continue
+              jq -r '"| \(.task) | \(.positions) | \(.games) | \(.shards) | \(.seconds / 60 | floor) | \(if .interrupted then "⚠️ interrupted by spot; its completed shards are in S3" else "complete" end) |"' "$f"
+              total=$(( total + $(jq -r .positions "$f") ))
+            done
+            echo
+            echo "**$total positions** in this run."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
