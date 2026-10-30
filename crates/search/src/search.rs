@@ -69,6 +69,13 @@ const FP_MAX_DEPTH: u32 = 6;
 const FP_BASE: i32 = 100;
 const FP_MARGIN: i32 = 100;
 
+/// Singular extensions apply from this depth.
+const SE_MIN_DEPTH: u32 = 8;
+
+/// The singular margin per ply of depth: the table move is singular when
+/// every other move scores below its table score less this times the depth.
+const SE_MARGIN: i32 = 2;
+
 /// Internal iterative reductions apply from this depth.
 const IIR_MIN_DEPTH: u32 = 4;
 
@@ -195,6 +202,11 @@ pub struct Searcher {
     /// The move made at each ply of the current line (`PieceTo::NONE`
     /// after a null move), so a node knows what led to it.
     moved: [PieceTo; MAX_PLY + 2],
+    /// The move a singular-extension search at each ply leaves out
+    /// (`Move::NULL` when none).
+    excluded: [Move; MAX_PLY + 2],
+    /// The depth of the iteration in progress, which bounds extensions.
+    root_depth: u32,
     stats: SearchStats,
     nodes: u64,
     qnodes: u64,
@@ -217,6 +229,8 @@ impl Searcher {
             cont1: Continuation::new(),
             cont2: Continuation::new(),
             moved: [PieceTo::NONE; MAX_PLY + 2],
+            excluded: [Move::NULL; MAX_PLY + 2],
+            root_depth: 0,
             stats: SearchStats::new(),
             nodes: 0,
             qnodes: 0,
@@ -284,6 +298,7 @@ impl Searcher {
         self.cont1.age();
         self.cont2.age();
         self.moved = [PieceTo::NONE; MAX_PLY + 2];
+        self.excluded = [Move::NULL; MAX_PLY + 2];
         board.set_root();
         let fen = board.position().to_fen();
 
@@ -316,6 +331,7 @@ impl Searcher {
         let mut prev_total = 0u64;
 
         for depth in 1..=max_depth {
+            self.root_depth = depth;
             let score = self.aspirate(board, depth, best_score);
             if self.aborted {
                 break;
@@ -457,14 +473,19 @@ impl Searcher {
         // Transposition table: a cutoff when the stored depth suffices and
         // the bound agrees with the window (never at the root, which needs a
         // move), and otherwise the stored move to search first.
+        // A singular-extension search of this node (one move excluded) takes
+        // no cutoff: the entry describes the node with every move.
         let key = board.position().key();
         let alpha_orig = alpha;
+        let excluded = self.excluded[ply];
         let mut tt_move = Move::NULL;
+        let mut tt_hit = None;
         stat!(self.stats, tt_probes);
         if let Some(hit) = self.tt.probe(key, ply) {
             stat!(self.stats, tt_hits);
             tt_move = hit.mv;
-            if ply > 0 && hit.depth as u32 >= depth {
+            tt_hit = Some(hit);
+            if ply > 0 && excluded == Move::NULL && hit.depth as u32 >= depth {
                 let cutoff = match hit.bound {
                     Bound::Exact => true,
                     Bound::Lower => hit.score >= beta,
@@ -481,6 +502,9 @@ impl Searcher {
         // is meaningless, and a mate score in the window must be searched.
         let pv_node = beta - alpha > 1;
         let prunable = ply > 0 && !in_check && !is_mate_score(beta);
+        // Whole-node pruning (reverse futility, null move) is off in a
+        // singular-extension search, which asks about the other moves only.
+        let node_prunable = prunable && excluded == Move::NULL;
         let static_eval = if prunable { board.evaluate() } else { 0 };
 
         // Reverse futility pruning: at shallow depth, when the static
@@ -488,7 +512,7 @@ impl Searcher {
         // the remaining search is very unlikely to bring the score back
         // under beta. Only at null-window nodes, so the principal variation
         // is always searched out.
-        if prunable
+        if node_prunable
             && !pv_node
             && depth <= RFP_MAX_DEPTH
             && static_eval - RFP_MARGIN * depth as i32 >= beta
@@ -502,7 +526,7 @@ impl Searcher {
         // not twice in a row, not without a piece to move (zugzwang), and
         // only when the static evaluation already clears beta.
         if null_ok
-            && prunable
+            && node_prunable
             && depth >= NULL_MOVE_MIN_DEPTH
             && board
                 .position()
@@ -544,6 +568,48 @@ impl Searcher {
             depth
         };
 
+        // Singular extensions: when the table holds a deep enough lower bound
+        // or exact score for its move, search the other moves at half depth
+        // against a window just below that score. If none reaches it the
+        // table move is singular, the only good move here, and is searched a
+        // ply deeper. If even without it the node clears beta, several moves
+        // do (multi-cut), and the node fails high at once. Never at the root
+        // or inside another such search, and extensions stop at twice the
+        // iteration's depth so a line cannot grow without bound.
+        let mut singular_extension = 0;
+        if let Some(hit) = tt_hit
+            && ply > 0
+            && excluded == Move::NULL
+            && depth >= SE_MIN_DEPTH
+            && tt_move != Move::NULL
+            && hit.bound != Bound::Upper
+            && hit.depth as u32 + 3 >= depth
+            && !is_mate_score(hit.score)
+            && (ply as u32) < 2 * self.root_depth
+        {
+            let singular_beta = hit.score - SE_MARGIN * depth as i32;
+            self.excluded[ply] = tt_move;
+            let score = self.negamax(
+                board,
+                (depth - 1) / 2,
+                singular_beta - 1,
+                singular_beta,
+                ply,
+                false,
+            );
+            self.excluded[ply] = Move::NULL;
+            if self.aborted {
+                return 0;
+            }
+            if score < singular_beta {
+                stat!(self.stats, se_extensions);
+                singular_extension = 1;
+            } else if singular_beta >= beta {
+                stat!(self.stats, se_multicuts);
+                return singular_beta;
+            }
+        }
+
         // What led here: the opponent's move one ply back and our own two
         // plies back, for the continuation tables.
         let prev1 = if ply >= 1 {
@@ -566,6 +632,9 @@ impl Searcher {
         while let Some(m) = picker.next_with(board.position(), &|q| {
             self.quiet_score(board.position(), prev1, prev2, q)
         }) {
+            if m == excluded {
+                continue;
+            }
             let quiet = !m.is_capture() && !m.is_promotion();
             // Futility pruning: at a shallow null-window node whose static
             // evaluation is so far below alpha that even a generous margin
@@ -628,7 +697,7 @@ impl Searcher {
             }
             self.moved[ply] = PieceTo::of(board.position(), m);
             let undo = board.make_move(m);
-            let new_depth = depth - 1;
+            let new_depth = depth - 1 + if m == tt_move { singular_extension } else { 0 };
             // Principal variation search: the first move gets the full
             // window; every later move a null window that only asks whether
             // it beats alpha, re-searched in full when it does (and might
@@ -713,6 +782,11 @@ impl Searcher {
             index += 1;
         }
         if index == 0 && best == -INFINITY {
+            // Only the excluded move: a singular-extension search learns
+            // nothing about the others, so it fails low.
+            if excluded != Move::NULL {
+                return alpha;
+            }
             // No legal moves at all: mate or stalemate.
             return if in_check { -(MATE - ply as i32) } else { 0 };
         }
@@ -725,7 +799,11 @@ impl Searcher {
         } else {
             Bound::Upper
         };
-        self.tt.store(key, best_move, best, depth as u8, bound, ply);
+        // A singular-extension search scored the node without one move; it
+        // must not overwrite the entry for the node with all of them.
+        if excluded == Move::NULL {
+            self.tt.store(key, best_move, best, depth as u8, bound, ply);
+        }
         best
     }
 
