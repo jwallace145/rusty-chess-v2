@@ -496,8 +496,10 @@ impl Searcher {
         // Improving: the side to move stands better than it did two plies
         // ago (four, when it was in check then). Reverse futility pruning
         // trusts a static evaluation that is rising, with a ply's less
-        // margin. Halving late move pruning's count when not improving as
-        // well shrank the tree more but gained nothing at a clock (#95).
+        // margin; late move reductions reduce a quiet move one ply more when
+        // the evaluation is not rising. Halving late move pruning's count
+        // when not improving instead shrank the tree more but gained nothing
+        // at a clock (#95).
         self.evals[ply] = raw_eval;
         let improving = !in_check && {
             let earlier = if ply >= 2 && self.evals[ply - 2] != NO_EVAL {
@@ -674,7 +676,7 @@ impl Searcher {
                     && !in_check
                     && !board.position().in_check()
                 {
-                    lmr_reduction(depth, index)
+                    (lmr_reduction(depth, index) + u32::from(!improving)).min(new_depth)
                 } else {
                     0
                 };
