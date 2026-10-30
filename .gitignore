@@ -14,3 +14,4 @@ lichess/.lichess-bot/
 
 # Local secrets (e.g. LICHESS_TOKEN); never committed
 secrets.sh
+/trainer/target

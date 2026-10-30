@@ -37,6 +37,10 @@ name = "datagen-audit"
 path = "src/bin/datagen_audit.rs"
 
 [[bin]]
+name = "nnue-eval"
+path = "src/bin/nnue_eval.rs"
+
+[[bin]]
 name = "speed-report"
 path = "src/bin/speed_report.rs"
 
