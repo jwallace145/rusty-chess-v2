@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.22.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.21.0...v0.22.0) (2026-10-30)
+
+
+### Features
+
+* **search:** skip quiet moves that lose material by static exchange at shallow depth ([#93](https://github.com/jwallace145/rusty-chess-v2/issues/93)) ([2e2fc69](https://github.com/jwallace145/rusty-chess-v2/commit/2e2fc6926e941100b8c9e97c20295e4abcde1474))
+
+### Benchmarks
+
+* bench signature 1,075,807, instructions per node 2617, search 2.96M NPS, perft 228.21M NPS (pass (63)), fail-high first 89.0%, EBF 1.59, TT hit 60.7%
+* since v0.21.0: fail-high first -0.8 pt, EBF -0.19, instructions per node +3.0%, search NPS −15.1%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.21.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.20.0...v0.21.0) (2026-10-30)
 
 
