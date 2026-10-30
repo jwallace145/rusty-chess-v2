@@ -132,7 +132,7 @@ affected run. Records are only as trustworthy as the check that failed.
 | Statistic | Bar | Generation 0 | What it guards |
 |:--|:--|--:|:--|
 | Draw rate | 20–55% | 34.6% | drawish or one-sided play |
-| White–black win gap | ≤ 3 points | 1.4 | colour bias (odd random plies) |
+| White–black win gap | ≤ 10 points (3 for generation 0) | 1.4 | colour bias (odd random plies); generation 1, played by net 1, measured 7.9 ± 0.9: white's first-move advantage, not a bias |
 | Duplicate positions | ≤ 5% | 2.2% | collapsed openings, repetition loops |
 | Distinct openings | ≥ 99% | 100% | seed reuse |
 | \|score\| ≤ 100 | 25–60% | 39.0% | a near-zero, draw-dominated dataset |

@@ -47,8 +47,13 @@ max_plies = 400
 [audit]
 # Share of games drawn (generation 0: 34.6%).
 draw_rate = [0.20, 0.55]
-# |white wins - black wins| / games (generation 0: 1.4 points with odd random plies).
-color_gap_max = 0.03
+# |white wins - black wins| / games. It catches a colour bias the generator
+# introduces, such as odd random plies giving white an extra move. White's
+# first-move advantage is real and shows more as the player gets stronger:
+# generation 0 (PeSTO) 1.4 points; generation 1's smoke test (net 1, even
+# random plies, 6,088 games) 7.9 ± 0.9, white scoring 54%, typical of strong
+# engines from balanced openings. Widened from 0.03 for generation 1.
+color_gap_max = 0.10
 # Share of records whose position (placement, side, castling, en passant) repeats another's (2.2%).
 duplicate_rate_max = 0.05
 # Distinct start positions / games (100%).
