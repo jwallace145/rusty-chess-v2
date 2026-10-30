@@ -22,7 +22,7 @@ on:
         options: ["1", "2", "3"]
         default: "1"
       minutes:
-        description: Minutes of generation per instance (at most 330; about 80M positions an hour each)
+        description: Minutes of generation per instance (at most 300, leaving the 6-hour job an hour for slot waits, boot, build and upload; about 80M positions an hour each)
         required: true
         default: "60"
       seed:
@@ -59,8 +59,8 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           ATTEMPT: ${{ github.run_attempt }}
         run: |
-          [[ "$MINUTES" =~ ^[0-9]+$ ]] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 330 ] \
-            || { echo "::error::minutes must be a whole number from 1 to 330, got $MINUTES"; exit 1; }
+          [[ "$MINUTES" =~ ^[0-9]+$ ]] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 300 ] \
+            || { echo "::error::minutes must be a whole number from 1 to 300 (the task runner's 6-hour limit covers slot waits, boot, build and upload too), got $MINUTES"; exit 1; }
           [ -z "$SEED" ] || [[ "$SEED" =~ ^[0-9]+$ ]] || { echo "::error::seed must be a whole number"; exit 1; }
           bucket=$(yq -r '[.components[] | select(.kind == "dataset")][0].bucket // ""' jwall-engineering-sites.yaml)
           prefix=$(yq -r '[.components[] | select(.kind == "dataset")][0].prefix // ""' jwall-engineering-sites.yaml)
@@ -80,7 +80,10 @@ jobs:
             '[range($n) | {task: "t\(.)", args: (["--dataset", $dataset, "--run", $run, "--task", "t\(.)",
               "--minutes", ($minutes | tostring), "--seed", ($base + . | tostring)] | tojson)}]')
           # The instance's hard limit: the generation, plus an hour for build, upload and slack.
+          # Clamped to the runner's limit (task-runner.max_hours, 6), which the
+          # 300-minute cap already respects; the clamp guards later edits.
           hours=$(( (MINUTES + 59) / 60 + 1 ))
+          if [ "$hours" -gt 6 ]; then hours=6; fi
           {
             echo "tasks=$tasks"
             echo "hours=$hours"
