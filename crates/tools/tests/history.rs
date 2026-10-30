@@ -45,6 +45,8 @@ fn measured(signature: u64, nps: u64, fh: f64, ebf: f64) -> Measured {
                 aspiration_researches: 0,
                 iir_reductions: 0,
                 see_skips: 0,
+                se_extensions: 0,
+                se_multicuts: 0,
             }),
         }),
         Record::Perft(PerftRecord {

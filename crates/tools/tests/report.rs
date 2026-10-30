@@ -32,6 +32,8 @@ fn stats(fh_first: f64) -> StatsSummary {
         aspiration_researches: 0,
         iir_reductions: 0,
         see_skips: 0,
+        se_extensions: 0,
+        se_multicuts: 0,
     }
 }
 

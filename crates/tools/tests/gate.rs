@@ -66,6 +66,8 @@ fn bench(nps: u64, fh_first: Option<f64>) -> Record {
             aspiration_researches: 0,
             iir_reductions: 0,
             see_skips: 0,
+            se_extensions: 0,
+            se_multicuts: 0,
         }),
     })
 }

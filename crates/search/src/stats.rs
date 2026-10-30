@@ -140,6 +140,10 @@ pub struct SearchStats {
     pub iir_reductions: u64,
     /// Moves skipped in the main search for losing material by static exchange.
     pub see_skips: u64,
+    /// Table moves found singular and searched a ply deeper.
+    pub se_extensions: u64,
+    /// Nodes cut by a singular-extension search clearing beta without the table move.
+    pub se_multicuts: u64,
 }
 
 #[cfg(feature = "stats")]
@@ -170,6 +174,8 @@ impl Default for SearchStats {
             aspiration_researches: 0,
             iir_reductions: 0,
             see_skips: 0,
+            se_extensions: 0,
+            se_multicuts: 0,
         }
     }
 }
@@ -215,6 +221,8 @@ impl SearchStats {
             aspiration_researches: self.aspiration_researches,
             iir_reductions: self.iir_reductions,
             see_skips: self.see_skips,
+            se_extensions: self.se_extensions,
+            se_multicuts: self.se_multicuts,
         })
     }
 }
@@ -307,6 +315,12 @@ pub struct StatsSummary {
     /// Main-search moves skipped by static exchange. Absent in records written before it existed.
     #[serde(default)]
     pub see_skips: u64,
+    /// Singular extensions. Absent in records written before it existed.
+    #[serde(default)]
+    pub se_extensions: u64,
+    /// Singular-extension multi-cuts. Absent in records written before it existed.
+    #[serde(default)]
+    pub se_multicuts: u64,
 }
 
 /// Effective branching factor between two consecutive iterations of
