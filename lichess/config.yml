@@ -10,7 +10,7 @@ engine:
   name: "rusty-chess"
   working_dir: ""
   protocol: "uci"
-  ponder: false                    # the engine does not ponder yet
+  ponder: true                     # think on the opponent's clock (go ponder / ponderhit)
   polyglot:
     enabled: false
   draw_or_resign:

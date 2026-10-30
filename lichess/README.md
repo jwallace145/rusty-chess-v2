@@ -39,6 +39,17 @@ stop (games in progress are resigned by the server after `abort_time`).
 
 Delete `lichess/.lichess-bot/` to refetch everything.
 
+## Pondering
+
+The bot thinks on its opponent's clock (`engine.ponder: true` in
+`config.yml`). After each move lichess-bot tells the engine the reply it
+expects (the second move of its principal variation, sent as
+`bestmove … ponder …`) and has it search that position while the opponent
+thinks. If the opponent plays it (`ponderhit`), the search carries on with
+the clock running and has a head start of however long they took; if not,
+it is stopped and a fresh search begins. The bot's instance has one core, so
+pondering uses time that was idle.
+
 ## Opening book
 
 The bot plays its openings from Lichess's

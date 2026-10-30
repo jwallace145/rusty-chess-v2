@@ -3,6 +3,15 @@
 //! Commands are read on the calling thread; a `go` runs the search on a
 //! worker thread so that `stop` and `quit` can interrupt it through the
 //! shared stop flag. `info` lines and `bestmove` are written by the worker.
+//!
+//! Pondering: `go ponder` searches the position after the move the engine
+//! expects (the GUI has already played it) on the opponent's time, with the
+//! clock off. `ponderhit` (the opponent played it) starts the clock with the
+//! limits the `go ponder` carried, and the search carries on; `stop` (they
+//! played something else) ends it. Until one of the two arrives, no
+//! `bestmove` is sent, even if the search has finished. Every `bestmove`
+//! names the expected reply (`bestmove e2e4 ponder e7e5`) when the principal
+//! variation has one.
 
 use std::io::{self, BufRead, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,6 +50,7 @@ where
                     o,
                     "option name Move Overhead type spin default {DEFAULT_MOVE_OVERHEAD_MS} min 0 max 5000"
                 )?;
+                writeln!(o, "option name Ponder type check default false")?;
                 writeln!(o, "uciok")?;
             }
             Some("isready") => writeln!(out.lock().unwrap(), "readyok")?,
@@ -62,6 +72,7 @@ where
                 engine.go(words);
             }
             Some("stop") => engine.stop(),
+            Some("ponderhit") => engine.ponderhit(),
             Some("d") => {
                 engine.stop();
                 writeln!(out.lock().unwrap(), "{}", engine.board.position())?;
@@ -90,6 +101,11 @@ struct Engine<W: Write + Send + 'static> {
     searcher: Option<Searcher>,
     worker: Option<JoinHandle<Searcher>>,
     infinite: bool,
+    /// The running search's ponder flag, true until `ponderhit` (see the
+    /// module documentation).
+    ponder: Option<Arc<AtomicBool>>,
+    /// Whether the pondering search becomes bounded after `ponderhit`.
+    bounded_after_hit: bool,
     /// Time kept back per move for the GUI and the pipe (`Move Overhead`).
     move_overhead: Duration,
 }
@@ -107,6 +123,8 @@ impl<W: Write + Send + 'static> Engine<W> {
             searcher: Some(Searcher::new(Arc::new(AtomicBool::new(false)))),
             worker: None,
             infinite: false,
+            ponder: None,
+            bounded_after_hit: false,
             move_overhead: Duration::from_millis(DEFAULT_MOVE_OVERHEAD_MS),
         }
     }
@@ -119,6 +137,16 @@ impl<W: Write + Send + 'static> Engine<W> {
                 self.searcher = Some(searcher);
             }
             self.stop_flag.store(false, Ordering::Relaxed);
+        }
+        self.ponder = None;
+    }
+
+    /// The opponent played the expected move: start the pondering search's
+    /// clock and let it finish as an ordinary search.
+    fn ponderhit(&mut self) {
+        if let Some(flag) = self.ponder.take() {
+            flag.store(false, Ordering::Relaxed);
+            self.infinite = !self.bounded_after_hit;
         }
     }
 
@@ -164,6 +192,8 @@ impl<W: Write + Send + 'static> Engine<W> {
                     "info string Hash must be 1..4096 MB, got {v}"
                 )?,
             },
+            // The GUI says whether it will send `go ponder`; nothing to set.
+            (Some("Ponder"), Some("true" | "false")) => {}
             (Some("Move Overhead"), Some(v)) => match v.parse::<u64>() {
                 Ok(ms) if ms <= 5000 => self.move_overhead = Duration::from_millis(ms),
                 _ => writeln!(
@@ -215,6 +245,7 @@ impl<W: Write + Send + 'static> Engine<W> {
 
     fn go<'a>(&mut self, mut words: impl Iterator<Item = &'a str>) {
         let mut limits = Limits::default();
+        let mut ponder = false;
         let us = self.board.position().side_to_move();
         let (mut wtime, mut btime, mut winc, mut binc) = (None, None, None, None);
         while let Some(word) = words.next() {
@@ -231,17 +262,24 @@ impl<W: Write + Send + 'static> Engine<W> {
                 "binc" => binc = num(&mut words).map(Duration::from_millis),
                 "movestogo" => limits.movestogo = num(&mut words).map(|m| m as u32),
                 "infinite" => limits.infinite = true,
+                "ponder" => ponder = true,
                 _ => {}
             }
         }
         limits.time = if us == Color::White { wtime } else { btime };
         limits.inc = if us == Color::White { winc } else { binc };
         limits.overhead = Some(self.move_overhead);
-        self.infinite = limits.infinite
+        let unbounded = limits.infinite
             || (limits.depth.is_none()
                 && limits.nodes.is_none()
                 && limits.movetime.is_none()
                 && limits.time.is_none());
+        // A pondering search never ends by itself until `ponderhit`.
+        self.infinite = unbounded || ponder;
+        self.bounded_after_hit = !unbounded;
+        let ponder_flag = ponder.then(|| Arc::new(AtomicBool::new(true)));
+        limits.ponder = ponder_flag.clone();
+        self.ponder = ponder_flag.clone();
 
         let mut board = self.board.clone();
         let out = self.out.clone();
@@ -250,12 +288,23 @@ impl<W: Write + Send + 'static> Engine<W> {
             .searcher
             .take()
             .unwrap_or_else(|| Searcher::new(stop.clone()));
-        searcher.set_stop_flag(stop);
+        searcher.set_stop_flag(stop.clone());
         self.worker = Some(std::thread::spawn(move || {
             let result = searcher.search(&mut board, &limits, &mut |it: &IterRecord| {
                 let _ = writeln!(out.lock().unwrap(), "{}", info_line(it));
             });
-            let _ = writeln!(out.lock().unwrap(), "bestmove {}", result.best);
+            // UCI: while pondering, no `bestmove` until `ponderhit` or `stop`,
+            // even when the search has run out of depth.
+            if let Some(flag) = &ponder_flag {
+                while flag.load(Ordering::Relaxed) && !stop.load(Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            }
+            let line = match result.pv.split_whitespace().nth(1) {
+                Some(reply) => format!("bestmove {} ponder {reply}", result.best),
+                None => format!("bestmove {}", result.best),
+            };
+            let _ = writeln!(out.lock().unwrap(), "{line}");
             let _ = out.lock().unwrap().flush();
             searcher
         }));
@@ -353,5 +402,55 @@ mod tests {
             info_line(&it),
             "info depth 3 score mate 2 nodes 15 nps 1500 time 10 pv d5f6 g7f6 c4f7"
         );
+    }
+
+    fn bestmoves(out: &str) -> Vec<&str> {
+        out.lines().filter(|l| l.starts_with("bestmove")).collect()
+    }
+
+    #[test]
+    fn ponder_is_advertised_and_accepted() {
+        let out = drive("uci\nsetoption name Ponder value true\nisready\n");
+        assert!(
+            out.contains("option name Ponder type check default false"),
+            "{out}"
+        );
+        assert!(!out.contains("unknown option"), "{out}");
+    }
+
+    #[test]
+    fn a_pondering_search_waits_for_ponderhit_or_stop_before_its_bestmove() {
+        // Depth 1 finishes at once, but the bestmove must wait: here for the
+        // stop at end of input, after `isready` has been answered.
+        let out = drive("position startpos\ngo ponder depth 1\nisready\n");
+        let ready = out.find("readyok").expect("readyok");
+        let best = out.find("bestmove").expect("bestmove");
+        assert!(ready < best, "bestmove came before the stop: {out}");
+        assert_eq!(bestmoves(&out).len(), 1, "{out}");
+    }
+
+    #[test]
+    fn ponderhit_turns_the_search_into_a_timed_one_that_finishes_by_itself() {
+        let out = drive("position startpos\ngo ponder movetime 50\nponderhit\n");
+        let moves = bestmoves(&out);
+        assert_eq!(moves.len(), 1, "{out}");
+        // A 50 ms search of the start position has a reply to ponder on.
+        let words: Vec<&str> = moves[0].split_whitespace().collect();
+        assert_eq!(words.len(), 4, "{out}");
+        assert_eq!(words[2], "ponder", "{out}");
+    }
+
+    #[test]
+    fn stop_ends_a_pondering_search_with_one_bestmove() {
+        let out = drive("position startpos\ngo ponder wtime 60000 btime 60000\nstop\nisready\n");
+        assert_eq!(bestmoves(&out).len(), 1, "{out}");
+    }
+
+    #[test]
+    fn an_ordinary_search_names_its_expected_reply() {
+        let out = drive("position startpos\ngo depth 4\n");
+        let moves = bestmoves(&out);
+        assert_eq!(moves.len(), 1, "{out}");
+        assert!(moves[0].contains(" ponder "), "{out}");
     }
 }

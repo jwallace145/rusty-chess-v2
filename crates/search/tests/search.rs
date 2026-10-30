@@ -800,3 +800,33 @@ fn singular_extensions_fire_and_keep_mates() {
         assert!(summary.se_extensions > 0, "no singular extensions");
     }
 }
+
+#[test]
+fn a_pondering_search_ignores_the_clock_until_ponderhit() {
+    // A 30 ms movetime would end the search at once; while pondering it must
+    // not, and after the ponderhit it must finish within about 30 ms more.
+    let flag = Arc::new(AtomicBool::new(true));
+    let limits = Limits {
+        movetime: Some(Duration::from_millis(30)),
+        ponder: Some(flag.clone()),
+        ..Limits::default()
+    };
+    let hit_after = Duration::from_millis(200);
+    let flipper = std::thread::spawn(move || {
+        std::thread::sleep(hit_after);
+        flag.store(false, Ordering::Relaxed);
+    });
+    let started = Instant::now();
+    let r = search(
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        limits,
+    );
+    let took = started.elapsed();
+    flipper.join().unwrap();
+    assert!(took >= hit_after, "stopped while pondering after {took:?}");
+    assert!(
+        took < hit_after + Duration::from_millis(400),
+        "ran on after the ponderhit: {took:?}"
+    );
+    assert!(r.best != rusty_chess_core::r#move::Move::NULL);
+}
