@@ -1,0 +1,29 @@
+[package]
+name = "rusty-chess-trainer"
+version = "0.1.0"
+edition = "2024"
+description = "Trains rusty-chess NNUE nets with bullet; kept out of the engine's workspace so the engine never needs a GPU toolkit to build"
+license = "MIT"
+publish = false
+
+# A workspace of its own: bullet's GPU backends must not leak into the engine's
+# build, and `cargo build` at the repository root never touches this crate.
+[workspace]
+
+[features]
+# One GPU backend must be chosen at build time.
+cuda = ["bullet_lib/cuda"]
+metal = ["bullet_lib/metal"]
+
+[dependencies]
+# Pinned to a commit: the trainer's file format, quantization and schedule are
+# part of every net's provenance (recorded in training.json).
+bullet_lib = { git = "https://github.com/jw1912/bullet", rev = "da426a49b2a4b79a55a87031cd51c89bdf1ff030" }
+# The text parser bullet's `convert --from text` uses, and its 32-byte record.
+bulletformat = "=1.8.0"
+flate2 = "1"
+serde_json = "1.0"
+sha2 = "0.10"
+
+[profile.release]
+opt-level = 3

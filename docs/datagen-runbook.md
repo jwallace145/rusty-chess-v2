@@ -239,8 +239,13 @@ adjudicated as won. Their curves agree closely (+100..300: 0.878 against
 0.929), so adjudication is not distorting results.
 
 Over all records, results follow `1 / (1 + e^(−score/K))` best at **K ≈ 200**
-(cross-entropy 0.51). That is the scale at which scores and results speak the
-same language, and the training experiment below starts from it.
+(cross-entropy 0.51): PeSTO-era scores understate how decisive a position is.
+This is *not* a training setting. The trainer's scale is also the scale the
+engine multiplies the network's output by (`SCALE` = 400), so it stays 400;
+changing it would rescale every evaluation and every pruning margin tuned in
+centipawns ([training.md](training.md)). The gap is part of why the result
+weight λ below matters: the results carry the decisiveness the scores
+understate.
 
 ### Openings are diverse in the ways that matter
 
@@ -260,23 +265,25 @@ same language, and the training experiment below starts from it.
 
 ## Preparing the data for training
 
-- **Splits.** Keep every game in one split: assign whole *workers*
-  (`<task>-w<NNN>`) to train, validation and test, never individual records.
-  A game never spans shards, and a worker's shards come from one seed.
-  Cross-game duplicates are 2.2%; remove validation positions that also occur
-  in training, by the FEN's first four fields, for clean metrics.
-- **Conversion.** `bullet-utils convert --from text` reads the records as
-  written; `datagen-audit --bullet` runs that exact parser. The binary format
-  keeps pieces, side to move, score and result, and drops castling rights,
-  en passant and the move counters, which the 768-input network doesn't use.
-- **Shuffling.** Records are written game by game, so adjacent records are
-  correlated. Shuffle globally (bullet's loader does) or interleave shards.
+`rusty-chess-trainer prepare` does all of this ([training.md](training.md)):
+
+- **Splits:** whole *workers* (`run/task/worker`) go to training or
+  validation by a seeded hash, never individual records. A game never spans
+  shards, and a worker's shards come from one seed. Cross-game duplicates are
+  about 2%.
+- **Conversion:** every record goes through bulletformat's parser, the one
+  `datagen-audit --bullet` also runs. The binary format keeps pieces, side to
+  move, score and result, and drops castling rights, en passant and the move
+  counters, which the 768-input network doesn't use.
+- **Shuffling:** records are written game by game, so adjacent records are
+  correlated. `prepare` shuffles with a recorded seed (bullet-utils' shuffle
+  seeds itself from the clock).
 
 ## The training experiment: score against result
 
 How much the net should learn from the search's score versus the game's
 result is the first decision for net 1, and it should be measured, not
-guessed. `bullet` trains on `target = (1 − λ) · sigmoid(score / K) + λ · result`.
+guessed. `bullet` trains on `target = (1 − λ) · sigmoid(score / 400) + λ · result`.
 
 - **Fixed:**
   - the architecture (768 → 128 × 2 → 1, SCReLU, `QA` 255, `QB` 64,
@@ -284,9 +291,11 @@ guessed. `bullet` trains on `target = (1 − λ) · sigmoid(score / K) + λ · r
   - generation 0's data, with the same train, validation and test workers;
   - optimiser, learning-rate schedule, batch size, number of epochs, and
     seed;
-  - `K` = 200 (fitted above). One control run at bullet's usual 400.
+  - the scale, 400: the engine's `SCALE`. An earlier draft of this plan
+    varied it; it can't change without changing the engine too.
 - **Varied:** λ ∈ {0.0 (score only), 0.25, 0.5, 0.75, 1.0 (result only)}.
-  That's five nets, plus the K = 400 control at the best λ.
+  That's five nets, from one `prepare`, about 15 minutes each on an M-series
+  Mac.
 - **Measured, in this order:**
   1. **Strength:** each net against PeSTO in an SPRT (timed, the gate as
      always), then the best two or three against each other with the

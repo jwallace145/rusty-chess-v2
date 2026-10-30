@@ -95,8 +95,9 @@ trained net exists.
 
 ## Next
 
-1. **A pilot net:** train 768 → 128 × 2 → 1 with `bullet` on the generation-0
-   pilot data, and check it against the trainer as above.
+1. **A pilot net:** the trainer, the preparation and the trainer-to-engine
+   check are in [training.md](training.md). The first pilot nets matched the
+   engine exactly, apart from quantization error (mean 9 cp).
 2. **Embed the winning net** with `include_bytes!`, so the binary needs no
    file, and make it the default once it beats PeSTO under SPRT.
 3. **Self-play with nets:** `datagen` and the bench gain `--eval-file`, so
