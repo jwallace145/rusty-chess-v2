@@ -769,13 +769,3 @@ fn see_pruning_skips_hanging_quiets_but_keeps_mates() {
         assert!(summary.see_skips > 0, "no SEE skips");
     }
 }
-
-#[test]
-fn late_move_pruning_searches_half_as_many_quiets_when_not_improving() {
-    use rusty_chess_search::search::lmp_threshold;
-    for depth in 1..=4 {
-        let full = lmp_threshold(depth, true);
-        assert_eq!(full, 3 + (depth * depth) as usize);
-        assert_eq!(lmp_threshold(depth, false), full / 2);
-    }
-}
