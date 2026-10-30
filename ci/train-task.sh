@@ -69,6 +69,12 @@ echo "== train: $net_id, λ $wdl, $superbatches superbatches of $batches batches
 
 echo "-- building ($(since)s)"
 export CARGO_TERM_COLOR=never
+# bullet's CUDA build script links from $CUDA_PATH/lib64 and panics without it;
+# the GPU image puts nvcc on PATH but doesn't export it.
+if [ "$backend" = cuda ] && [ -z "${CUDA_PATH:-}" ]; then
+  CUDA_PATH=$(dirname "$(dirname "$(readlink -f "$(command -v nvcc)")")")
+  export CUDA_PATH
+fi
 (cd trainer && cargo build --release --locked --quiet --features "$backend")
 cargo build --release --locked --quiet -p rusty-chess-tools --bin nnue-eval
 
