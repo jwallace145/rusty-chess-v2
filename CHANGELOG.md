@@ -12,6 +12,12 @@
 
 * **nnue:** start the dataset and net ledgers and bring phase 6 up to date ([#130](https://github.com/jwallace145/rusty-chess-v2/issues/130)) ([c026924](https://github.com/jwallace145/rusty-chess-v2/commit/c02692438dd83703629753cd50d3707779d5a6aa))
 
+### Benchmarks
+
+* bench signature 1,120,617, instructions per node 3076, search 2.16M NPS, perft 200.90M NPS (pass (63)), fail-high first 88.6%, EBF 1.88, TT hit 54.3%
+* since v0.29.0: fail-high first -0.2 pt, EBF -0.01, instructions per node +1.3%, search NPS +14.5%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.29.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.28.0...v0.29.0) (2026-10-30)
 
 
