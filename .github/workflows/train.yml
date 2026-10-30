@@ -1,0 +1,133 @@
+name: Train
+
+# Train NNUE nets on a GPU task (jwall-engineering-infra's remote-task, profile
+# gpu: one on-demand g6.xlarge with an NVIDIA L4). Each net runs
+# ci/train-task.sh: download the dataset's positions, prepare (split by
+# worker, seeded shuffle), train with bullet, check the engine's evaluation
+# against the trainer's, and upload the net and its training.json to
+# data/nets/<net id>/. docs/training.md describes it.
+#
+# `wdl` takes one λ or a comma-separated list (the λ experiment); one net per
+# value, one at a time, since the account's G and VT quota fits one GPU
+# instance. Net ids are `<net-id>-l<λ×100>-r<run id>`: unique per run, because
+# the GPU role can write data/nets/ but not list it, so an existing net can't
+# be detected there. Run it from `main`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      net-id:
+        description: Name for the net(s), e.g. net1 (lower-case letters, digits, '-')
+        required: true
+      wdl:
+        description: Result weight λ (target = λ·result + (1 − λ)·sigmoid(score/400)); one value or a list like 0.25,0.5,0.75
+        required: true
+        default: "0.5"
+      superbatches:
+        description: Superbatches of 100M positions (40 is bullet's standard schedule)
+        required: true
+        default: "40"
+      generation:
+        description: Self-play generation to train on (data/selfplay/v1/gen=N/)
+        required: true
+        default: "0"
+      val-fraction:
+        description: Share of workers held out for validation
+        required: false
+        default: "0.05"
+
+run-name: "Train: ${{ inputs.net-id }} λ ${{ inputs.wdl }}, ${{ inputs.superbatches }} superbatches, gen ${{ inputs.generation }}"
+
+permissions: {}
+
+jobs:
+  plan:
+    name: Plan the nets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      nets: ${{ steps.plan.outputs.nets }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate and build one task per λ
+        id: plan
+        env:
+          NET_ID: ${{ inputs.net-id }}
+          WDL: ${{ inputs.wdl }}
+          SUPERBATCHES: ${{ inputs.superbatches }}
+          GENERATION: ${{ inputs.generation }}
+          VAL_FRACTION: ${{ inputs.val-fraction }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          [[ "$NET_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::net-id must be lower-case letters, digits and '-'"; exit 1; }
+          [[ "$SUPERBATCHES" =~ ^[0-9]+$ ]] && [ "$SUPERBATCHES" -ge 1 ] && [ "$SUPERBATCHES" -le 200 ] || { echo "::error::superbatches must be 1..200"; exit 1; }
+          [[ "$GENERATION" =~ ^[0-9]+$ ]] || { echo "::error::generation must be a whole number"; exit 1; }
+          bucket=$(yq -r '[.components[] | select(.kind == "dataset")][0].bucket // ""' jwall-engineering-sites.yaml)
+          prefix=$(yq -r '[.components[] | select(.kind == "dataset")][0].prefix // ""' jwall-engineering-sites.yaml)
+          [ -n "$bucket" ] && [ -n "$prefix" ] || { echo "::error::no dataset component in jwall-engineering-sites.yaml"; exit 1; }
+          dataset="s3://$bucket/${prefix%/}/selfplay/v1/gen=$GENERATION/"
+          nets="s3://$bucket/${prefix%/}/nets"
+          list='[]'
+          IFS=',' read -ra lambdas <<< "$WDL"
+          for l in "${lambdas[@]}"; do
+            l=$(echo "$l" | tr -d ' ')
+            awk -v x="$l" 'BEGIN { exit !(x ~ /^(0(\.[0-9]+)?|1(\.0+)?)$/) }' || { echo "::error::λ must be in 0..1, got $l"; exit 1; }
+            tag=$(awk -v x="$l" 'BEGIN { printf "%03d", x * 100 + 0.5 }')
+            id="$NET_ID-l$tag-r$RUN_ID"
+            args=$(jq -cn --arg d "$dataset" --arg n "$nets" --arg id "$id" --arg l "$l" --arg sb "$SUPERBATCHES" --arg v "$VAL_FRACTION" \
+              '["--dataset", $d, "--nets", $n, "--net-id", $id, "--wdl", $l, "--superbatches", $sb, "--val-fraction", $v]')
+            list=$(jq -c --arg id "$id" --arg l "$l" --arg a "$args" '. + [{net_id: $id, wdl: $l, args: $a}]' <<< "$list")
+            echo "net $id: λ $l, $SUPERBATCHES superbatches, from $dataset"
+          done
+          echo "nets=$list" >> "$GITHUB_OUTPUT"
+
+  train:
+    name: Train ${{ matrix.net_id }}
+    needs: plan
+    strategy:
+      fail-fast: false
+      max-parallel: 1 # the G and VT on-demand quota (5 vCPUs) fits one g6.xlarge
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.nets) }}
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.15.1
+    with:
+      project: rusty-chess
+      profile: gpu
+      script: ci/train-task.sh
+      args: ${{ matrix.args }}
+      artifact: net-${{ matrix.net_id }}
+      max-hours: 6
+    permissions:
+      contents: read
+      id-token: write # the task role, through OIDC
+
+  summary:
+    name: Summary
+    needs: [plan, train]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          pattern: net-*
+          path: nets
+      - name: Write the nets' summary
+        run: |
+          {
+            echo "### 🧠 Train"
+            echo
+            echo "| Net | λ | Superbatches | Train / val records | Loss first → last | Engine check | GPU |"
+            echo "|:--|--:|--:|--:|:--|:--|:--|"
+            found=0
+            while IFS= read -r f; do
+              found=1
+              jq -r '"| `\(.net_id)` | \(.schedule.wdl) | \(.schedule.superbatches) | \(.split.records.train) / \(.split.records.val) | \(.losses.first) → \(.losses.last) | \(if .check_passed then "✅" else "❌" end) \(.check | capture("mean \\|diff\\| (?<m>[0-9.]+) cp").m // "") cp mean | \(.hardware.gpu) |"' "$f"
+            done < <(find nets -name training.json 2>/dev/null | sort)
+            [ "$found" = 1 ] || echo "| (no net finished; see the train jobs) | | | | | | |"
+            echo
+            echo "Nets and their records: \`data/nets/<net id>/\` in the dataset bucket, and each job's \`net-<net id>\` artifact."
+          } | tee -a "$GITHUB_STEP_SUMMARY"

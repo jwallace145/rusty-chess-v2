@@ -49,7 +49,10 @@ mkdir -p "$scratch"
 t0=$(date +%s)
 since() { echo $(( $(date +%s) - t0 )); }
 
-# Append-only: a net id is used once.
+# Append-only: a net id is used once. The GPU role may write data/nets/ but
+# not list it, so on a GPU task this finds nothing and uniqueness comes from
+# the Train workflow, which ends every id with its run id; with credentials
+# that can list (a local run), it refuses an id already used.
 if aws s3 ls "$nets/$net_id/" >/dev/null 2>&1; then
   echo "train-task: $nets/$net_id/ already exists; choose another --net-id" >&2
   exit 1
