@@ -51,9 +51,9 @@ pub const NETS: [EmbeddedNet; 2] = [
         bytes: include_bytes!("../nets/net1-l050-r41022503872.nnue"),
     },
     EmbeddedNet {
-        id: "net2x80-l050-r41131366975",
+        id: "net2x80-l025-r41141703294",
         generation: 2,
-        bytes: include_bytes!("../nets/net2x80-l050-r41131366975.nnue"),
+        bytes: include_bytes!("../nets/net2x80-l025-r41141703294.nnue"),
     },
 ];
 
