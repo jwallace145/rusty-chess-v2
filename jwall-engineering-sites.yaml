@@ -46,3 +46,20 @@ components:
       s3: true                      # sync game_records/ to s3://jwall-engineering-rusty-chess-records/records/
     logs:
       retention_days: 30
+
+  # Remote CI tasks (SPRT, matches) on dedicated, ephemeral EC2 instances,
+  # through jwall-engineering-infra's remote-task.yml: a 64-core spot box by
+  # default, capped at 58% of on demand, on demand only as a launch fallback.
+  # https://github.com/jwallace145/jwall-engineering-infra/blob/main/docs/remote-tasks.md
+  - kind: task-runner
+    instance_types: [c8a.xlarge, c8a.8xlarge, c8a.16xlarge]  # whole Zen 5 cores, SMT off; the launch role's allow-list
+    default_instance_type: c8a.16xlarge  # 64 cores, the bot's core: concurrency 60
+    market: spot                    # spot | on-demand
+    max_price_fraction: 0.58        # about $2.00/h for c8a.16xlarge; spot ran $0.93-1.39 in Oct 2026
+    on_demand_fallback: true        # at launch only, after spot fails in every zone
+    spot_wait_minutes: 5
+    max_hours: 6                    # 1-6; GitHub stops a job at six hours anyway
+    max_vcpus: 192                  # three c8a.16xlarge: one PR's two SPRT legs plus a Match
+    slot_wait_minutes: 30
+    results_days: 7                 # task outputs expire from S3 after this
+    log_retention_days: 14
