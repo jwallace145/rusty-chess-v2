@@ -80,20 +80,19 @@ passant, promotions and captures, made and unmade.
 
 ## Widths
 
-The engine reads nets of **128 or 256** hidden neurons per perspective
-(`nnue::WIDTHS`), told apart by the file's size: 197,378 or 394,754 bytes,
-plus up to 63 of padding.
+The engine reads nets of **128, 256 or 512** hidden neurons per perspective
+(`nnue::WIDTHS`), told apart by the file's size: 197,378, 394,754 or 789,506
+bytes, plus up to 63 of padding.
 - **Compiled per width:** each width's code is compiled separately
   (`Net<H>`, `Acc<H>`), and chosen once per evaluation and per move
   (`NnueState`). So the 128-neuron code is the same as before 256 existed,
   and every 128 net's bench signature is unchanged.
-- **Exactness:** the output sums each side in 32 bits and adds the two in 64
-  bits. With output weights within ±127, each side's sum is at most
-  255² × 127 × 256 = 2,114,092,800, inside 32 bits up to 256 neurons, so the
-  result is exact: the same as summing in 64 bits. A test checks the extreme
-  case, where at 256 the two sides together pass 32 bits.
-- **Wider nets (512 and up)** need that bound widened first, which a
-  compile-time check enforces.
+- **Exactness:** the output sums each side in 32-bit runs of 256 neurons and
+  adds the runs in 64 bits. With output weights within ±127, a run's sum is
+  at most 255² × 127 × 256 = 2,114,092,800, inside 32 bits, so the result is
+  exact at any width: the same as summing in 64 bits. At 128 and 256 there's
+  one run a side, as before 512 existed. Tests check the extreme cases: at
+  256 the two sides together pass 32 bits, and at 512 one side alone does.
 
 ## The embedded nets
 
@@ -102,7 +101,8 @@ be played, so the data each one played can still be re-searched and any of
 them can be selected by id. A net that replaces another before playing any
 generation replaces its entry: net 2 (`net2-l050-r41110004652`, `v0.30.0`)
 gave generation 2's place to net2x80 before any generation-2 data existed, and
-net 3 (`net3-l050-r41160495666`, `v0.33.0`) gave generation 3's to net 4. The
+net 3 (`net3-l050-r41160495666`, `v0.33.0`) gave generation 3's to net 4, and
+net 4 (`net4-l050-r41165115607`, `v0.35.0`) gave it to net4w512. The
 newest is the default. Each net's full history (data, parameters, validation
 curve, SPRT and ladder results) is in [nets.md](nets.md).
 
@@ -110,7 +110,7 @@ curve, SPRT and ladder results) is in [nets.md](nets.md).
 |:--|--:|:--|--:|
 | `net1-l050-r41022503872` | 1 | generation 0 (231M positions) | 1201313 |
 | `net2x80-l050-r41131366975` | 2 | generations 0 and 1 (600M positions), 80 superbatches | 1146589 |
-| `net4-l050-r41165115607` (default, **256 hidden**) | 3 | generations 0–2 (906M positions), 80 superbatches | 1190429 |
+| `net4w512-l050-r41170687764` (default, **512 hidden**) | 3 | generations 0–2 (906M positions), 80 superbatches | 1203006 |
 
 Each file is `crates/search/nets/<net id>.nnue`, listed in `nnue::NETS` with
 its generation and read with `include_bytes!`. Its record (`training.json`,

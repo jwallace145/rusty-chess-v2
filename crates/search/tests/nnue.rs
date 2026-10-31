@@ -327,8 +327,9 @@ fn the_output_is_exact_at_the_extremes_and_on_random_accumulators() {
     let mut rng = Rng(11);
     // Every hidden value clipped to QA and every output weight at the bound:
     // the largest sum a loadable net can produce. At 256 neurons the two
-    // sides together exceed i32's range (2 · 2,114,092,800), so this is the
-    // case that needs each side summed in i32 and the two in i64.
+    // sides together exceed i32's range (2 · 2,114,092,800); at 512 one side
+    // alone does. These are the cases that need the sum in i32 chunks of 256
+    // and the chunks added in i64.
     let mut nets = Vec::new();
     for &h in &WIDTHS {
         nets.push(flat_net(h, MAX_OUTPUT_WEIGHT, 0));
@@ -342,9 +343,12 @@ fn the_output_is_exact_at_the_extremes_and_on_random_accumulators() {
         let full = vec![i16::MAX; h];
         let expected = reference_output(&out, &full, &full);
         assert_eq!(net.evaluate_values(&full, &full), expected, "width {h}");
-        if h == 256 {
-            let side = 255i64 * 255 * i64::from(MAX_OUTPUT_WEIGHT) * 256;
-            assert!(2 * side > i64::from(i32::MAX), "the case is beyond i32");
+        let side = 255i64 * 255 * i64::from(MAX_OUTPUT_WEIGHT) * h as i64;
+        if h >= 256 {
+            assert!(2 * side > i64::from(i32::MAX), "both sides are beyond i32");
+        }
+        if h >= 512 {
+            assert!(side > i64::from(i32::MAX), "one side alone is beyond i32");
         }
         for _ in 0..2000 {
             let us: Vec<i16> = (0..h).map(|_| rng.range(-600, 600)).collect();

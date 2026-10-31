@@ -1,6 +1,6 @@
 //! NNUE evaluation: a (768 → H) × 2 → 1 network with squared clipped ReLU,
 //! quantized to `i16`, evaluated from an accumulator that make and unmake
-//! update incrementally. H is 128 or 256 ([`WIDTHS`]), read from the file's
+//! update incrementally. H is 128, 256 or 512 ([`WIDTHS`]), read from the file's
 //! size; each width's code is compiled separately ([`Net`], [`Acc`]) and
 //! chosen once per call ([`Network`], `NnueState`).
 //!
@@ -53,7 +53,7 @@ impl EmbeddedNet {
 /// Every net the binary carries, oldest first; the last is the default.
 /// Older nets stay so the data they played can still be re-searched
 /// (`datagen-audit`) and so they can be selected by id for comparisons. A net
-/// is about 200 KB at 128 hidden neurons and 400 KB at 256.
+/// is about 200 KB at 128 hidden neurons, 400 KB at 256 and 790 KB at 512.
 pub const NETS: [EmbeddedNet; 3] = [
     EmbeddedNet {
         id: "net1-l050-r41022503872",
@@ -66,9 +66,9 @@ pub const NETS: [EmbeddedNet; 3] = [
         bytes: include_bytes!("../nets/net2x80-l050-r41131366975.nnue"),
     },
     EmbeddedNet {
-        id: "net4-l050-r41165115607",
+        id: "net4w512-l050-r41170687764",
         generation: 3,
-        bytes: include_bytes!("../nets/net4-l050-r41165115607.nnue"),
+        bytes: include_bytes!("../nets/net4w512-l050-r41170687764.nnue"),
     },
 ];
 
@@ -110,7 +110,7 @@ pub fn network_by_id(id: &str) -> Option<Arc<Network>> {
 pub const HIDDEN: usize = 128;
 
 /// The hidden-layer widths the engine reads, told apart by file size.
-pub const WIDTHS: [usize; 2] = [128, 256];
+pub const WIDTHS: [usize; 3] = [128, 256, 512];
 
 /// Input features per perspective.
 pub const INPUTS: usize = 768;
@@ -137,6 +137,9 @@ pub const fn file_bytes(hidden: usize) -> usize {
 /// The size in bytes of a 128-neuron network file without padding.
 pub const FILE_BYTES: usize = file_bytes(HIDDEN);
 
+/// The longest run of output terms summed in `i32` (see [`Net::evaluate`]).
+const CHUNK: usize = 256;
+
 /// A network's quantized weights at width `H`.
 pub struct Net<const H: usize> {
     /// `[INPUTS][H]`, feature-major: one column per feature.
@@ -150,9 +153,9 @@ pub struct Net<const H: usize> {
 }
 
 impl<const H: usize> Net<H> {
-    /// Widths are multiples of 16 (SIMD) and at most 256: the output's
-    /// exactness bound (see `evaluate`) holds up to there.
-    const VALID: () = assert!(H % 16 == 0 && H > 0 && H <= 256);
+    /// Widths are multiples of 16 (SIMD); `evaluate` stays exact at any of
+    /// them by summing in chunks of `CHUNK`.
+    const VALID: () = assert!(H % 16 == 0 && H > 0);
 
     fn from_words(next: &mut impl FnMut() -> i16) -> Result<Net<H>, String> {
         let () = Self::VALID;
@@ -230,21 +233,29 @@ impl<const H: usize> Net<H> {
     pub fn evaluate(&self, us: &Acc<H>, them: &Acc<H>) -> i32 {
         // screlu(x) · w computed as (c · w) · c with c = clamp(x, 0, QA). With
         // every output weight within ±MAX_OUTPUT_WEIGHT (enforced at load),
-        // c · w fits an i16 (255 · 127 = 32,385) and each side's sum an i32
-        // (255² · 127 · H ≤ 2,114,092,800 for H ≤ 256); the two sides are
-        // added in i64. So this is exact: the same result as summing in i64,
-        // whatever the width up to 256. In this shape the compiler vectorizes
-        // it into 16-bit multiplies and pairwise multiply-adds (`vpmullw` and
-        // `vpmaddwd` on x86-64-v3), 16 values an instruction.
+        // c · w fits an i16 (255 · 127 = 32,385), and a run of CHUNK terms an
+        // i32 (255² · 127 · 256 = 2,114,092,800). Each side is summed in i32
+        // a chunk at a time and the chunks are added in i64, so this is exact
+        // at any width: the same result as summing in i64. At 128 and 256
+        // there is one chunk a side, as before 512 existed. In this shape the
+        // compiler vectorizes each chunk into 16-bit multiplies and pairwise
+        // multiply-adds (`vpmullw` and `vpmaddwd` on x86-64-v3), 16 values an
+        // instruction.
         let qa = QA as i16;
-        let (mut sum_us, mut sum_them) = (0i32, 0i32);
-        for i in 0..H {
-            let u = us.0[i].clamp(0, qa);
-            let t = them.0[i].clamp(0, qa);
-            sum_us += i32::from(u.wrapping_mul(self.output_us[i])) * i32::from(u);
-            sum_them += i32::from(t.wrapping_mul(self.output_them[i])) * i32::from(t);
-        }
-        let sum = i64::from(sum_us) + i64::from(sum_them);
+        let side = |acc: &[i16; H], weights: &[i16; H]| -> i64 {
+            acc.chunks(CHUNK)
+                .zip(weights.chunks(CHUNK))
+                .map(|(a, w)| {
+                    let mut sum = 0i32;
+                    for (&x, &w) in a.iter().zip(w) {
+                        let c = x.clamp(0, qa);
+                        sum += i32::from(c.wrapping_mul(w)) * i32::from(c);
+                    }
+                    i64::from(sum)
+                })
+                .sum()
+        };
+        let sum = side(&us.0, &self.output_us) + side(&them.0, &self.output_them);
         let out = (sum / i64::from(QA) + i64::from(self.output_bias)) * i64::from(SCALE)
             / i64::from(QA * QB);
         out as i32
@@ -263,8 +274,8 @@ impl<const H: usize> Net<H> {
 }
 
 /// A network of any width the engine reads.
-// The 256 variant is larger inline (about 1.5 KB of biases and output weights
-// more), but a `Network` always lives in an `Arc` on the heap, and boxing it
+// The wider variants are larger inline (a few KB of biases and output weights
+// more), but a `Network` always lives in an `Arc` on the heap, and boxing them
 // would add a pointer hop to every evaluation.
 #[allow(clippy::large_enum_variant)]
 pub enum Network {
@@ -272,6 +283,8 @@ pub enum Network {
     H128(Net<128>),
     /// 256 hidden neurons per perspective.
     H256(Net<256>),
+    /// 512 hidden neurons per perspective.
+    H512(Net<512>),
 }
 
 impl Network {
@@ -300,7 +313,8 @@ impl Network {
         let mut next = || words.next().expect("length checked above");
         Ok(match width {
             128 => Network::H128(Net::from_words(&mut next)?),
-            _ => Network::H256(Net::from_words(&mut next)?),
+            256 => Network::H256(Net::from_words(&mut next)?),
+            _ => Network::H512(Net::from_words(&mut next)?),
         })
     }
 
@@ -309,6 +323,7 @@ impl Network {
         match self {
             Network::H128(_) => 128,
             Network::H256(_) => 256,
+            Network::H512(_) => 512,
         }
     }
 
@@ -318,6 +333,7 @@ impl Network {
         match self {
             Network::H128(n) => n.put_words(&mut out),
             Network::H256(n) => n.put_words(&mut out),
+            Network::H512(n) => n.put_words(&mut out),
         }
         out
     }
@@ -349,6 +365,7 @@ impl Network {
         match self {
             Network::H128(n) => at(n, us, them),
             Network::H256(n) => at(n, us, them),
+            Network::H512(n) => at(n, us, them),
         }
     }
 
@@ -358,6 +375,7 @@ impl Network {
         match self {
             Network::H128(n) => n.refresh(pos, perspective).0.to_vec(),
             Network::H256(n) => n.refresh(pos, perspective).0.to_vec(),
+            Network::H512(n) => n.refresh(pos, perspective).0.to_vec(),
         }
     }
 }
@@ -486,6 +504,7 @@ pub(crate) struct NnueState {
 enum Stack {
     H128(Box<[[Acc<128>; 2]]>),
     H256(Box<[[Acc<256>; 2]]>),
+    H512(Box<[[Acc<512>; 2]]>),
 }
 
 fn new_stack<const H: usize>(net: &Net<H>, pos: &Position, len: usize) -> Box<[[Acc<H>; 2]]> {
@@ -541,6 +560,7 @@ impl NnueState {
         let stack = match &*net {
             Network::H128(n) => Stack::H128(new_stack(n, pos, len)),
             Network::H256(n) => Stack::H256(new_stack(n, pos, len)),
+            Network::H512(n) => Stack::H512(new_stack(n, pos, len)),
         };
         NnueState { net, stack, top: 0 }
     }
@@ -552,6 +572,7 @@ impl NnueState {
         match (&*self.net, &self.stack) {
             (Network::H128(n), Stack::H128(s)) => n.evaluate(&s[self.top][w], &s[self.top][1 - w]),
             (Network::H256(n), Stack::H256(s)) => n.evaluate(&s[self.top][w], &s[self.top][1 - w]),
+            (Network::H512(n), Stack::H512(s)) => n.evaluate(&s[self.top][w], &s[self.top][1 - w]),
             _ => unreachable!("the stack has the network's width"),
         }
     }
@@ -562,6 +583,7 @@ impl NnueState {
         match (&*self.net, &mut self.stack) {
             (Network::H128(n), Stack::H128(s)) => push_move(n, s, &mut self.top, d),
             (Network::H256(n), Stack::H256(s)) => push_move(n, s, &mut self.top, d),
+            (Network::H512(n), Stack::H512(s)) => push_move(n, s, &mut self.top, d),
             _ => unreachable!("the stack has the network's width"),
         }
     }
@@ -580,6 +602,7 @@ impl NnueState {
         match &mut self.stack {
             Stack::H128(s) => s[0] = s[self.top],
             Stack::H256(s) => s[0] = s[self.top],
+            Stack::H512(s) => s[0] = s[self.top],
         }
         self.top = 0;
     }
@@ -590,6 +613,7 @@ impl NnueState {
         match &self.stack {
             Stack::H128(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
             Stack::H256(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
+            Stack::H512(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
         }
     }
 }
