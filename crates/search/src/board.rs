@@ -11,7 +11,7 @@ use rusty_chess_core::types::{Color, PieceKind, Square};
 use std::sync::Arc;
 
 use crate::eval::Eval;
-use crate::nnue::{Accumulator, Network, feature};
+use crate::nnue::{MoveDelta, Network, NnueState};
 use crate::stats::MAX_PLY;
 
 /// Game history plus search depth; a game of 400 moves is 800 keys.
@@ -29,16 +29,7 @@ pub struct Board {
     keys: [u64; MAX_HISTORY],
     len: usize,
     root: usize,
-    nnue: Option<Nnue>,
-}
-
-/// The network and the accumulators of the current line.
-#[derive(Clone)]
-struct Nnue {
-    net: Arc<Network>,
-    /// `[white's perspective, black's]` per ply; `top` is the current one.
-    stack: Box<[[Accumulator; 2]]>,
-    top: usize,
+    nnue: Option<NnueState>,
 }
 
 impl Board {
@@ -65,15 +56,7 @@ impl Board {
     /// Evaluate with `net` from now on (the accumulators are computed from
     /// scratch), or with the hand-written evaluation when `None`.
     pub fn set_network(&mut self, net: Option<Arc<Network>>) {
-        self.nnue = net.map(|net| {
-            let mut stack =
-                vec![[Accumulator([0; crate::nnue::HIDDEN]); 2]; NNUE_STACK].into_boxed_slice();
-            stack[0] = [
-                net.refresh(&self.pos, Color::White),
-                net.refresh(&self.pos, Color::Black),
-            ];
-            Nnue { net, stack, top: 0 }
-        });
+        self.nnue = net.map(|net| NnueState::new(net, &self.pos, NNUE_STACK));
     }
 
     /// Whether a network evaluates this board.
@@ -83,8 +66,8 @@ impl Board {
 
     /// The current accumulators, `[white's perspective, black's]`, when a
     /// network is set (for tests).
-    pub fn accumulators(&self) -> Option<[Accumulator; 2]> {
-        self.nnue.as_ref().map(|n| n.stack[n.top])
+    pub fn accumulators(&self) -> Option<[Vec<i16>; 2]> {
+        self.nnue.as_ref().map(NnueState::values)
     }
 
     /// The position.
@@ -104,12 +87,7 @@ impl Board {
     #[inline]
     pub fn evaluate(&self) -> i32 {
         if let Some(n) = &self.nnue {
-            let [w, b] = &n.stack[n.top];
-            return if self.pos.side_to_move() == Color::White {
-                n.net.evaluate(w, b)
-            } else {
-                n.net.evaluate(b, w)
-            };
+            return n.evaluate(self.pos.side_to_move());
         }
         let white = self.eval.taper();
         if self.pos.side_to_move() == Color::White {
@@ -127,8 +105,7 @@ impl Board {
         // The search starts from the bottom of the accumulator stack, so it
         // can go MAX_PLY deep whatever the game's length.
         if let Some(n) = &mut self.nnue {
-            n.stack[0] = n.stack[n.top];
-            n.top = 0;
+            n.set_root();
         }
     }
 
@@ -194,38 +171,15 @@ impl Board {
         }
 
         if let Some(n) = &mut self.nnue {
-            // Outside a search (a long game played move by move) the stack
-            // can fill; it then restarts from the bottom, which is safe
-            // because a game is never unmade there.
-            if n.top + 1 == n.stack.len() {
-                n.stack[0] = n.stack[n.top];
-                n.top = 0;
-            }
-            // The next ply's accumulators, from the current ones in one pass
-            // per perspective.
-            let (below, above) = n.stack.split_at_mut(n.top + 1);
-            let (old, new) = (&below[n.top], &mut above[0]);
-            for (i, view) in [Color::White, Color::Black].into_iter().enumerate() {
-                let on = feature(view, us, placed, to);
-                let off = feature(view, us, piece.kind, from);
-                match (captured, castle) {
-                    (Some((c, sq)), _) => new[i].add_sub_sub(
-                        &old[i],
-                        &n.net,
-                        on,
-                        off,
-                        feature(view, c.color, c.kind, sq),
-                    ),
-                    (None, Some((rook_from, rook_to))) => new[i].add_add_sub_sub(
-                        &old[i],
-                        &n.net,
-                        [on, feature(view, us, PieceKind::Rook, rook_to)],
-                        [off, feature(view, us, PieceKind::Rook, rook_from)],
-                    ),
-                    (None, None) => new[i].add_sub(&old[i], &n.net, on, off),
-                }
-            }
-            n.top += 1;
+            n.push(&MoveDelta {
+                us,
+                moved: piece.kind,
+                placed,
+                from,
+                to,
+                captured: captured.map(|(c, sq)| (c.color, c.kind, sq)),
+                castle,
+            });
         }
 
         debug_assert!(self.len < MAX_HISTORY, "game too long for the key history");
@@ -253,8 +207,7 @@ impl Board {
     pub fn unmake_move(&mut self, m: Move, undo: Undo) {
         self.len -= 1;
         if let Some(n) = &mut self.nnue {
-            debug_assert!(n.top > 0, "unmake past the accumulator stack's bottom");
-            n.top -= 1;
+            n.pop();
         }
         self.pos.unmake_move(m, undo);
         let us = self.pos.side_to_move();

@@ -21,8 +21,8 @@
 #    --val-positions held-out records and as many training records;
 # 4. checks the engine's quantized evaluation against the trainer's float one
 #    on held-out positions (nnue-eval --check); a mismatch fails the task. A
-#    net of a width the engine doesn't read yet (--hidden other than the
-#    engine's nnue::HIDDEN) skips this check and says so in training.json:
+#    net of a width the engine doesn't read yet (--hidden not in the
+#    engine's nnue::WIDTHS) skips this check and says so in training.json:
 #    run nnue-eval --check on it once the engine reads that width;
 # 5. writes training.json (data, split, schedule, versions, hardware, losses,
 #    the validation curve, the check) and uploads the net and its records to
@@ -114,16 +114,16 @@ trainer/target/release/rusty-chess-trainer train --data "$scratch/data" --net-id
   2>&1 | tee "$scratch/train.log"
 trained=$(since)
 
-engine_hidden=$(sed -n 's/^pub const HIDDEN: usize = \([0-9]*\);.*/\1/p' crates/search/src/nnue.rs)
+engine_widths=$(sed -n 's/^pub const WIDTHS: \[usize; [0-9]*\] = \[\(.*\)\];.*/\1/p' crates/search/src/nnue.rs | tr -d ' ')
 check_ran=True
-if [ "$hidden" = "$engine_hidden" ]; then
+if [[ ",$engine_widths," == *",$hidden,"* ]]; then
   echo "-- checking the engine's evaluation against the trainer's ($(since)s)"
   set +e
   check=$(target/release/nnue-eval --net "$scratch/out/net.nnue" --check "$scratch/out/eval_check.json" 2>&1)
   check_code=$?
   set -e
 else
-  check="not run: the engine reads ${engine_hidden:-?}-neuron nets and this one has $hidden; run nnue-eval --check on it once the engine reads this width"
+  check="not run: the engine reads ${engine_widths:-?}-neuron nets and this one has $hidden; run nnue-eval --check on it once the engine reads this width"
   check_code=0 check_ran=None
 fi
 echo "$check" | tee "$scratch/check.txt"

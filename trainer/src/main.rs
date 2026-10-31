@@ -44,7 +44,7 @@ use bulletformat::{BulletFormat, ChessBoard};
 use sha2::{Digest, Sha256};
 
 /// Hidden neurons per perspective unless `--hidden` says otherwise. The
-/// engine must read the same width (`nnue::HIDDEN` there).
+/// engine must read that width (`nnue::WIDTHS` there).
 const DEFAULT_HIDDEN: usize = 128;
 /// The widest net the scorer handles (its accumulators live on the stack).
 const MAX_HIDDEN: usize = 1024;

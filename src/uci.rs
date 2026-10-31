@@ -512,7 +512,7 @@ mod tests {
             out.contains("option name EvalFile type string default <default>"),
             "{out}"
         );
-        assert!(out.contains("short.nnue: a 768"), "{out}");
+        assert!(out.contains("short.nnue: a network is 768"), "{out}");
         assert!(out.contains("zero.nnue loaded"), "{out}");
         assert_eq!(bestmoves(&out).len(), 1, "{out}");
         std::fs::remove_dir_all(&dir).unwrap();

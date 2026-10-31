@@ -10,8 +10,8 @@ use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
 use rusty_chess_search::nnue::{
-    Accumulator, DEFAULT_NET_ID, FILE_BYTES, HIDDEN, INPUTS, MAX_OUTPUT_WEIGHT, NETS, Network, QA,
-    QB, SCALE, default_network, network_by_id,
+    DEFAULT_NET_ID, INPUTS, MAX_OUTPUT_WEIGHT, NETS, Network, QA, QB, SCALE, WIDTHS,
+    default_network, file_bytes, network_by_id,
 };
 use rusty_chess_search::search::{Limits, Searcher};
 
@@ -28,23 +28,39 @@ impl Rng {
     }
 }
 
+/// A network of width `hidden` from its weights in file order: feature
+/// weights, feature bias, output weights (ours, theirs), output bias.
+fn net_from(hidden: usize, mut word: impl FnMut(usize) -> i16) -> Network {
+    let words = file_bytes(hidden) / 2;
+    let bytes: Vec<u8> = (0..words).flat_map(|i| word(i).to_le_bytes()).collect();
+    Network::from_bytes(&bytes).unwrap()
+}
+
 /// A random network with weights of the size a trained net has.
-fn random_net(seed: u64) -> Network {
+fn random_net(seed: u64, hidden: usize) -> Network {
     let mut rng = Rng(seed | 1);
-    let mut fw: Box<[[i16; HIDDEN]; INPUTS]> = vec![[0i16; HIDDEN]; INPUTS]
-        .into_boxed_slice()
-        .try_into()
-        .unwrap_or_else(|_| unreachable!());
-    for row in fw.iter_mut() {
-        for w in row.iter_mut() {
-            *w = rng.range(-40, 40);
-        }
-    }
-    let mut fb = [0i16; HIDDEN];
-    fb.iter_mut().for_each(|b| *b = rng.range(-40, 120));
-    let mut ow = [0i16; 2 * HIDDEN];
-    ow.iter_mut().for_each(|w| *w = rng.range(-127, 127));
-    Network::from_parts(fw, fb, ow, rng.range(-2000, 2000))
+    let (fw, fb, ow) = (
+        INPUTS * hidden,
+        INPUTS * hidden + hidden,
+        INPUTS * hidden + 3 * hidden,
+    );
+    net_from(hidden, |i| match i {
+        _ if i < fw => rng.range(-40, 40),
+        _ if i < fb => rng.range(-40, 120),
+        _ if i < ow => rng.range(-127, 127),
+        _ => rng.range(-2000, 2000),
+    })
+}
+
+/// A network with zero hidden weights and biases, every output weight `w`
+/// and output bias `bias`.
+fn flat_net(hidden: usize, w: i16, bias: i16) -> Network {
+    let (fb, ow) = (INPUTS * hidden + hidden, INPUTS * hidden + 3 * hidden);
+    net_from(hidden, |i| match i {
+        _ if i < fb => 0,
+        _ if i < ow => w,
+        _ => bias,
+    })
 }
 
 fn board(fen: &str, net: &Arc<Network>) -> Board {
@@ -54,54 +70,62 @@ fn board(fen: &str, net: &Arc<Network>) -> Board {
 }
 
 /// The accumulators recomputed from scratch for the board's position.
-fn fresh(b: &Board, net: &Network) -> [rusty_chess_search::nnue::Accumulator; 2] {
+fn fresh(b: &Board, net: &Network) -> [Vec<i16>; 2] {
     [
-        net.refresh(b.position(), Color::White),
-        net.refresh(b.position(), Color::Black),
+        net.refresh_values(b.position(), Color::White),
+        net.refresh_values(b.position(), Color::Black),
     ]
 }
 
 #[test]
 fn a_network_file_round_trips_and_wrong_sizes_are_refused() {
-    let net = random_net(1);
-    let bytes = net.to_bytes();
-    assert_eq!(bytes.len(), FILE_BYTES);
-    let back = Network::from_bytes(&bytes).unwrap();
-    assert_eq!(back.to_bytes(), bytes);
-    // Padding to a multiple of 64 bytes is accepted.
-    let mut padded = bytes.clone();
-    padded.resize(FILE_BYTES.div_ceil(64) * 64, 0);
-    assert!(Network::from_bytes(&padded).is_ok());
-    assert!(Network::from_bytes(&bytes[..FILE_BYTES - 2]).is_err());
-    let mut long = bytes;
-    long.resize(FILE_BYTES + 64, 0);
-    assert!(
-        Network::from_bytes(&long).is_err(),
-        "a different architecture"
-    );
+    for &h in &WIDTHS {
+        let size = file_bytes(h);
+        let net = random_net(1, h);
+        assert_eq!(net.hidden(), h);
+        let bytes = net.to_bytes();
+        assert_eq!(bytes.len(), size);
+        let back = Network::from_bytes(&bytes).unwrap();
+        assert_eq!(back.to_bytes(), bytes);
+        // Padding to a multiple of 64 bytes is accepted.
+        let mut padded = bytes.clone();
+        padded.resize(size.div_ceil(64) * 64, 0);
+        assert_eq!(Network::from_bytes(&padded).unwrap().hidden(), h);
+        assert!(Network::from_bytes(&bytes[..size - 2]).is_err());
+        let mut long = bytes;
+        long.resize(size + 64, 0);
+        assert!(
+            Network::from_bytes(&long).is_err(),
+            "a different architecture"
+        );
+    }
 }
 
 #[test]
 fn the_output_is_the_bias_scaled_when_nothing_activates() {
     // All-zero hidden weights and bias: every activation is 0, so the output
     // is the bias times SCALE over QA · QB.
-    let fw: Box<[[i16; HIDDEN]; INPUTS]> = vec![[0i16; HIDDEN]; INPUTS]
-        .into_boxed_slice()
-        .try_into()
-        .unwrap_or_else(|_| unreachable!());
-    let net = Arc::new(Network::from_parts(fw, [0; HIDDEN], [7; 2 * HIDDEN], 6_400));
-    let b = board(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        &net,
-    );
-    assert_eq!(b.evaluate(), 6_400 * SCALE / (QA * QB));
+    for &h in &WIDTHS {
+        let net = Arc::new(flat_net(h, 7, 6_400));
+        let b = board(
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            &net,
+        );
+        assert_eq!(b.evaluate(), 6_400 * SCALE / (QA * QB), "width {h}");
+    }
 }
 
 #[test]
 fn make_and_unmake_keep_the_accumulators_equal_to_a_fresh_computation() {
+    for &h in &WIDTHS {
+        walks(h);
+    }
+}
+
+fn walks(hidden: usize) {
     // Random walks from positions that reach castling, en passant,
     // promotion and captures, checked at every ply going down and up.
-    let net = Arc::new(random_net(7));
+    let net = Arc::new(random_net(7, hidden));
     for (i, fen) in [
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
@@ -146,25 +170,33 @@ fn make_and_unmake_keep_the_accumulators_equal_to_a_fresh_computation() {
 fn a_long_game_played_forward_wraps_the_stack_safely() {
     // More plies than the stack holds, played without unmaking, as the UCI
     // `position ... moves` and self-play do.
-    let net = Arc::new(random_net(11));
-    let mut b = board(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        &net,
-    );
-    let shuffle = ["g1f3", "g8f6", "f3g1", "f6g8"];
-    for i in 0..400 {
-        let m = b.position().parse_uci_move(shuffle[i % 4]).unwrap();
-        b.make_move(m);
+    for &h in &WIDTHS {
+        let net = Arc::new(random_net(11, h));
+        let mut b = board(
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            &net,
+        );
+        let shuffle = ["g1f3", "g8f6", "f3g1", "f6g8"];
+        for i in 0..400 {
+            let m = b.position().parse_uci_move(shuffle[i % 4]).unwrap();
+            b.make_move(m);
+            assert_eq!(b.accumulators().unwrap(), fresh(&b, &net));
+        }
+        b.set_root();
         assert_eq!(b.accumulators().unwrap(), fresh(&b, &net));
     }
-    b.set_root();
-    assert_eq!(b.accumulators().unwrap(), fresh(&b, &net));
 }
 
 #[test]
 fn the_evaluation_is_the_same_for_a_mirrored_position() {
     // Perspective features make a net colour-symmetric by construction.
-    let net = Arc::new(random_net(3));
+    for &h in &WIDTHS {
+        mirrored_at(h);
+    }
+}
+
+fn mirrored_at(hidden: usize) {
+    let net = Arc::new(random_net(3, hidden));
     for (fen, mirrored) in [
         (
             "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w - - 4 4",
@@ -199,7 +231,7 @@ fn a_search_with_a_network_runs_and_without_one_is_unchanged() {
     let plain = run(None);
     let again = run(None);
     assert_eq!((plain.best, plain.nodes), (again.best, again.nodes));
-    let with_net = run(Some(Arc::new(random_net(5))));
+    let with_net = run(Some(Arc::new(random_net(5, 256))));
     let mut list = MoveList::new();
     Position::from_fen(fen).unwrap().legal_moves(&mut list);
     assert!(list.as_slice().contains(&with_net.best));
@@ -259,18 +291,33 @@ fn material_sanity(net: &Arc<Network>) {
 
 /// The output as first written: screlu summed in i64. The engine's i32 form
 /// must give exactly this, or the bench signature would move.
-fn reference_output(net_bytes: &[u8], us: &Accumulator, them: &Accumulator) -> i32 {
-    let words: Vec<i16> = net_bytes
+struct Output {
+    weights: Vec<i16>,
+    bias: i16,
+}
+
+/// A net's output layer, read back from its file bytes.
+fn output_layer(net: &Network) -> Output {
+    let h = net.hidden();
+    let words: Vec<i16> = net
+        .to_bytes()
         .chunks_exact(2)
         .map(|c| i16::from_le_bytes([c[0], c[1]]))
         .collect();
-    let ow = &words[INPUTS * HIDDEN + HIDDEN..INPUTS * HIDDEN + 3 * HIDDEN];
-    let bias = words[INPUTS * HIDDEN + 3 * HIDDEN];
+    Output {
+        weights: words[INPUTS * h + h..INPUTS * h + 3 * h].to_vec(),
+        bias: words[INPUTS * h + 3 * h],
+    }
+}
+
+fn reference_output(out: &Output, us: &[i16], them: &[i16]) -> i32 {
+    let h = us.len();
+    let (ow, bias) = (&out.weights, out.bias);
     let screlu = |x: i16| i64::from(x.clamp(0, QA as i16)).pow(2);
     let mut sum = 0i64;
-    for i in 0..HIDDEN {
-        sum += screlu(us.0[i]) * i64::from(ow[i]);
-        sum += screlu(them.0[i]) * i64::from(ow[HIDDEN + i]);
+    for i in 0..h {
+        sum += screlu(us[i]) * i64::from(ow[i]);
+        sum += screlu(them[i]) * i64::from(ow[h + i]);
     }
     ((sum / i64::from(QA) + i64::from(bias)) * i64::from(SCALE) / i64::from(QA * QB)) as i32
 }
@@ -279,35 +326,32 @@ fn reference_output(net_bytes: &[u8], us: &Accumulator, them: &Accumulator) -> i
 fn the_output_is_exact_at_the_extremes_and_on_random_accumulators() {
     let mut rng = Rng(11);
     // Every hidden value clipped to QA and every output weight at the bound:
-    // the largest sum a loadable net can produce, within a few percent of
-    // i32's range.
-    let big = |w: i16| {
-        let fw: Box<[[i16; HIDDEN]; INPUTS]> = vec![[0i16; HIDDEN]; INPUTS]
-            .into_boxed_slice()
-            .try_into()
-            .unwrap_or_else(|_| unreachable!());
-        Network::from_parts(fw, [0; HIDDEN], [w; 2 * HIDDEN], 0)
-    };
-    for net in [
-        big(MAX_OUTPUT_WEIGHT),
-        big(-MAX_OUTPUT_WEIGHT),
-        random_net(5),
-        Network::from_bytes(&default_network().to_bytes()).unwrap(),
-    ] {
-        let bytes = net.to_bytes();
-        let full = Accumulator([i16::MAX; HIDDEN]);
-        assert_eq!(
-            net.evaluate(&full, &full),
-            reference_output(&bytes, &full, &full)
-        );
+    // the largest sum a loadable net can produce. At 256 neurons the two
+    // sides together exceed i32's range (2 · 2,114,092,800), so this is the
+    // case that needs each side summed in i32 and the two in i64.
+    let mut nets = Vec::new();
+    for &h in &WIDTHS {
+        nets.push(flat_net(h, MAX_OUTPUT_WEIGHT, 0));
+        nets.push(flat_net(h, -MAX_OUTPUT_WEIGHT, 0));
+        nets.push(random_net(5, h));
+    }
+    nets.push(Network::from_bytes(&default_network().to_bytes()).unwrap());
+    for net in &nets {
+        let h = net.hidden();
+        let out = output_layer(net);
+        let full = vec![i16::MAX; h];
+        let expected = reference_output(&out, &full, &full);
+        assert_eq!(net.evaluate_values(&full, &full), expected, "width {h}");
+        if h == 256 {
+            let side = 255i64 * 255 * i64::from(MAX_OUTPUT_WEIGHT) * 256;
+            assert!(2 * side > i64::from(i32::MAX), "the case is beyond i32");
+        }
         for _ in 0..2000 {
-            let mut us = Accumulator([0; HIDDEN]);
-            let mut them = Accumulator([0; HIDDEN]);
-            us.0.iter_mut().for_each(|x| *x = rng.range(-600, 600));
-            them.0.iter_mut().for_each(|x| *x = rng.range(-600, 600));
+            let us: Vec<i16> = (0..h).map(|_| rng.range(-600, 600)).collect();
+            let them: Vec<i16> = (0..h).map(|_| rng.range(-600, 600)).collect();
             assert_eq!(
-                net.evaluate(&us, &them),
-                reference_output(&bytes, &us, &them)
+                net.evaluate_values(&us, &them),
+                reference_output(&out, &us, &them)
             );
         }
     }
@@ -315,9 +359,11 @@ fn the_output_is_exact_at_the_extremes_and_on_random_accumulators() {
 
 #[test]
 fn a_net_with_an_output_weight_beyond_the_bound_is_refused() {
-    let mut bytes = random_net(7).to_bytes();
-    let first_output = 2 * (INPUTS * HIDDEN + HIDDEN);
-    bytes[first_output..first_output + 2].copy_from_slice(&128i16.to_le_bytes());
-    let err = Network::from_bytes(&bytes).err().expect("refused");
-    assert!(err.contains("beyond ±127"), "{err}");
+    for &h in &WIDTHS {
+        let mut bytes = random_net(7, h).to_bytes();
+        let first_output = 2 * (INPUTS * h + h);
+        bytes[first_output..first_output + 2].copy_from_slice(&128i16.to_le_bytes());
+        let err = Network::from_bytes(&bytes).err().expect("refused");
+        assert!(err.contains("beyond ±127"), "{err}");
+    }
 }
