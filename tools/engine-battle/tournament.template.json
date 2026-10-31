@@ -1,0 +1,35 @@
+{
+  "Name": "rusty-chess local battle",
+  "Description": "Local experimentation and viewing; not a strength test (see tools/engine-battle/README.md)",
+  "OS": "",
+  "CPU": "",
+  "RAM": "",
+  "GPU": "",
+  "MainLogoFileName": "",
+  "VerboseLogging": false,
+  "MoveAnnotation": "Standard",
+  "MinMoveTimeInMS": 0,
+  "TournamentMode": "RR",
+  "AllowPondering": false,
+  "PreventMoveDeviation": false,
+  "Rounds": 10,
+  "NumberOfGamesInParallel": 1,
+  "PauseAfterRound": 0,
+  "DelayBetweenGames": "00:00:02.000",
+  "MoveOverhead": "00:00:00.100",
+  "Adjudication": {
+    "DrawOption": { "Enabled": true, "DrawMoveLength": 5, "MaxDrawScore": 0.1, "MinDrawMove": 40 },
+    "WinOption": { "Enabled": true, "MinWinScore": 10.0, "WinMoveLength": 5, "MinWinMove": 0 },
+    "TBAdj": { "UseTBAdjudication": false, "TablebaseDirectory": "", "TBMen": 0 }
+  },
+  "Opening": {
+    "OpeningsPath": "",
+    "OpeningsPly": 100,
+    "OpeningsTwice": true,
+    "RandomOpenings": false
+  },
+  "GauntletOptions": { "Challengers": 1, "RandomOpenings": false, "Distribution": "shared" },
+  "PgnOutPath": "",
+  "EngineSetup": { "EngineDefFolder": "", "EngineDefList": [] },
+  "TimeControl": { "TimeConfigs": [{ "Id": 1, "Tc": "2:00+1" }] }
+}
