@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.35.0...v0.36.0) (2026-10-31)
+
+
+### Features
+
+* **nnue:** read 512-neuron nets and embed net4w512, 512 hidden on net 4's data, as the default ([#152](https://github.com/jwallace145/rusty-chess-v2/issues/152)) ([08c8b1f](https://github.com/jwallace145/rusty-chess-v2/commit/08c8b1f898dcae82b986331723896a703d77388f))
+
 ## [0.35.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.34.0...v0.35.0) (2026-10-31)
 
 
