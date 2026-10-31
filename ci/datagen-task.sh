@@ -173,7 +173,7 @@ cat > "$OUT_DIR/task.json" <<JSON
  "engine_sha": "$sha", "engine_bench": ${bench:-null}, "workers": $cores, "seed": $seed,
  "minutes": $minutes, "games": ${games:-0}, "positions": ${positions:-0}, "shards": $uploaded,
  "seconds": $(since), "interrupted": $([ "$interrupted" = 1 ] && echo true || echo false),
- "target_cpu": "$target_cpu", "uploaded": $([ "$upload" = 1 ] && echo true || echo false),
+ "target_cpu": "$target_cpu", "rustflags": "$RUSTFLAGS", "uploaded": $([ "$upload" = 1 ] && echo true || echo false),
  "prefix": "$prefix/"}
 JSON
 cat "$OUT_DIR/task.json"

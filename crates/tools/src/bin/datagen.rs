@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use rusty_chess_tools::datagen::{Provenance, Run, Settings, run};
+use rusty_chess_tools::datagen::{Provenance, Run, Settings, net_provenance, run};
 
 fn main() -> ExitCode {
     match main_inner(std::env::args().skip(1).collect()) {
@@ -68,6 +68,7 @@ fn main_inner(args: Vec<String>) -> Result<(), String> {
     if threads == 0 {
         return Err("`--threads` must be at least 1".into());
     }
+    let net = net_provenance(settings.generation);
     let r = Run {
         settings,
         provenance: Provenance {
@@ -76,6 +77,7 @@ fn main_inner(args: Vec<String>) -> Result<(), String> {
             engine_version: env!("CARGO_PKG_VERSION").to_string(),
             engine_sha,
             engine_bench,
+            net,
         },
         threads,
         seed,

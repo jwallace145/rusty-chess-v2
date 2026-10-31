@@ -24,7 +24,7 @@ use rusty_chess_core::movegen::MoveList;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::{Color, PieceKind};
 use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{Network, network_for_generation};
+use rusty_chess_search::nnue::{NETS, Network, network_for_generation};
 use rusty_chess_search::search::{Limits, Searcher, is_mate_score};
 use serde::{Deserialize, Serialize};
 
@@ -385,6 +385,34 @@ pub struct Provenance {
     pub engine_sha: String,
     /// Its bench signature.
     pub engine_bench: Option<u64>,
+    /// The network the games were played with: `None` for generation 0
+    /// (PeSTO). Recorded from the build itself, so the data names the net that
+    /// played it rather than leaving it to be inferred from the commit.
+    pub net: Option<NetProvenance>,
+}
+
+/// An embedded net as recorded in a shard's provenance.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NetProvenance {
+    /// The net's id (`data/nets/<id>/` in the dataset bucket).
+    pub id: String,
+    /// The SHA-256 of the net's file, as in its `training.json`.
+    pub sha256: String,
+}
+
+/// The provenance of the net that plays `generation` in this build: `None`
+/// for generation 0 (PeSTO) or a generation no embedded net plays.
+pub fn net_provenance(generation: u32) -> Option<NetProvenance> {
+    use sha2::{Digest, Sha256};
+    NETS.iter()
+        .find(|n| n.generation == generation && generation > 0)
+        .map(|n| NetProvenance {
+            id: n.id.to_string(),
+            sha256: Sha256::digest(n.file_bytes())
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect(),
+        })
 }
 
 /// A shard's manifest: everything needed to select it for training without

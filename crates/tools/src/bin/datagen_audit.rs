@@ -3,7 +3,8 @@
 //! ```text
 //! datagen-audit check DIR [--config datagen.toml] [--research N] [--bullet]
 //! datagen-audit research DIR N        fresh re-search of N records: label agreement, depth
-//! datagen-audit determinism DIR       regenerate a shard's first games from its seed
+//! datagen-audit inventory ROOT [--json FILE]  a whole generation's manifests and files, without the records
+//! datagen-audit determinism DIR [N]   regenerate every worker's first N games (12) from its seed
 //! datagen-audit outcomes DIR          game result by score bucket, by how games ended
 //! datagen-audit thresholds DIR        would lower win adjudication have called the right winner?
 //! datagen-audit adjudication DIR N    deep search and playout of N win-adjudicated games
@@ -961,47 +962,408 @@ fn research(dir: &Path, n: usize) -> (f64, f64, f64) {
     )
 }
 
-fn determinism(dir: &Path) {
-    use rusty_chess_tools::datagen::{Settings, play_game};
+/// Regenerate every worker's first `n` games (its `s00000` shard) from the
+/// seed in its manifest and compare start positions and moves. Identical games
+/// prove the shards were played by this build's search, net and settings:
+/// a different net or setting changes the moves within a few games. Returns
+/// the number of workers whose games differ.
+fn determinism(dir: &Path, n: usize) -> usize {
+    use rusty_chess_tools::datagen::{Settings, net_provenance, play_game};
     use rusty_chess_tools::openings::Rng;
     rusty_chess_core::attacks::init();
     let shards = load(dir);
-    let sh = shards
+    let firsts: Vec<&Shard> = shards
         .iter()
-        .find(|s| s.name.ends_with("-s00000"))
-        .expect("a shard with sequence 0 (s00000)");
+        .filter(|s| s.name.ends_with("-s00000"))
+        .collect();
+    assert!(
+        !firsts.is_empty(),
+        "no worker's first shard (s00000) in {}",
+        dir.display()
+    );
+    let sh = firsts[0];
+    let generation = sh.manifest["settings"]["generation"].as_u64().unwrap_or(0) as u32;
     println!(
         "   the data's engine_sha: {} (build this tool there for an exact comparison)",
         sh.manifest["provenance"]["engine_sha"]
     );
-    let settings: Settings = serde_json::from_value(sh.manifest["settings"].clone()).unwrap();
-    let mut rng = Rng::seeded(sh.manifest["seed"].as_u64().unwrap());
-    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
-    s.set_hash_mb(settings.hash_mb);
-    let n = 12;
-    let mut same = 0;
-    for (i, g) in sh.games.iter().take(n).enumerate() {
-        let regen = play_game(&mut rng, &mut s, &settings);
-        let recorded: Vec<&str> = g["moves"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_str().unwrap())
+    match (
+        net_provenance(generation),
+        sh.manifest["provenance"].get("net"),
+    ) {
+        (Some(ours), Some(theirs)) if !theirs.is_null() => println!(
+            "   net: the data names {} ({}), this build plays {} ({})",
+            theirs["id"], theirs["sha256"], ours.id, ours.sha256
+        ),
+        (Some(ours), _) => println!(
+            "   net: not recorded in the data (it predates net provenance); this build plays generation {generation} with {} ({})",
+            ours.id, ours.sha256
+        ),
+        (None, _) => println!("   net: none (generation {generation} is PeSTO)"),
+    }
+    let threads = std::thread::available_parallelism().map_or(1, |t| t.get());
+    let results: Vec<(String, usize, usize)> = std::thread::scope(|scope| {
+        let per = firsts.len().div_ceil(threads);
+        let handles: Vec<_> = firsts
+            .chunks(per)
+            .map(|chunk| {
+                scope.spawn(move || {
+                    chunk
+                        .iter()
+                        .map(|sh| {
+                            let settings: Settings =
+                                serde_json::from_value(sh.manifest["settings"].clone()).unwrap();
+                            let mut rng = Rng::seeded(sh.manifest["seed"].as_u64().unwrap());
+                            let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+                            s.set_hash_mb(settings.hash_mb);
+                            let (mut same, mut played) = (0, 0);
+                            for g in sh.games.iter().take(n) {
+                                let regen = play_game(&mut rng, &mut s, &settings);
+                                let recorded: Vec<&str> = g["moves"]
+                                    .as_array()
+                                    .unwrap()
+                                    .iter()
+                                    .map(|v| v.as_str().unwrap())
+                                    .collect();
+                                played += 1;
+                                if regen.start_fen == g["start_fen"].as_str().unwrap()
+                                    && regen.moves == recorded
+                                {
+                                    same += 1;
+                                }
+                            }
+                            (sh.name.clone(), same, played)
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
             .collect();
-        let ok = regen.start_fen == g["start_fen"].as_str().unwrap() && regen.moves == recorded;
-        if ok {
-            same += 1;
-        } else {
-            println!(
-                "   game {i} differs: start {} vs {}",
-                regen.start_fen, g["start_fen"]
-            );
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap())
+            .collect()
+    });
+    let (mut same, mut played, mut bad) = (0, 0, 0);
+    for (name, s, p) in &results {
+        same += s;
+        played += p;
+        if s != p {
+            bad += 1;
+            println!("   {name}: {s}/{p} identical");
         }
     }
     println!(
-        "== Regenerated the first {n} games of {} from its seed: {same}/{n} identical (start position and every move)",
-        sh.name
+        "== Regenerated the first {n} games of {} workers from their seeds: {same}/{played} identical (start position and every move)",
+        results.len()
     );
+    println!(
+        "  {} games regenerated identically: {} of {} workers differ",
+        if bad == 0 { "PASS" } else { "FAIL" },
+        bad,
+        results.len()
+    );
+    bad
+}
+
+/// Every manifest and file under ROOT, a whole generation in the S3 layout
+/// (`run=*/task=*/{manifests,positions,games}/`), checked without reading the
+/// records: complete shards and no orphans, each worker's shards numbered
+/// without gaps, no shard twice, seeds unique across the generation, one
+/// settings block and one engine per generation, and the net each shard names.
+/// Returns the number of P0 problems.
+fn inventory(root: &Path, json_out: Option<&Path>) -> usize {
+    use std::collections::BTreeSet;
+    fn walk(d: &Path, out: &mut Vec<PathBuf>) {
+        for e in std::fs::read_dir(d).into_iter().flatten().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                walk(&p, out);
+            } else {
+                out.push(p);
+            }
+        }
+    }
+    let mut files = Vec::new();
+    walk(root, &mut files);
+    // (task dir, kind, shard name)
+    let mut have: HashSet<(PathBuf, &'static str, String)> = HashSet::new();
+    let mut manifests: Vec<(PathBuf, String, Value)> = Vec::new();
+    let mut task_jsons: Vec<(PathBuf, Value)> = Vec::new();
+    let mut problems: Vec<String> = Vec::new();
+    for f in &files {
+        let (Some(parent), Some(name)) = (f.parent(), f.file_name().and_then(|n| n.to_str()))
+        else {
+            continue;
+        };
+        let kind = parent.file_name().and_then(|k| k.to_str()).unwrap_or("");
+        let task_dir = parent.parent().map(Path::to_path_buf).unwrap_or_default();
+        match (kind, name) {
+            ("manifests", n) if n.ends_with(".json") => {
+                let shard = n.trim_end_matches(".json").to_string();
+                match std::fs::read_to_string(f)
+                    .ok()
+                    .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+                {
+                    Some(v) => manifests.push((task_dir.clone(), shard.clone(), v)),
+                    None => problems.push(format!("{}: unreadable manifest", f.display())),
+                }
+                have.insert((task_dir, "manifests", shard));
+            }
+            ("positions", n) if n.ends_with(".txt.gz") => {
+                have.insert((
+                    task_dir,
+                    "positions",
+                    n.trim_end_matches(".txt.gz").to_string(),
+                ));
+            }
+            ("games", n) if n.ends_with(".jsonl.gz") => {
+                have.insert((
+                    task_dir,
+                    "games",
+                    n.trim_end_matches(".jsonl.gz").to_string(),
+                ));
+            }
+            (_, "task.json") => {
+                if let Some(v) = std::fs::read_to_string(f)
+                    .ok()
+                    .and_then(|t| serde_json::from_str(&t).ok())
+                {
+                    task_jsons.push((parent.to_path_buf(), v));
+                }
+            }
+            _ => {}
+        }
+    }
+    // Complete shards, no orphans.
+    let (mut missing, mut orphans) = (0usize, 0usize);
+    for (task, kind, shard) in &have {
+        let others: [&str; 2] = match *kind {
+            "manifests" => ["positions", "games"],
+            _ => ["manifests", "manifests"],
+        };
+        for o in others {
+            if !have.contains(&(task.clone(), o, shard.clone())) {
+                if *kind == "manifests" {
+                    missing += 1;
+                    problems.push(format!(
+                        "{}/{shard}: manifest without its {o} file",
+                        task.display()
+                    ));
+                } else {
+                    orphans += 1;
+                    problems.push(format!(
+                        "{}/{shard}: {kind} file without a manifest",
+                        task.display()
+                    ));
+                }
+            }
+        }
+    }
+    // Per worker: contiguous sequence numbers and one seed; seeds unique.
+    let mut seqs: BTreeMap<String, Vec<u64>> = BTreeMap::new();
+    let mut worker_seed: BTreeMap<String, u64> = BTreeMap::new();
+    let mut seed_owner: HashMap<u64, String> = HashMap::new();
+    let mut by_hash: HashMap<String, String> = HashMap::new();
+    let mut settings: BTreeMap<String, usize> = BTreeMap::new();
+    let mut engines: BTreeMap<String, usize> = BTreeMap::new();
+    let mut nets: BTreeMap<String, usize> = BTreeMap::new();
+    let mut generations: BTreeSet<u64> = BTreeSet::new();
+    let (mut positions, mut games) = (0u64, 0u64);
+    let mut per_task: BTreeMap<String, u64> = BTreeMap::new();
+    for (_, shard, m) in &manifests {
+        let p = &m["provenance"];
+        let key = format!(
+            "{}/{}/{}",
+            p["run"].as_str().unwrap_or(""),
+            p["task"].as_str().unwrap_or(""),
+            m["worker"]
+        );
+        seqs.entry(key.clone())
+            .or_default()
+            .push(m["seq"].as_u64().unwrap_or(u64::MAX));
+        let seed = m["seed"].as_u64().unwrap_or(0);
+        match worker_seed.get(&key) {
+            Some(s) if *s != seed => problems.push(format!("{key}: shards with different seeds")),
+            Some(_) => {}
+            None => {
+                worker_seed.insert(key.clone(), seed);
+                if let Some(prev) = seed_owner.insert(seed, key.clone()) {
+                    problems.push(format!("seed {seed} shared by workers {prev} and {key}"));
+                }
+            }
+        }
+        let sums = m["sha256"].to_string();
+        if m["sha256"].is_array() {
+            if let Some(prev) = by_hash.insert(sums, format!("{key} {shard}")) {
+                problems.push(format!("{key} {shard}: the same records as {prev}"));
+            }
+        }
+        *settings.entry(m["settings"].to_string()).or_default() += 1;
+        *engines
+            .entry(format!(
+                "{} {}",
+                p["engine_version"].as_str().unwrap_or("?"),
+                p["engine_sha"].as_str().unwrap_or("?")
+            ))
+            .or_default() += 1;
+        let net = match p.get("net") {
+            Some(v) if !v.is_null() => format!(
+                "{} {}",
+                v["id"].as_str().unwrap_or("?"),
+                v["sha256"].as_str().unwrap_or("?")
+            ),
+            Some(_) => "none (PeSTO)".to_string(),
+            None => "not recorded (predates net provenance)".to_string(),
+        };
+        *nets.entry(net).or_default() += 1;
+        generations.insert(m["settings"]["generation"].as_u64().unwrap_or(u64::MAX));
+        positions += m["positions"].as_u64().unwrap_or(0);
+        games += m["games"].as_u64().unwrap_or(0);
+        *per_task
+            .entry(format!(
+                "{}/{}",
+                p["run"].as_str().unwrap_or(""),
+                p["task"].as_str().unwrap_or("")
+            ))
+            .or_default() += m["positions"].as_u64().unwrap_or(0);
+    }
+    let mut gaps = 0usize;
+    for (key, s) in &mut seqs {
+        s.sort_unstable();
+        if s.iter().enumerate().any(|(i, &q)| q != i as u64) {
+            gaps += 1;
+            problems.push(format!(
+                "{key}: shard numbers not 0..{} ({:?}…)",
+                s.len(),
+                &s[..s.len().min(6)]
+            ));
+        }
+    }
+    if settings.len() > 1 {
+        problems.push(format!(
+            "{} different settings blocks in one generation",
+            settings.len()
+        ));
+    }
+    if generations.len() > 1 {
+        problems.push(format!("shards of several generations: {generations:?}"));
+    }
+    let net_ids: BTreeSet<String> = nets
+        .keys()
+        .filter(|k| !k.starts_with("not recorded"))
+        .cloned()
+        .collect();
+    if net_ids.len() > 1 {
+        problems.push(format!("shards name different nets: {net_ids:?}"));
+    }
+    // task.json totals against the manifests (an interrupted task's include
+    // the shard in progress it saved, so only complete tasks must match).
+    let mut task_notes = Vec::new();
+    for (dir, t) in &task_jsons {
+        let key = format!(
+            "{}/{}",
+            t["run"].as_str().unwrap_or(""),
+            t["task"].as_str().unwrap_or("")
+        );
+        let said = t["positions"].as_u64().unwrap_or(0);
+        let found = per_task.get(&key).copied().unwrap_or(0);
+        if said != found && t["interrupted"] != true {
+            problems.push(format!(
+                "{}: task.json says {said} positions, its manifests {found}",
+                dir.display()
+            ));
+        }
+        task_notes.push(format!(
+            "{key}: task.json {said}, manifests {found}{}",
+            if t["interrupted"] == true {
+                " (interrupted)"
+            } else {
+                ""
+            }
+        ));
+    }
+
+    println!("== Inventory of {}", root.display());
+    println!(
+        "   {} shards, {} workers, {} tasks, {games} games, {positions} positions",
+        manifests.len(),
+        seqs.len(),
+        per_task.len()
+    );
+    println!("   generation(s): {generations:?}");
+    for (k, v) in &engines {
+        println!("   engine {k}: {v} shards");
+    }
+    for (k, v) in &nets {
+        println!("   net {k}: {v} shards");
+    }
+    for n in &task_notes {
+        println!("   {n}");
+    }
+    for p in problems.iter().take(20) {
+        println!("   {p}");
+    }
+    let row = |ok: bool, what: &str, n: usize| {
+        println!("  {} {what}: {n}", if ok { "PASS" } else { "FAIL" })
+    };
+    println!("\n== P0 inventory (every check must find zero)");
+    row(
+        missing == 0,
+        "manifests without their positions or games file",
+        missing,
+    );
+    row(
+        orphans == 0,
+        "positions or games files without a manifest",
+        orphans,
+    );
+    row(gaps == 0, "workers with gaps in their shard numbers", gaps);
+    let dup = problems
+        .iter()
+        .filter(|p| p.contains("the same records as"))
+        .count();
+    row(dup == 0, "shards duplicating another shard's records", dup);
+    let seedp = problems.iter().filter(|p| p.contains("seed")).count();
+    row(
+        seedp == 0,
+        "seeds shared between workers or varying within one",
+        seedp,
+    );
+    let mixed = usize::from(settings.len() > 1)
+        + usize::from(generations.len() > 1)
+        + usize::from(net_ids.len() > 1);
+    row(mixed == 0, "mixed settings, generations or nets", mixed);
+    let taskp = problems
+        .iter()
+        .filter(|p| p.contains("task.json says"))
+        .count();
+    row(
+        taskp == 0,
+        "complete tasks whose task.json disagrees with their manifests",
+        taskp,
+    );
+    let total = problems.len();
+    println!(
+        "\n== Verdict: {} ({total} P0 problems)",
+        if total == 0 { "GO" } else { "STOP" }
+    );
+    if let Some(path) = json_out {
+        let summary = serde_json::json!({
+            "root": root.display().to_string(),
+            "shards": manifests.len(), "workers": seqs.len(), "tasks": per_task.len(),
+            "games": games, "positions": positions,
+            "generations": generations, "engines": engines, "nets": nets,
+            "settings_blocks": settings.len(),
+            "checks": {
+                "missing_files": missing, "orphan_files": orphans, "sequence_gaps": gaps,
+                "duplicate_shards": dup, "seed_problems": seedp, "mixed": mixed, "task_json_mismatches": taskp,
+            },
+            "problems": problems, "tasks_json": task_notes, "verdict": if total == 0 { "GO" } else { "STOP" },
+        });
+        std::fs::write(path, serde_json::to_string_pretty(&summary).unwrap())
+            .expect("write --json");
+    }
+    total
 }
 
 /// Every record through bulletformat 1.8.0's text parser and binary writer,
@@ -1061,12 +1423,27 @@ fn bullet(dir: &Path) -> u64 {
 
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let usage = "usage: datagen-audit check DIR [--config datagen.toml] [--research N] [--bullet] | research DIR N | determinism DIR | outcomes DIR | thresholds DIR | adjudication DIR N | repetition DIR N | openings DIR | bullet DIR";
+    let usage = "usage: datagen-audit check DIR [--config datagen.toml] [--research N] [--bullet] | inventory ROOT [--json FILE] | research DIR N | determinism DIR [N] | outcomes DIR | thresholds DIR | adjudication DIR N | repetition DIR N | openings DIR | bullet DIR";
     let (Some(mode), Some(dir)) = (args.first(), args.get(1)) else {
         eprintln!("{usage}");
         return std::process::ExitCode::from(2);
     };
     let dir = PathBuf::from(dir);
+    if mode == "inventory" {
+        let json = match (args.get(2).map(String::as_str), args.get(3)) {
+            (Some("--json"), Some(f)) => Some(PathBuf::from(f)),
+            (None, _) => None,
+            _ => {
+                eprintln!("{usage}");
+                return std::process::ExitCode::from(2);
+            }
+        };
+        return if inventory(&dir, json.as_deref()) == 0 {
+            std::process::ExitCode::SUCCESS
+        } else {
+            std::process::ExitCode::from(1)
+        };
+    }
     let has_shards = std::fs::read_dir(&dir)
         .map(|d| {
             d.flatten()
@@ -1164,8 +1541,11 @@ fn main() -> std::process::ExitCode {
             std::process::ExitCode::SUCCESS
         }
         "determinism" => {
-            determinism(&dir);
-            std::process::ExitCode::SUCCESS
+            if determinism(&dir, num(2).unwrap_or(12)) == 0 {
+                std::process::ExitCode::SUCCESS
+            } else {
+                std::process::ExitCode::from(1)
+            }
         }
         "outcomes" => {
             outcomes(&dir);

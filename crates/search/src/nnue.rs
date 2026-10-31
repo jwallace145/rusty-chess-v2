@@ -40,6 +40,14 @@ pub struct EmbeddedNet {
     bytes: &'static [u8],
 }
 
+impl EmbeddedNet {
+    /// The net's file as embedded, byte for byte: its SHA-256 is the one in
+    /// the net's `training.json`.
+    pub fn file_bytes(&self) -> &'static [u8] {
+        self.bytes
+    }
+}
+
 /// Every net the binary carries, oldest first; the last is the default.
 /// Older nets stay so the data they played can still be re-searched
 /// (`datagen-audit`) and so they can be selected by id for comparisons. At
