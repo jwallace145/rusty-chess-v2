@@ -14,9 +14,10 @@ manifests or from `datagen-audit`, never from the workflow's progress lines.
 
 | Gen | Played by | Positions | Games | Shards | Runs | Full audit | Trained into |
 |--:|:--|--:|--:|--:|--:|:--|:--|
-| 0 | PeSTO (`v0.24.0`–`v0.25.0`) | 231,240,344 | 2,387,961 | 9,329 | 3 | GO: 0 P0 failures | net 1, net 2 |
-| 1 | net 1 (`v0.29.0`) | 368,354,466 | 3,703,015 | 14,716 | 3 | GO: 0 P0 failures, 0 P1 warnings | net 2 |
-| 2 | net2x80 (`v0.31.1`) | 307,037,810 | 3,265,807 | 12,353 | 1 | GO: 0 P0 problems; 2,304/2,304 games regenerated from their seeds | (net 3, next) |
+| 0 | PeSTO (`v0.24.0`–`v0.25.0`) | 231,240,344 | 2,387,961 | 9,329 | 3 | GO: 0 P0 failures | net 1, net 2, net2x80, net 3, net 4, net4w512, net 5 |
+| 1 | net 1 (`v0.29.0`) | 368,354,466 | 3,703,015 | 14,716 | 3 | GO: 0 P0 failures, 0 P1 warnings | net 2, net2x80, net 3, net 4, net4w512, net 5 |
+| 2 | net2x80 (`v0.31.1`) | 307,037,810 | 3,265,807 | 12,353 | 1 | GO: 0 P0 problems; 2,304/2,304 games regenerated from their seeds | net 3, net 4, net4w512, net 5 |
+| 3 | net4w512 (`v0.36.0`) | 628,213,254 | 6,562,925 | 25,158 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | net 5 |
 
 ## Generation 0: PeSTO
 
@@ -150,6 +151,50 @@ generation.
 
 **Cost:** about $5 on spot (3 instances, about 85 minutes including build and
 upload).
+
+## Generation 3: net4w512
+
+**Settings** (identical in every manifest): the same as generations 1 and 2.
+Played by `net4w512-l050-r41170687764` (512 hidden neurons, on generations
+0–2; λ 0.5), the default in `v0.36.0`, with the native build. The first
+generation whose manifests record the net (`provenance.net`, sha256
+`5d24472c…5b68`).
+
+| Run | Date | Engine | Instances × minutes | Market | Positions | Games | Notes |
+|:--|:--|:--|:--|:--|--:|--:|:--|
+| `20261031-41180888933-1` | 2026-10-31 | `v0.36.0` `f7605e5` | 3 × 160 | spot | 628,213,254 | 6,562,925 | t0 204.4M, t1 208.2M, t2 215.6M. No interruptions. About 21,800 positions/s an instance, 13% below generation 2's net2x80: the 512-neuron net is slower per node |
+
+**Full audit** (`ci/datagen-full-audit.sh` on 16 cores, after a 17-minute
+download of the 10 GB generation): **GO**.
+1. **Inventory:** 0 P0 problems over 25,158 shards. One settings block, one
+   engine, one generation and one net throughout.
+2. **Every record:** 0 failures over all 628,213,254 records, and
+   bulletformat exact at 32 bytes a record.
+3. **No P1 warnings** in any of the 127 batches.
+4. **Determinism: 2,304 of 2,304 games regenerated identically** from their
+   seeds (12 per worker, all 192 workers), with the tool built at
+   `f7605e5`. The net named in the manifests is the net this build plays.
+
+| Quality | Generation 1 | Generation 2 | Generation 3 |
+|:--|--:|--:|--:|
+| Results (W / D / B) | 31.8 / 44.7 / 23.5% | 32.4 / 43.0 / 24.7% | 30.3 / 46.4 / 23.3% |
+| White–black gap | 8.3 points | 7.7 points | 7.0 points |
+| Games ended by win adjudication | 55% | 56.6% | 53.2% |
+| Duplicates within a batch (200 shards) | 3.1% | 1.48% | 1.76% |
+| Median game length (engine plies) | 114 | 112 | 112 |
+| Records a game | 99.5 | 94.0 | 95.7 |
+| \|score\| ≤ 100 | 32.0% (smoke sample) | 31.0% | 31.8% |
+| Endgame share | 48.7% (smoke sample) | 46.0% | 47.1% |
+
+**Compared with generation 2:**
+- **more drawn** (+3.4 points), the reverse of generation 1 → 2: the stronger
+  net converts fewer games to a win adjudication;
+- a slightly smaller colour gap;
+- within-batch repetition about level (1.76% against 1.48%);
+- the same game length.
+
+**Cost:** about $9 on spot (3 × `c8a.16xlarge` at $1.149/h for about 2.7
+hours each; estimated from the run's spot price, not billed figures).
 
 ## Adding a run or a generation
 
