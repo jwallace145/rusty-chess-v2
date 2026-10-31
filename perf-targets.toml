@@ -35,7 +35,11 @@ min_nps = { local = 2_000_000, ci = 1_000_000 }
 # quiescence SEE pruning cut quiescence nodes 56% and the same searches read
 # 1.69 -> 2.02 (2.2 for one release, with a declared exception); the
 # transposition table in quiescence brought it back to 1.82, and the bar to 2.0.
-min_fail_high_first = 0.88
+# Net 4, the first 256-neuron net (2026-10-31), read fail-high-first 0.879
+# (net 3: 0.886) with EBF improving 1.88 -> 1.86 and +67 Elo at a clock: a
+# wider net reorders which move cuts first at some nodes. Lowered once more,
+# to 0.87, with a declared exception below.
+min_fail_high_first = 0.87
 max_ebf = 2.0
 
 [comment]
@@ -106,4 +110,5 @@ openings = "tests/openings/openings.epd"
 exceptions = [
   "efficiency.min_fail_high_first: late move reductions (2026-10-27) change which move index cuts off; lowered 0.95 -> 0.92 while EBF tightened 4.5 -> 3.0",
   "efficiency.min_fail_high_first: reverse futility pruning (2026-10-27) removes the nodes that cut off on the first move before any move is searched; lowered 0.92 -> 0.88 while EBF tightened 3.0 -> 2.5",
+  "efficiency.min_fail_high_first: net 4, the first 256-neuron net (2026-10-31), changes which move cuts off first at some nodes: 0.886 -> 0.879 on the bench while EBF improved 1.88 -> 1.86 and the timed SPRT gained +67.3 +/- 16.4; lowered 0.88 -> 0.87",
 ]
