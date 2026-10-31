@@ -52,7 +52,7 @@ impl EmbeddedNet {
 /// Older nets stay so the data they played can still be re-searched
 /// (`datagen-audit`) and so they can be selected by id for comparisons. At
 /// 128 hidden neurons a net is about 200 KB.
-pub const NETS: [EmbeddedNet; 2] = [
+pub const NETS: [EmbeddedNet; 3] = [
     EmbeddedNet {
         id: "net1-l050-r41022503872",
         generation: 1,
@@ -62,6 +62,11 @@ pub const NETS: [EmbeddedNet; 2] = [
         id: "net2x80-l050-r41131366975",
         generation: 2,
         bytes: include_bytes!("../nets/net2x80-l050-r41131366975.nnue"),
+    },
+    EmbeddedNet {
+        id: "net3-l050-r41160495666",
+        generation: 3,
+        bytes: include_bytes!("../nets/net3-l050-r41160495666.nnue"),
     },
 ];
 
