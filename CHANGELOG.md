@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.36.0...v0.37.0) (2026-10-31)
+
+
+### Features
+
+* **nnue:** embed net 5, 512 hidden on generations 0-3, as the default and generation 4's net ([#155](https://github.com/jwallace145/rusty-chess-v2/issues/155)) ([cd69a05](https://github.com/jwallace145/rusty-chess-v2/commit/cd69a051215304eb7ea6120084da9aebfcf9989d))
+
 ## [0.36.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.35.0...v0.36.0) (2026-10-31)
 
 
