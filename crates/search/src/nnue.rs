@@ -53,7 +53,7 @@ impl EmbeddedNet {
 /// Every net the binary carries, oldest first; the last is the default.
 /// Older nets stay so the data they played can still be re-searched
 /// (`datagen-audit`) and so they can be selected by id for comparisons. A net
-/// is about 200 KB at 128 hidden neurons and 400 KB at 256.
+/// is about 200 KB at 128 hidden neurons, 400 KB at 256 and 790 KB at 512.
 pub const NETS: [EmbeddedNet; 3] = [
     EmbeddedNet {
         id: "net1-l050-r41022503872",
@@ -66,9 +66,9 @@ pub const NETS: [EmbeddedNet; 3] = [
         bytes: include_bytes!("../nets/net2x80-l050-r41131366975.nnue"),
     },
     EmbeddedNet {
-        id: "net4-l050-r41165115607",
+        id: "net4w512-l050-r41170687764",
         generation: 3,
-        bytes: include_bytes!("../nets/net4-l050-r41165115607.nnue"),
+        bytes: include_bytes!("../nets/net4w512-l050-r41170687764.nnue"),
     },
 ];
 

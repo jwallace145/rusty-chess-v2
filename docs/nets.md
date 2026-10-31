@@ -20,7 +20,8 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net2x80-l025-r41141703294` | Dropped (#137): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.25** | 80 | not comparable (other target) | 4.68 / 20.10 | **−38.1 ± 12.8** vs net2x80 (H0) | — |
 | `net2x80-l075-r41145466004` | Dropped (#140): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.75** | 80 | not comparable (other target) | 6.74 / 23.93 | **−3.2 ± 4.5** vs net2x80 (H0) | — |
 | `net3-l050-r41160495666` | Default `v0.33.0`–`v0.34.0`; replaced by net 4 if its SPRT passes (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | **+21.8 ± 9.2** vs net2x80 | 3051 ± 26 (`v0.33.0`) |
-| `net4-l050-r41165115607` | Candidate (net 4's PR): timed SPRT against net 3; would play generation 3 | 0 + 1 + 2 · 857.3M | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | pending | — |
+| `net4-l050-r41165115607` | Default `v0.35.0`; replaced by net4w512 if its SPRT passes (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | **+74.2 ± 16.4** vs net 3 | `v0.35.0`: being rated |
+| `net4w512-l050-r41170687764` | Candidate (net4w512's PR): timed SPRT against net 4; would play generation 3 | 0 + 1 + 2 · 857.3M | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | pending | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -103,6 +104,46 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
+## net4w512-l050-r41170687764
+
+Net 4's recipe and data at **512 hidden neurons**. Same held-out positions
+as nets 3 and 4.
+
+| | |
+|:--|:--|
+| Network | (768 → 512) × 2 → 1, SCReLU, `Chess768`; QA 255, QB 64, SCALE 400; 789,568 bytes |
+| Training | `Train` run [41170687764](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41170687764), from `v0.35.0` (`f8495b0`): 2,300 s to trained, against net 4's 1,726. **The GPU is now the limit:** 6.8M positions/s, 14.8 s a superbatch, against 11.7M at 128 and 256, where loading was the limit. About $0.55 |
+| Validation | **0.019146**: −1.5% against net 4, −3.6% against net 3, on the identical held-out positions. Best at superbatch 76, level at 80 |
+| Engine check | Skipped in training (the engine read up to 256), then run once it read 512: mean **11.72 cp**, max 34.10, inside the bars. Twice the 128/256 nets' error: twice the rounded quantized terms in each output sum |
+| Bench | Signature 1203006; fail-high-first 0.880, EBF 1.906 (net 4: 1.86); about 2.10M nodes/s locally, against net 4's about 2.49M (about 14% slower per node on an M-series core), close to the 2M local speed bar |
+| SPRT vs net 4 | Pending (net4w512's PR) |
+
+| Superbatch | 4 | 20 | 40 | 60 | 80 |
+|:--|--:|--:|--:|--:|--:|
+| net 3 (128) held-out | .020502 | .020159 | .019925 | .019892 | .019862 |
+| net 4 (256) held-out | .020058 | .019756 | .019515 | .019476 | .019443 |
+| **net4w512 (512) held-out** | .019761 | .019499 | .019225 | .019181 | .019146 |
+
+**Against net 4 on identical held-out positions** (quantized nets):
+
+| Held-out set | Loss against | net 4 (256) | net4w512 (512) | Change |
+|:--|:--|--:|--:|--:|
+| Generations 0 + 1 (37,941,221) | the training target (λ 0.5) | 0.019082 | **0.018867** | −1.1% |
+| | game results only | 0.069456 | **0.069029** | −0.6% |
+| | search scores only | 0.008275 | **0.008271** | −0.05% |
+| Generation 2 (11,428,162) | the training target (λ 0.5) | 0.020849 | **0.020465** | −1.8% |
+| | game results only | 0.073069 | **0.072365** | −1.0% |
+| | search scores only | 0.003310 | **0.003247** | −1.9% |
+
+**Reading it:**
+- **Better on all six again, but by less.** 128 → 256 gained 2.1% held-out,
+  and 256 → 512 gains 1.5%.
+- **The first sign the data limits the width:** held-out now sits about 0.5%
+  *above* the training sample (0.019146 against 0.019045). That gap was
+  −0.5% for net 3 and level for net 4.
+- **It's still improving, not overfitting.** More data would help the wide
+  nets most.
+
 ## net4-l050-r41165115607
 
 Net 3's recipe and data at **256 hidden neurons** instead of 128: the first
@@ -118,7 +159,7 @@ held-out positions** as net 3.
 | Validation | **0.019443**, against net 3's 0.019862 on the identical held-out positions: **−2.1%**. Ahead from the first checkpoint (superbatch 4, 0.020058, about level with net 3's 40). Best at 80, held-out equal to the training sample (0.019443 against 0.019459): no overfitting |
 | Engine check | Skipped in training (the engine read 128 only), then run once the engine read 256 (#149): 256 held-out positions, mean 5.80 cp, max 23.94 |
 | Bench | Signature 1190429; EBF 1.86 (net 3: 1.88); **fail-high-first 0.879, under the 0.88 bar** (net 3: 0.886); about 2.49M nodes/s locally, against net 3's about 2.75M (about 7% slower per node on an M-series core) |
-| SPRT vs net 3 | Pending (net 4's PR) |
+| SPRT vs net 3 (#150) | Timed 5+0.05: **+74.2 ± 16.4**, H1 in 708 games (247 / 98 / 363), on the PR's final commit (with the fail-high-first exception). The first run, before the exception commit: +67.3 ± 16.4 in 774. Fixed 200k nodes: +88.1 ± 16.4. Runner: −7.5% speed per node, +14.1% time to depth |
 
 | Superbatch | 4 | 20 | 40 | 60 | 80 |
 |:--|--:|--:|--:|--:|--:|
