@@ -22,8 +22,8 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net3-l050-r41160495666` | Default `v0.33.0`–`v0.34.0`; replaced by net 4 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | **+21.8 ± 9.2** vs net2x80 | 3051 ± 26 (`v0.33.0`), 3040 ± 32 (`v0.34.0`) |
 | `net4-l050-r41165115607` | Default `v0.35.0`; replaced by net4w512 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | **+74.2 ± 16.4** vs net 3 | 3086 ± 33 (`v0.35.0`) |
 | `net4w512-l050-r41170687764` | Default `v0.36.0`; **plays generation 3** | 0 + 1 + 2 · 857.3M | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | **+44.3 ± 13.1** vs net 4 | 3076 ± 30 (`v0.36.0`) |
-| `net5-l050-r41229287546` | Default `v0.37.0`–; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | 3129 ± 32 (`v0.37.0`) |
-| `net5x120-l050-r41237487627` | Training ([run 41237487627](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41237487627)): schedule experiment against net 5 | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | — | — | — | — |
+| `net5-l050-r41229287546` | Default `v0.37.0`–`v0.37.1`; replaced by net5x120 if its SPRT passes (never played a generation) | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | 3129 ± 32 (`v0.37.0`) |
+| `net5x120-l050-r41237487627` | Candidate (net5x120's PR): timed SPRT against net 5; would play generation 4 | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | **0.019399** (same held-out set as net 5: 0.019432) | 6.68 / 23.20 | pending | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -105,6 +105,38 @@ this asks whether it was under-trained.
 - **Most of the gain is the longer high-LR phase.** At superbatch 40 this run
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
+
+## net5x120-l050-r41237487627
+
+Net 5 trained for **120 superbatches** instead of 80: the only change is the
+schedule. Byte-identical prepared data (the same `train.data` and `val.data`
+SHA-256s), so the **same held-out positions** as net 5.
+
+| | |
+|:--|:--|
+| Data | As net 5: generations 0–3, 1,465,509,939 training / 69,335,935 held-out records |
+| Network | (768 → 512) × 2 → 1, as net 5; sha256 `c24e670f…6a95` |
+| Schedule | λ 0.5; **120 superbatches** (12.0B positions, about 8.2 passes); LR 0.001 for 1–54, 0.0001 for 55–108, 0.00001 for 109–120 (step 54, the default 45%) |
+| Training | `Train` run [41237487627](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41237487627), from `v0.37.0`: 3,599 s to trained (net 5: 2,937), 62 minutes for the job, about $0.85. A first dispatch named `net6` (run 41236717509) was cancelled before training and renamed to follow the `net2x80` convention |
+| Validation | **0.019399** against net 5's 0.019432 on identical held-out positions: **−0.17%**. Best at 120. Held-out sits 0.60% above the training sample (net 5: 0.56%) |
+| Engine check | 256 held-out positions: mean **6.68 cp**, max 23.20 (net 5: 7.77 / 26.67) |
+| Bench | Signature 1130959 (net 5: 1101129); fail-high-first 0.875; **EBF 2.049** (net 5: 1.818), past the 2.0 bar, loosened to 2.1 with a declared exception kept only if the SPRT passes |
+| SPRT vs net 5 | Pending (net5x120's PR) |
+
+| Superbatch | 36 | 52 | 72 | 80 | 108 | 120 |
+|:--|--:|--:|--:|--:|--:|--:|
+| net 5 held-out (LR drops after 36 and 72) | .019801 | — | .019469 | .019432 | — | — |
+| **net5x120 held-out** (LR drops after 54 and 108) | .019798 | .019755 | .019463 | .019452 | .019436 | .019399 |
+
+**Reading it:**
+- **Where the gain comes from:** the longer first phase ended 0.23% lower
+  than net 5's (.019755 at 52 against .019801 at 36), and the lead held to the
+  end at −0.17%.
+- **The middle phase flattened** from about superbatch 88 (.019444 → .019436
+  at 108), so stretching it bought little; the last drop gave the same 0.19%
+  as net 5's.
+- **Smaller than the last schedule gain:** net2x80's −0.36% held-out was
+  worth +21.0 against net 2, so expect less here.
 
 ## net5-l050-r41229287546
 
