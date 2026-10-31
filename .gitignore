@@ -15,3 +15,6 @@ lichess/.lichess-bot/
 # Local secrets (e.g. LICHESS_TOKEN); never committed
 secrets.sh
 /trainer/target
+
+# EngineBattle (tools/engine-battle): the app, engines, defs, tournaments and PGNs
+tools/engine-battle/.local/
