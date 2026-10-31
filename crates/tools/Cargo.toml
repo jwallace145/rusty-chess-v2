@@ -1,6 +1,6 @@
 [package]
 name = "rusty-chess-tools"
-version = "0.31.1"
+version = "0.32.0"
 description = "Developer tools: perft suite runner, performance gate, bench and stats diffing, data generation"
 edition.workspace = true
 rust-version.workspace = true

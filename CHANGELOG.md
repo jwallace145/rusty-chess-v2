@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.32.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.31.1...v0.32.0) (2026-10-31)
+
+
+### Features
+
+* **tools:** add local engine battles with EngineBattle against stockfish and other uci engines ([#141](https://github.com/jwallace145/rusty-chess-v2/issues/141)) ([76eb3c6](https://github.com/jwallace145/rusty-chess-v2/commit/76eb3c61a691497f4b56034c9a9420629a61d8c3))
+* **tools:** audit whole generations by inventory and determinism, and record the net in manifests ([#143](https://github.com/jwallace145/rusty-chess-v2/issues/143)) ([66818d8](https://github.com/jwallace145/rusty-chess-v2/commit/66818d8fb96c076439659a33ef3b20b205a83e15))
+
+
+### Documentation
+
+* **nnue:** record the λ sweep, net2x80's sprt and ladder, and what they taught us ([#144](https://github.com/jwallace145/rusty-chess-v2/issues/144)) ([cd0ba7b](https://github.com/jwallace145/rusty-chess-v2/commit/cd0ba7be14c04fbef36b0b16b958d5027203ed0c))
+
 ## [0.31.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.31.0...v0.31.1) (2026-10-31)
 
 
