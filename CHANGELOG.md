@@ -7,6 +7,12 @@
 
 * **nnue:** embed net 3, trained on generations 0-2, as the default and generation 3's net ([#145](https://github.com/jwallace145/rusty-chess-v2/issues/145)) ([47fc6bc](https://github.com/jwallace145/rusty-chess-v2/commit/47fc6bc171ae7aa86654f2e33cf2c7571f0d8826))
 
+### Benchmarks
+
+* bench signature 1,128,154, instructions per node 3075, search 3.72M NPS, perft 366.92M NPS (pass (63)), fail-high first 88.6%, EBF 1.88, TT hit 52.8%
+* since v0.32.0: fail-high first +0.1 pt, EBF -0.02, instructions per node −1.2%, search NPS +77.3%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.32.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.31.1...v0.32.0) (2026-10-31)
 
 
