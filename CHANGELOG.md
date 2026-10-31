@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.31.0...v0.31.1) (2026-10-31)
+
+
+### Performance
+
+* **trainer:** parse shards in parallel in prepare, keeping its output byte-identical ([#138](https://github.com/jwallace145/rusty-chess-v2/issues/138)) ([88d3b1f](https://github.com/jwallace145/rusty-chess-v2/commit/88d3b1f64e73e87f3ff1dbd17d441aa3f45acb7d))
+
 ## [0.31.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.30.0...v0.31.0) (2026-10-30)
 
 
