@@ -149,7 +149,12 @@ and EngineBattle's own settings page changes the rest.
 ### In the GUI
 
 `play` writes the tournament into the app's `wwwroot/tournament.json` and starts
-EngineBattle, which opens `http://localhost:5018`.
+EngineBattle, which opens the page in your browser, usually
+`http://localhost:5018`. The port is printed when it starts.
+
+**Only one copy runs at a time.** If one is already running, `play` and `gui`
+say so, with its address and the `kill` command to stop it. A second copy
+would take the next port, and the browser could stay on the old one.
 
 | Key | Action |
 |:--|:--|

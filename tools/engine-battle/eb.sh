@@ -333,8 +333,30 @@ PY
   cmd_gui
 }
 
+# EngineBattle processes started from this install, as "PID PORT" lines. A
+# second copy can't take the first one's port and picks the next one, so the
+# browser can end up on the old copy with an old tournament.
+running_guis() {
+  local pid cwd port
+  for pid in $(pgrep -x EngineBattle 2>/dev/null); do
+    cwd=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')
+    [ "$cwd" = "$app" ] || continue
+    port=$(lsof -a -p "$pid" -iTCP -sTCP:LISTEN -nP -Fn 2>/dev/null | sed -n 's/^n.*:\([0-9]*\)$/\1/p' | head -1)
+    echo "$pid ${port:-?}"
+  done
+}
+
 cmd_gui() {
   [ -x "$app/EngineBattle" ] || die "run '$0 setup' first"
+  local running
+  running=$(running_guis)
+  if [ -n "$running" ]; then
+    echo "EngineBattle is already running:" >&2
+    echo "$running" | while read -r pid port; do
+      echo "  http://localhost:$port  (stop it with: kill $pid)" >&2
+    done
+    die "open that page (it reads the new tournament when you open the Tournament page or press Ctrl+U), or stop it and run this again"
+  fi
   cd "$app" && exec ./EngineBattle "$@"
 }
 
