@@ -31,12 +31,16 @@ on:
         description: Self-play generations to train on together (data/selfplay/v1/gen=N/), e.g. 0,1
         required: true
         default: "0,1"
+      hidden:
+        description: Hidden neurons per perspective (a multiple of 16). The engine reads 128 today; another width trains, but skips the engine check until the engine reads it
+        required: true
+        default: "128"
       val-fraction:
         description: Share of workers held out for validation
         required: false
         default: "0.05"
 
-run-name: "Train: ${{ inputs.net-id }} λ ${{ inputs.wdl }}, ${{ inputs.superbatches }} superbatches, gen ${{ inputs.generations }}"
+run-name: "Train: ${{ inputs.net-id }} ${{ inputs.hidden }} hidden, λ ${{ inputs.wdl }}, ${{ inputs.superbatches }} superbatches, gen ${{ inputs.generations }}"
 
 permissions: {}
 
@@ -58,10 +62,12 @@ jobs:
           SUPERBATCHES: ${{ inputs.superbatches }}
           GENERATIONS: ${{ inputs.generations }}
           VAL_FRACTION: ${{ inputs.val-fraction }}
+          HIDDEN: ${{ inputs.hidden }}
           RUN_ID: ${{ github.run_id }}
         run: |
           [[ "$NET_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::net-id must be lower-case letters, digits and '-'"; exit 1; }
           [[ "$SUPERBATCHES" =~ ^[0-9]+$ ]] && [ "$SUPERBATCHES" -ge 1 ] && [ "$SUPERBATCHES" -le 200 ] || { echo "::error::superbatches must be 1..200"; exit 1; }
+          [[ "$HIDDEN" =~ ^[0-9]+$ ]] && [ "$HIDDEN" -ge 16 ] && [ "$HIDDEN" -le 1024 ] && [ $((HIDDEN % 16)) = 0 ] || { echo "::error::hidden must be a multiple of 16 from 16 to 1024"; exit 1; }
           [[ "$GENERATIONS" =~ ^[0-9]+(,[0-9]+)*$ ]] || { echo "::error::generations must be whole numbers separated by commas, e.g. 0,1"; exit 1; }
           bucket=$(yq -r '[.components[] | select(.kind == "dataset")][0].bucket // ""' jwall-engineering-sites.yaml)
           prefix=$(yq -r '[.components[] | select(.kind == "dataset")][0].prefix // ""' jwall-engineering-sites.yaml)
@@ -77,8 +83,8 @@ jobs:
             awk -v x="$l" 'BEGIN { exit !(x ~ /^(0(\.[0-9]+)?|1(\.0+)?)$/) }' || { echo "::error::λ must be in 0..1, got $l"; exit 1; }
             tag=$(awk -v x="$l" 'BEGIN { printf "%03d", x * 100 + 0.5 }')
             id="$NET_ID-l$tag-r$RUN_ID"
-            args=$(jq -cn --argjson d "$datasets" --arg n "$nets" --arg id "$id" --arg l "$l" --arg sb "$SUPERBATCHES" --arg v "$VAL_FRACTION" \
-              '$d + ["--nets", $n, "--net-id", $id, "--wdl", $l, "--superbatches", $sb, "--val-fraction", $v]')
+            args=$(jq -cn --argjson d "$datasets" --arg n "$nets" --arg id "$id" --arg l "$l" --arg sb "$SUPERBATCHES" --arg v "$VAL_FRACTION" --arg h "$HIDDEN" \
+              '$d + ["--nets", $n, "--net-id", $id, "--wdl", $l, "--superbatches", $sb, "--val-fraction", $v, "--hidden", $h]')
             list=$(jq -c --arg id "$id" --arg l "$l" --arg a "$args" '. + [{net_id: $id, wdl: $l, args: $a}]' <<< "$list")
             echo "net $id: λ $l, $SUPERBATCHES superbatches, from generations $GENERATIONS"
           done

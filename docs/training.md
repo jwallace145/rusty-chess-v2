@@ -35,7 +35,16 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
      written.
      `bullet-utils shuffle` seeds itself from the clock, which is why the
      trainer shuffles itself.
-2. **`rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--checkpoint-every 4] [--val-positions 4000000]`**
+2. **`rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--checkpoint-every 4] [--val-positions 4000000]`**
+   - **Width:** `--hidden` sets the hidden neurons per perspective (a
+     multiple of 16, up to 1024; 128 by default). The `Train` workflow's
+     `hidden` input passes it on, and `training.json` records it.
+   - **Engine support:** the engine reads 128-neuron nets today. A net of
+     another width trains and is uploaded, but the engine-to-trainer check is
+     skipped and recorded as not run (`check_passed: null`). Run
+     `nnue-eval --check` on it once the engine reads that width.
+   - **Scoring:** the checkpoint scorer and `validate` infer the width from
+     the file's size, so they score nets of any width.
    - **The network:** (768 → 128) × 2 → 1 with SCReLU and `Chess768` inputs,
      as in bullet's reference example.
    - **Loss:** `sigmoid(output)` against `λ · result + (1 − λ) · sigmoid(score / 400)`.

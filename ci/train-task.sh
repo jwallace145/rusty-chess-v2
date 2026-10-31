@@ -10,7 +10,7 @@
 #                    --net-id ID --wdl λ --superbatches N
 #                    [--batches-per-superbatch 6104] [--val-fraction 0.05]
 #                    [--split-seed 1] [--shuffle-seed 1] [--backend cuda|metal]
-#                    [--checkpoint-every 4] [--val-positions 4000000]
+#                    [--checkpoint-every 4] [--val-positions 4000000] [--hidden 128]
 #
 # 1. downloads every complete shard's positions and manifest under each
 #    --dataset (repeat it to train on several generations at once);
@@ -20,7 +20,10 @@
 #    checkpoint every --checkpoint-every superbatches and scoring each on
 #    --val-positions held-out records and as many training records;
 # 4. checks the engine's quantized evaluation against the trainer's float one
-#    on held-out positions (nnue-eval --check); a mismatch fails the task;
+#    on held-out positions (nnue-eval --check); a mismatch fails the task. A
+#    net of a width the engine doesn't read yet (--hidden other than the
+#    engine's nnue::HIDDEN) skips this check and says so in training.json:
+#    run nnue-eval --check on it once the engine reads that width;
 # 5. writes training.json (data, split, schedule, versions, hardware, losses,
 #    the validation curve, the check) and uploads the net and its records to
 #    --nets/<net id>/,
@@ -30,7 +33,7 @@
 set -euo pipefail
 
 datasets=() nets="" net_id="" wdl="" superbatches="" batches=6104 val_fraction=0.05 split_seed=1 shuffle_seed=1 backend=cuda
-checkpoint_every=4 val_positions=4000000
+checkpoint_every=4 val_positions=4000000 hidden=128
 while [ $# -gt 0 ]; do
   case "$1" in
     --dataset) datasets+=("${2%/}"); shift 2 ;;
@@ -45,6 +48,7 @@ while [ $# -gt 0 ]; do
     --backend) backend="$2"; shift 2 ;;
     --checkpoint-every) checkpoint_every="$2"; shift 2 ;;
     --val-positions) val_positions="$2"; shift 2 ;;
+    --hidden) hidden="$2"; shift 2 ;;
     *) echo "train-task: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -75,7 +79,7 @@ if command -v nvidia-smi >/dev/null; then
   driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)
   cuda=$(nvcc --version 2>/dev/null | sed -n 's/.*release \([0-9.]*\).*/\1/p' || true)
 fi
-echo "== train: $net_id, λ $wdl, $superbatches superbatches of $batches batches; commit ${sha:0:7}; GPU: $gpu"
+echo "== train: $net_id, $hidden hidden, λ $wdl, $superbatches superbatches of $batches batches; commit ${sha:0:7}; GPU: $gpu"
 
 echo "-- building ($(since)s)"
 export CARGO_TERM_COLOR=never
@@ -106,15 +110,22 @@ echo "-- training ($(since)s)"
 threads=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 trainer/target/release/rusty-chess-trainer train --data "$scratch/data" --net-id "$net_id" --wdl "$wdl" \
   --superbatches "$superbatches" --batches-per-superbatch "$batches" --threads "$threads" --out "$scratch/out" \
-  --checkpoint-every "$checkpoint_every" --val-positions "$val_positions" \
+  --checkpoint-every "$checkpoint_every" --val-positions "$val_positions" --hidden "$hidden" \
   2>&1 | tee "$scratch/train.log"
 trained=$(since)
 
-echo "-- checking the engine's evaluation against the trainer's ($(since)s)"
-set +e
-check=$(target/release/nnue-eval --net "$scratch/out/net.nnue" --check "$scratch/out/eval_check.json" 2>&1)
-check_code=$?
-set -e
+engine_hidden=$(sed -n 's/^pub const HIDDEN: usize = \([0-9]*\);.*/\1/p' crates/search/src/nnue.rs)
+check_ran=True
+if [ "$hidden" = "$engine_hidden" ]; then
+  echo "-- checking the engine's evaluation against the trainer's ($(since)s)"
+  set +e
+  check=$(target/release/nnue-eval --net "$scratch/out/net.nnue" --check "$scratch/out/eval_check.json" 2>&1)
+  check_code=$?
+  set -e
+else
+  check="not run: the engine reads ${engine_hidden:-?}-neuron nets and this one has $hidden; run nnue-eval --check on it once the engine reads this width"
+  check_code=0 check_ran=None
+fi
 echo "$check" | tee "$scratch/check.txt"
 
 net_sha=$(sha256sum "$scratch/out/net.nnue" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$scratch/out/net.nnue" | cut -d' ' -f1)
@@ -130,7 +141,8 @@ json.dump({
     "schema": "rusty-chess-net/2",
     "net_id": "$net_id",
     "net_sha256": "$net_sha",
-    "architecture": "(768 -> 128) x 2 -> 1, SCReLU, Chess768 inputs, QA 255, QB 64, SCALE 400",
+    "architecture": "(768 -> $hidden) x 2 -> 1, SCReLU, Chess768 inputs, QA 255, QB 64, SCALE 400",
+    "hidden": $hidden,
     "datasets": datasets,
     "split": {k: v for k, v in split.items() if k != "val_workers"},
     "val_workers": split["val_workers"],
@@ -143,7 +155,7 @@ json.dump({
     "losses": {"first": losses[0] if losses else None, "last": losses[-1] if losses else None, "points": len(losses)},
     "validation": json.load(open(f"{scratch}/out/validation.json")),
     "check": check[-1] if check else "",
-    "check_passed": $check_code == 0,
+    "check_passed": ($check_code == 0) if $check_ran else None,
     "seconds": {"to_trained": $trained},
 }, open(out, "w"), indent=2)
 PY
@@ -159,4 +171,8 @@ echo "-- uploading to $nets/$net_id/ ($(since)s)"
 for f in net.nnue training.json eval_check.json val_losses.txt split.json losses.txt train.log; do
   aws s3 cp --only-show-errors "$OUT_DIR/$f" "$nets/$net_id/$f"
 done
-echo "train-task: $net_id trained and checked in $(since)s; net sha256 $net_sha"
+if [ "$check_ran" = True ]; then
+  echo "train-task: $net_id trained and checked in $(since)s; net sha256 $net_sha"
+else
+  echo "train-task: $net_id trained in $(since)s (engine check not run: $hidden hidden); net sha256 $net_sha"
+fi
