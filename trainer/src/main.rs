@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! rusty-chess-trainer prepare --shards DIR --out DIR [--val-fraction 0.05] [--split-seed 1] [--shuffle-seed 1] [--threads N]
-//! rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--scale 400]
+//! rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--scale 400]
 //!                           [--batches-per-superbatch 6104] [--batch-size 16384] [--lr 0.001]
 //!                           [--lr-gamma 0.1] [--lr-step N] [--threads 4] [--out DIR]
 //!                           [--checkpoint-every 4] [--val-positions 4000000]
@@ -20,7 +20,7 @@
 //! both outputs) and `check.fens` (validation positions for the net check).
 //! The same inputs and seeds give byte-identical outputs.
 //!
-//! `train` trains the (768 → HIDDEN) × 2 → 1 SCReLU network the engine's
+//! `train` trains the (768 → H) × 2 → 1 SCReLU network (H = `--hidden`) the engine's
 //! `crates/search/src/nnue.rs` evaluates, quantized QA = 255, QB = 64, saves
 //! `net.nnue` in the engine's file format, and evaluates `check.fens` with
 //! the trainer's own float network into `eval_check.json`, for comparison with
@@ -43,9 +43,16 @@ use std::path::{Path, PathBuf};
 use bulletformat::{BulletFormat, ChessBoard};
 use sha2::{Digest, Sha256};
 
-/// Hidden neurons per perspective: must equal `HIDDEN` in the engine's
-/// `crates/search/src/nnue.rs`.
-const HIDDEN: usize = 128;
+/// Hidden neurons per perspective unless `--hidden` says otherwise. The
+/// engine must read the same width (`nnue::HIDDEN` there).
+const DEFAULT_HIDDEN: usize = 128;
+/// The widest net the scorer handles (its accumulators live on the stack).
+const MAX_HIDDEN: usize = 1024;
+
+/// The number of weights and biases in a (768 → h) × 2 → 1 net.
+const fn params(h: usize) -> usize {
+    768 * h + h + 2 * h + 1
+}
 /// The engine's quantization (see `docs/nnue.md`).
 const QA: i16 = 255;
 const QB: i16 = 64;
@@ -458,6 +465,12 @@ fn train(args: &[String]) -> Result<(), String> {
     let out: String = get(&f, "out", Some("checkpoints".to_string()))?;
     let checkpoint_every: usize = get(&f, "checkpoint-every", Some(4))?;
     let val_positions: usize = get(&f, "val-positions", Some(4_000_000))?;
+    let hidden: usize = get(&f, "hidden", Some(DEFAULT_HIDDEN))?;
+    if hidden == 0 || !hidden.is_multiple_of(16) || hidden > MAX_HIDDEN {
+        return Err(format!(
+            "--hidden {hidden}: a multiple of 16 up to {MAX_HIDDEN} (the engine's SIMD works in 16s)"
+        ));
+    }
     if checkpoint_every == 0 {
         return Err("--checkpoint-every must be at least 1".into());
     }
@@ -486,8 +499,8 @@ fn train(args: &[String]) -> Result<(), String> {
         ])
         .loss_fn(|output, target| output.sigmoid().squared_error(target))
         .build(|builder, stm, ntm| {
-            let l0 = builder.new_affine("l0", 768, HIDDEN);
-            let l1 = builder.new_affine("l1", 2 * HIDDEN, 1);
+            let l0 = builder.new_affine("l0", 768, hidden);
+            let l1 = builder.new_affine("l1", 2 * hidden, 1);
             let us = l0.forward(stm).screlu();
             let them = l0.forward(ntm).screlu();
             l1.forward(us.concat(them))
@@ -676,76 +689,83 @@ fn sigmoid(x: f32) -> f32 {
     1.0 / (1.0 + (-x).exp())
 }
 
-/// The (768 → HIDDEN) × 2 → 1 SCReLU network in floats, as bullet trains it:
-/// output in units of `eval_scale` centipawns.
+/// The (768 → h) × 2 → 1 SCReLU network in floats, as bullet trains it:
+/// output in units of `eval_scale` centipawns. The width `h` comes from the
+/// file's size.
 struct FloatNet {
-    /// Feature-major: feature `i`'s weights are `l0w[i * HIDDEN..][..HIDDEN]`.
+    hidden: usize,
+    /// Feature-major: feature `i`'s weights are `l0w[i * hidden..][..hidden]`.
     l0w: Vec<f32>,
-    l0b: [f32; HIDDEN],
+    l0b: Vec<f32>,
     /// The side to move's half first.
-    l1w: [f32; 2 * HIDDEN],
+    l1w: Vec<f32>,
     l1b: f32,
     source: &'static str,
 }
 
-const PARAMS: usize = 768 * HIDDEN + HIDDEN + 2 * HIDDEN + 1;
-
 impl FloatNet {
     /// bullet's `raw.bin` (f32 weights in the saved format's order) or a
     /// quantised net (`quantised.bin`, `net.nnue`: i16, padded to 64 bytes),
-    /// told apart by size.
+    /// told apart by size, at any width the scorer handles.
     fn from_file(path: &Path) -> Result<FloatNet, String> {
         let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        if bytes.len() == 4 * PARAMS {
+        let widths = (16..=MAX_HIDDEN).step_by(16);
+        if let Some(h) = widths.clone().find(|&h| bytes.len() == 4 * params(h)) {
             let w: Vec<f32> = bytes
                 .as_chunks::<4>()
                 .0
                 .iter()
                 .map(|&c| f32::from_le_bytes(c))
                 .collect();
-            Ok(FloatNet::from_params(&w, "float (raw.bin)"))
-        } else if bytes.len() >= 2 * PARAMS && bytes.len() - 2 * PARAMS < 64 {
+            Ok(FloatNet::from_params(&w, h, "float (raw.bin)"))
+        } else if let Some(h) = widths
+            .clone()
+            .find(|&h| bytes.len() >= 2 * params(h) && bytes.len() - 2 * params(h) < 64)
+        {
+            let n = params(h);
             let q: Vec<f32> = bytes
                 .as_chunks::<2>()
                 .0
                 .iter()
-                .take(PARAMS)
+                .take(n)
                 .map(|&c| f32::from(i16::from_le_bytes(c)))
                 .collect();
             let (qa, qb) = (f32::from(QA), f32::from(QB));
-            let l1 = 768 * HIDDEN + HIDDEN;
+            let l1 = 768 * h + h;
             let w: Vec<f32> = q
                 .iter()
                 .enumerate()
                 .map(|(i, &x)| match i {
                     _ if i < l1 => x / qa,
-                    _ if i < PARAMS - 1 => x / qb,
+                    _ if i < n - 1 => x / qb,
                     _ => x / (qa * qb),
                 })
                 .collect();
             Ok(FloatNet::from_params(
                 &w,
+                h,
                 "quantised weights, dequantised to floats",
             ))
         } else {
             Err(format!(
-                "{}: {} bytes is neither a float ({}) nor a quantised ({}) (768 → {HIDDEN}) × 2 → 1 net",
+                "{}: {} bytes is not a float or quantised (768 → h) × 2 → 1 net for any h in 16..={MAX_HIDDEN} (h = 128: {} or {} bytes)",
                 path.display(),
                 bytes.len(),
-                4 * PARAMS,
-                2 * PARAMS
+                4 * params(128),
+                2 * params(128)
             ))
         }
     }
 
-    fn from_params(w: &[f32], source: &'static str) -> FloatNet {
-        let (l0w, rest) = w.split_at(768 * HIDDEN);
-        let (l0b, rest) = rest.split_at(HIDDEN);
-        let (l1w, l1b) = rest.split_at(2 * HIDDEN);
+    fn from_params(w: &[f32], hidden: usize, source: &'static str) -> FloatNet {
+        let (l0w, rest) = w.split_at(768 * hidden);
+        let (l0b, rest) = rest.split_at(hidden);
+        let (l1w, l1b) = rest.split_at(2 * hidden);
         FloatNet {
+            hidden,
             l0w: l0w.to_vec(),
-            l0b: l0b.try_into().unwrap(),
-            l1w: l1w.try_into().unwrap(),
+            l0b: l0b.to_vec(),
+            l1w: l1w.to_vec(),
             l1b: l1b[0],
             source,
         }
@@ -755,19 +775,20 @@ impl FloatNet {
     /// records are stored from the side to move's view, so its pieces have
     /// colour bit 0.
     fn forward(&self, b: &ChessBoard) -> f32 {
-        let mut us = self.l0b;
-        let mut them = self.l0b;
+        let h = self.hidden;
+        let mut us_buf = [0f32; MAX_HIDDEN];
+        let mut them_buf = [0f32; MAX_HIDDEN];
+        let (us, them) = (&mut us_buf[..h], &mut them_buf[..h]);
+        us.copy_from_slice(&self.l0b);
+        them.copy_from_slice(&self.l0b);
         for (piece, square) in *b {
             let c = usize::from(piece & 8 > 0);
             let pc = 64 * usize::from(piece & 7);
             let sq = usize::from(square);
             let stm = [0, 384][c] + pc + sq;
             let ntm = [384, 0][c] + pc + (sq ^ 56);
-            let (ws, wn) = (
-                &self.l0w[stm * HIDDEN..][..HIDDEN],
-                &self.l0w[ntm * HIDDEN..][..HIDDEN],
-            );
-            for i in 0..HIDDEN {
+            let (ws, wn) = (&self.l0w[stm * h..][..h], &self.l0w[ntm * h..][..h]);
+            for i in 0..h {
                 us[i] += ws[i];
                 them[i] += wn[i];
             }
@@ -777,8 +798,8 @@ impl FloatNet {
             c * c
         };
         let mut out = self.l1b;
-        for i in 0..HIDDEN {
-            out += screlu(us[i]) * self.l1w[i] + screlu(them[i]) * self.l1w[HIDDEN + i];
+        for i in 0..h {
+            out += screlu(us[i]) * self.l1w[i] + screlu(them[i]) * self.l1w[h + i];
         }
         out
     }
@@ -818,24 +839,36 @@ impl FloatNet {
 mod tests {
     use super::*;
 
-    fn net_with(l0: impl Fn(usize, usize) -> f32, l1: impl Fn(usize) -> f32, l1b: f32) -> FloatNet {
-        let mut w = Vec::with_capacity(PARAMS);
+    fn net_with(
+        hidden: usize,
+        l0: impl Fn(usize, usize) -> f32,
+        l1: impl Fn(usize) -> f32,
+        l1b: f32,
+    ) -> FloatNet {
+        let mut w = Vec::with_capacity(params(hidden));
         for f in 0..768 {
-            for h in 0..HIDDEN {
+            for h in 0..hidden {
                 w.push(l0(f, h));
             }
         }
-        w.extend((0..HIDDEN).map(|_| 0.0));
-        w.extend((0..2 * HIDDEN).map(l1));
+        w.extend((0..hidden).map(|_| 0.0));
+        w.extend((0..2 * hidden).map(l1));
         w.push(l1b);
-        FloatNet::from_params(&w, "test")
+        FloatNet::from_params(&w, hidden, "test")
     }
 
     #[test]
     fn forward_follows_chess768_and_screlu() {
+        for hidden in [128, 256] {
+            forward_at(hidden);
+        }
+    }
+
+    fn forward_at(hidden: usize) {
         // A white pawn on e2 is feature 12 for the side to move (white) and
         // 384 + (12 ^ 56) = 436 for the other side; weight only the first.
         let net = net_with(
+            hidden,
             |f, h| match (f, h) {
                 (12, 2) => 0.7,
                 (12, 3) => 3.0, // SCReLU clamps it to 1
@@ -844,7 +877,7 @@ mod tests {
             |i| match i {
                 2 => 1.0,
                 3 => 0.5,
-                i if i >= HIDDEN => 10.0, // the other side's half must stay 0
+                i if i >= hidden => 10.0, // the other side's half must stay 0
                 _ => 0.0,
             },
             0.25,
@@ -869,7 +902,7 @@ mod tests {
     #[test]
     fn loss_is_bullets_target() {
         // A zero net outputs 0: sigmoid 0.5 against the blended target.
-        let net = net_with(|_, _| 0.0, |_| 0.0, 0.0);
+        let net = net_with(DEFAULT_HIDDEN, |_, _| 0.0, |_| 0.0, 0.0);
         let mut b = record("4k3/8/8/8/8/8/8/4K3 w - - 0 1").unwrap();
         b.score = 400;
         b.result = 2; // a win for the side to move
@@ -880,21 +913,25 @@ mod tests {
     }
 
     #[test]
-    fn quantised_file_dequantises() {
+    fn quantised_file_dequantises_at_any_width() {
         let dir = std::env::temp_dir().join(format!("rc-trainer-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let mut q = vec![0i16; PARAMS];
-        q[0] = QA; // l0w → 1.0
-        q[768 * HIDDEN + HIDDEN] = QB; // l1w[0] → 1.0
-        q[PARAMS - 1] = QA * QB / 2; // l1b → 0.5
-        let mut bytes: Vec<u8> = q.iter().flat_map(|w| w.to_le_bytes()).collect();
-        bytes.resize(bytes.len().next_multiple_of(64), 0);
-        let p = dir.join("net.nnue");
-        std::fs::write(&p, &bytes).unwrap();
-        let net = FloatNet::from_file(&p).unwrap();
-        assert_eq!(net.l0w[0], 1.0);
-        assert_eq!(net.l1w[0], 1.0);
-        assert_eq!(net.l1b, 0.5);
+        for hidden in [128, 256] {
+            let n = params(hidden);
+            let mut q = vec![0i16; n];
+            q[0] = QA; // l0w → 1.0
+            q[768 * hidden + hidden] = QB; // l1w[0] → 1.0
+            q[n - 1] = QA * QB / 2; // l1b → 0.5
+            let mut bytes: Vec<u8> = q.iter().flat_map(|w| w.to_le_bytes()).collect();
+            bytes.resize(bytes.len().next_multiple_of(64), 0);
+            let p = dir.join(format!("net{hidden}.nnue"));
+            std::fs::write(&p, &bytes).unwrap();
+            let net = FloatNet::from_file(&p).unwrap();
+            assert_eq!(net.hidden, hidden);
+            assert_eq!(net.l0w[0], 1.0);
+            assert_eq!(net.l1w[0], 1.0);
+            assert_eq!(net.l1b, 0.5);
+        }
         std::fs::remove_dir_all(&dir).ok();
     }
 }
