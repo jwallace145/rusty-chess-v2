@@ -13,6 +13,12 @@
 
 * **nnue:** record the λ sweep, net2x80's sprt and ladder, and what they taught us ([#144](https://github.com/jwallace145/rusty-chess-v2/issues/144)) ([cd0ba7b](https://github.com/jwallace145/rusty-chess-v2/commit/cd0ba7be14c04fbef36b0b16b958d5027203ed0c))
 
+### Benchmarks
+
+* bench signature 1,146,589, instructions per node 3113, search 2.10M NPS, perft 202.83M NPS (pass (63)), fail-high first 88.4%, EBF 1.89, TT hit 54.2%
+* since v0.31.1: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.0%, search NPS −24.7%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.31.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.31.0...v0.31.1) (2026-10-31)
 
 
