@@ -78,6 +78,23 @@ Nothing allocates during a search. Tests check the accumulators against a
 full recomputation at every ply of random games, through castling, en
 passant, promotions and captures, made and unmade.
 
+## Widths
+
+The engine reads nets of **128 or 256** hidden neurons per perspective
+(`nnue::WIDTHS`), told apart by the file's size: 197,378 or 394,754 bytes,
+plus up to 63 of padding.
+- **Compiled per width:** each width's code is compiled separately
+  (`Net<H>`, `Acc<H>`), and chosen once per evaluation and per move
+  (`NnueState`). So the 128-neuron code is the same as before 256 existed,
+  and every 128 net's bench signature is unchanged.
+- **Exactness:** the output sums each side in 32 bits and adds the two in 64
+  bits. With output weights within ±127, each side's sum is at most
+  255² × 127 × 256 = 2,114,092,800, inside 32 bits up to 256 neurons, so the
+  result is exact: the same as summing in 64 bits. A test checks the extreme
+  case, where at 256 the two sides together pass 32 bits.
+- **Wider nets (512 and up)** need that bound widened first, which a
+  compile-time check enforces.
+
 ## The embedded nets
 
 The binary carries one net for each generation that has data or is about to
