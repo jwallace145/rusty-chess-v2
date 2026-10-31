@@ -39,14 +39,16 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
    - **Width:** `--hidden` sets the hidden neurons per perspective (a
      multiple of 16, up to 1024; 128 by default). The `Train` workflow's
      `hidden` input passes it on, and `training.json` records it.
-   - **Engine support:** the engine reads 128-neuron nets today. A net of
-     another width trains and is uploaded, but the engine-to-trainer check is
-     skipped and recorded as not run (`check_passed: null`). Run
-     `nnue-eval --check` on it once the engine reads that width.
+   - **Engine support:** the engine reads 128-, 256- and 512-neuron nets
+     (`WIDTHS` in `crates/search/src/nnue.rs`). A net of another width trains
+     and is uploaded, but the engine-to-trainer check is skipped and recorded
+     as not run (`check_passed: null`). Run `nnue-eval --check` on it once
+     the engine reads that width.
    - **Scoring:** the checkpoint scorer and `validate` infer the width from
      the file's size, so they score nets of any width.
-   - **The network:** (768 → 128) × 2 → 1 with SCReLU and `Chess768` inputs,
-     as in bullet's reference example.
+   - **The network:** (768 → H) × 2 → 1 with SCReLU and `Chess768` inputs,
+     as in bullet's reference example (H = 128 there). The default net is
+     512 wide since `v0.36.0`.
    - **Loss:** `sigmoid(output)` against `λ · result + (1 − λ) · sigmoid(score / 400)`.
    - **Optimiser:** AdamW (bullet's defaults clip weights to ±1.98).
    - **Schedule:** 16,384 positions a batch and 6,104 batches a
@@ -54,7 +56,8 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
      every 45% of the run (bullet's `StepLR`: `0.001 × 0.1^⌊(superbatch − 1) /
      step⌋`, step = 45% of the superbatches). At 40 superbatches, step 18:
      0.001 for superbatches 1–18, 0.0001 for 19–36 and 0.00001 for 37–40, two
-     drops; 80 superbatches drop at 37 and 73, the same shape stretched.
+     drops; 80 superbatches drop at 37 and 73, and 120 at 55 and 109
+     (step 54), the same shape stretched. `--lr-step` overrides it.
    - **Checkpoints** every `--checkpoint-every` superbatches (and the last),
      each scored on held-out data after training (*Validation loss* below).
    - **Saves:** the quantized net as `net.nnue`, in the engine's format

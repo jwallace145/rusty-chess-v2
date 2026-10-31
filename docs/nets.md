@@ -14,15 +14,16 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 
 | Net | Status | Data (generations, training positions) | Architecture | λ | Superbatches | Held-out loss | Engine check (mean / max cp) | Timed SPRT vs previous | Ladder (Stockfish 19) |
 |:--|:--|:--|:--|--:|--:|--:|:--|:--|:--|
-| `net1-l050-r41022503872` | Default `v0.28.0`–; embedded | 0 · 214.6M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.018925 (gen-0 held-out) | 8.72 / 29.82 | **+587.3 ± 82.7** vs PeSTO | 2977 ± 32 (`v0.28.0`) |
+| `net1-l050-r41022503872` | Default `v0.28.0`–`v0.29.0`; **plays generation 1** | 0 · 214.6M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.018925 (gen-0 held-out) | 8.72 / 29.82 | **+587.3 ± 82.7** vs PeSTO | 2977 ± 32 (`v0.28.0`) |
 | `net2-l050-r41110004652` | Default in `v0.30.0`; replaced by net2x80 (never played a generation) | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.019273 (gen-0 + gen-1 held-out) | 5.52 / 20.32 | **+112.8 ± 21.1** vs net 1 | 3044 ± 28 (`v0.30.0`) |
 | `net2x80-l050-r41131366975` | Default `v0.31.0`–`v0.32.0`; **plays generation 2** | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | **80** | **0.019204** (same held-out set as net 2: 0.019273) | 5.67 / 22.38 | **+21.0 ± 8.9** vs net 2 | 3025 ± 29 (`v0.31.0`), 3011 ± 32 (`v0.31.1`), 3034 ± 30 (`v0.32.0`) |
 | `net2x80-l025-r41141703294` | Dropped (#137): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.25** | 80 | not comparable (other target) | 4.68 / 20.10 | **−38.1 ± 12.8** vs net2x80 (H0) | — |
 | `net2x80-l075-r41145466004` | Dropped (#140): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.75** | 80 | not comparable (other target) | 6.74 / 23.93 | **−3.2 ± 4.5** vs net2x80 (H0) | — |
-| `net3-l050-r41160495666` | Default `v0.33.0`–`v0.34.0`; replaced by net 4 if its SPRT passes (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | **+21.8 ± 9.2** vs net2x80 | 3051 ± 26 (`v0.33.0`) |
-| `net4-l050-r41165115607` | Default `v0.35.0`; replaced by net4w512 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | **+74.2 ± 16.4** vs net 3 | `v0.35.0`: being rated |
-| `net4w512-l050-r41170687764` | Default `v0.36.0`; **plays generation 3** | 0 + 1 + 2 · 857.3M | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | **+44.3 ± 13.1** vs net 4 | — |
-| `net5-l050-r41229287546` | Candidate (net 5's PR): timed SPRT against net4w512; would play generation 4 | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | pending | — |
+| `net3-l050-r41160495666` | Default `v0.33.0`–`v0.34.0`; replaced by net 4 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | **+21.8 ± 9.2** vs net2x80 | 3051 ± 26 (`v0.33.0`), 3040 ± 32 (`v0.34.0`) |
+| `net4-l050-r41165115607` | Default `v0.35.0`; replaced by net4w512 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | **+74.2 ± 16.4** vs net 3 | 3086 ± 33 (`v0.35.0`) |
+| `net4w512-l050-r41170687764` | Default `v0.36.0`; **plays generation 3** | 0 + 1 + 2 · 857.3M | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | **+44.3 ± 13.1** vs net 4 | 3076 ± 30 (`v0.36.0`) |
+| `net5-l050-r41229287546` | Default `v0.37.0`–; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | 3129 ± 32 (`v0.37.0`) |
+| `net5x120-l050-r41237487627` | Training ([run 41237487627](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41237487627)): schedule experiment against net 5 | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | — | — | — | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -66,7 +67,7 @@ by net 1, was added to generation 0.
 | Engine check | 256 held-out positions: mean 5.52 cp, max 20.32 |
 | Bench | Signature 1120617; fail-high-first 0.886, EBF 1.88 |
 | SPRT vs net 1 (#129) | Timed 5+0.05: **+112.8 ± 21.1**, H1 in 542 games (240 / 70 / 232). Fixed 200k nodes: +134.4 ± 22.7, H1 in 502 |
-| Ladder | After its release |
+| Ladder | `v0.30.0`: 3044 ± 28 |
 
 | Superbatch | 4 | 8 | 12 | 16 | 20 | 24 | 28 | 32 | 36 | 40 |
 |:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
@@ -121,7 +122,8 @@ added**: the only change is the data. It's the first net trained on data a
 | Validation | **0.019432** on generations 0–3's held-out set, against 0.019325 on the training sample: +0.55%, the same gap as net4w512 (+0.53%). Best at superbatch 80, still falling. Not comparable with net4w512's 0.019146: this held-out set includes generation 3, which is more drawn |
 | Engine check | 256 held-out positions: mean **7.77 cp**, max 26.67, none beyond max(50 cp, 5%). Run in training, the first time for a 512-neuron net |
 | Bench | Signature 1101129 (net4w512: 1203006), identical run to run; fail-high-first 0.875 (bar 0.87), **EBF 1.818** (net4w512: 1.906); about 2.13–2.20M nodes/s locally, the same width and speed as net4w512 |
-| SPRT vs net4w512 | Pending (net 5's PR) |
+| SPRT vs net4w512 (#155) | Timed 5+0.05: **+21.9 ± 9.2**, H1 in 2,288 games (603 / 459 / 1,226). Fixed 200k nodes: +35.4 ± 11.7, H1 in 1,370. Runner: +1.4% ± 1.9% speed per node (unchanged), **−9.7% ± 1.7% time to depth** |
+| Ladder | `v0.37.0`: **3129 ± 32**, against net4w512's 3076 ± 30 (`v0.36.0`): the highest yet. Rungs: 2800 86.0%, 2950 64.0%, 3100 57.5%, 3190 45.0% ([Rating run 41236545440](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41236545440)). Within about 60 of the ladder's top rung |
 
 | Superbatch | 4 | 20 | 40 | 60 | 80 |
 |:--|--:|--:|--:|--:|--:|
@@ -145,6 +147,7 @@ as nets 3 and 4.
 | Engine check | Skipped in training (the engine read up to 256), then run once it read 512: mean **11.72 cp**, max 34.10, inside the bars. Twice the 128/256 nets' error: twice the rounded quantized terms in each output sum |
 | Bench | Signature 1203006; fail-high-first 0.880, EBF 1.906 (net 4: 1.86); about 2.10M nodes/s locally, against net 4's about 2.49M (about 14% slower per node on an M-series core), close to the 2M local speed bar |
 | SPRT vs net 4 (#152) | Timed 5+0.05: **+44.3 ± 13.1**, H1 in 1,056 games (300 / 166 / 590). Fixed 200k nodes: +73.6 ± 15.9, H1 in 666. Runner: −11.4% speed per node, +14.1% time to depth |
+| Ladder | `v0.36.0`: 3076 ± 30, against net 4's 3086 ± 33 (`v0.35.0`): level within the ladder's ±40, despite +44 in the SPRT |
 
 | Superbatch | 4 | 20 | 40 | 60 | 80 |
 |:--|--:|--:|--:|--:|--:|
@@ -188,6 +191,7 @@ held-out positions** as net 3.
 | Engine check | Skipped in training (the engine read 128 only), then run once the engine read 256 (#149): 256 held-out positions, mean 5.80 cp, max 23.94 |
 | Bench | Signature 1190429; EBF 1.86 (net 3: 1.88); **fail-high-first 0.879, under the 0.88 bar** (net 3: 0.886); about 2.49M nodes/s locally, against net 3's about 2.75M (about 7% slower per node on an M-series core) |
 | SPRT vs net 3 (#150) | Timed 5+0.05: **+74.2 ± 16.4**, H1 in 708 games (247 / 98 / 363), on the PR's final commit (with the fail-high-first exception). The first run, before the exception commit: +67.3 ± 16.4 in 774. Fixed 200k nodes: +88.1 ± 16.4. Runner: −7.5% speed per node, +14.1% time to depth |
+| Ladder | `v0.35.0`: 3086 ± 33, against net 3's 3040 ± 32 (`v0.34.0`) and 3051 ± 26 (`v0.33.0`) |
 
 | Superbatch | 4 | 20 | 40 | 60 | 80 |
 |:--|--:|--:|--:|--:|--:|
@@ -222,7 +226,7 @@ positions played by net2x80). Only the data changed.
 | Engine check | 256 held-out positions: mean 5.23 cp, max 18.47 |
 | Bench | Signature 1128154; fail-high-first 0.886, EBF 1.88 |
 | SPRT vs net2x80 (#145) | Timed 5+0.05: **+21.8 ± 9.2**, H1 in 2,280 games (604 / 461 / 1,215). Fixed 200k nodes: +32.3 ± 11.3, H1 in 1,522 |
-| Ladder | `v0.33.0`: 3051 ± 26, against net2x80's 3034 ± 30 (`v0.32.0`) |
+| Ladder | `v0.33.0`: 3051 ± 26 and `v0.34.0`: 3040 ± 32, against net2x80's 3034 ± 30 (`v0.32.0`) |
 
 **Against net2x80 on identical held-out positions** (neither net trained on
 them; quantized nets, `rusty-chess-trainer validate`):
@@ -322,6 +326,11 @@ differ.
 | **Training length was worth +21** | net2x80 (80 superbatches) beat net 2 (40) by +21.0 ± 8.9 timed, from a 0.36% lower held-out loss on the same positions | 80 superbatches is the baseline. With more data, check the curve to decide if more is needed |
 | **The ladder can't see gains of about +20** | net2x80, +21 against net 2 in the SPRT, read 3025 and 3011 on two ladder runs, against net 2's 3044 (each ±30) | Treat a single ladder run as ±40. A dedicated-instance ladder with about 400 games a rung would read ±19 |
 | **Held-out loss doesn't compare across datasets** | Net 2's 0.019273 against net 1's 0.018925, on different held-out data, while net 2 is +113 stronger | Compare nets on one held-out set |
+| **Width was the biggest step since net 2** | On the same data: 128 → 256 gained **+74.2 ± 16.4** timed (#150), 256 → 512 **+44.3 ± 13.1** (#152). Held-out loss fell 2.1%, then 1.5% | Width pays, with diminishing returns. 1024 would be about 2× slower per node again; try it only with much more data |
+| **Wider nets cost more at a clock than at fixed nodes** | 512 against 256: +73.6 at fixed nodes, +44.3 timed, 11–18% slower per node | Judge width by the timed leg. The fixed-node leg tells how much knowledge the net added |
+| **Wide nets want more data** | net4w512's held-out loss sat 0.5% above its training sample (net 3: −0.5%, net 4: level). Adding generation 3 (+71% data) to the same recipe gave net 5 **+21.9 ± 9.2** timed and a 9.7% shorter time to depth | Keep growing the data with each generation; a 512-neuron net plays at about 21,800 positions/s an instance, so a 600M generation costs about $9 on spot |
+| **A stronger net draws more of its self-play** | Generation 3 (net4w512): 46.4% draws, against 43.0% for generation 2 (net2x80), and win adjudications 53.2% against 56.6% | Watch the draw rate as nets improve; results carry less signal as it rises, which matters for λ |
+| **The ladder can't separate releases about +20–45 apart** | net 4 read 3086 ± 33 and net4w512 3076 ± 30, though net4w512 won the SPRT by +44 | The SPRT is the verdict between nets. The ladder tracks the trend over several releases |
 
 ## Next experiments
 
@@ -330,17 +339,19 @@ default.
 
 1. ~~**Longer schedule**~~: done, net2x80 (+21.0 ± 8.9).
 2. ~~**λ sweep**~~: done, λ 0.5 stays (0.25: −38.1; 0.75: −3.2).
-3. **Generation 2 and net 3:** generation 2 (307M positions, played by
-   net2x80) is generated and audited (GO, with 2,304/2,304 games regenerated
-   from their seeds). Net 3 (128 hidden, λ 0.5, 80 superbatches, generations
-   0–2, about 906M positions) is training.
-4. **Wider hidden layer:** 256, then 512. These need the engine's `HIDDEN`
-   to change and the output sum's exactness proof to be widened (at 256 the
-   `i32` bound no longer holds), cost speed per node, and want more data.
-   Measure them on the largest dataset available.
-5. **Retune search margins for the net's scores,** and revisit the
+3. ~~**Generation 2 and net 3**~~: done, net 3 (+21.8 ± 9.2 against net2x80).
+4. ~~**Wider hidden layer**~~: done, 256 (net 4, +74.2 ± 16.4) and 512
+   (net4w512, +44.3 ± 13.1), with the output kept exact at any width.
+5. ~~**Generation 3 and net 5**~~: done, net 5 (512, generations 0–3,
+   +21.9 ± 9.2 against net4w512).
+6. **Longer schedule at 512 on generations 0–3:** net5x120 (120
+   superbatches, LR drops after 54 and 108) is training, against net 5.
+   Same data and split, so the held-out losses compare directly.
+7. **Generation 4,** played by net 5 (`datagen.toml` is at
+   `generation = 4`), then a net on generations 0–4.
+8. **Retune search margins for the net's scores,** and revisit the
    improving heuristic (#95), as engine PRs.
-6. **Later, if λ is revisited:** a schedule, λ rising during training.
+9. **Later, if λ is revisited:** a schedule, λ rising during training.
 
 ## Adding a net
 
