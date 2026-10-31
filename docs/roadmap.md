@@ -1,8 +1,8 @@
 # Chess Engine Roadmap
 
-A living checklist. Started Oct 26, 2026 · @Jimmy, maintained as the engine is built; last reviewed 2026-10-30 (`v0.29.0`).
+A living checklist. Started Oct 26, 2026 · @Jimmy, maintained as the engine is built; last reviewed 2026-10-31 (`v0.37.0`).
 
-**Status:** Phases 0–4b complete and released (`v0.17.0` closed Phase 4, `v0.25.0` Phase 4b). **Phase 6 (NNUE) is in its iteration loop.** Net 1, trained on PeSTO's self-play, became the default in `v0.28.0`: +587 over PeSTO in the timed SPRT, and 2977 ± 32 on the Stockfish 19 ladder. The vectorized net followed in `v0.29.0`. Net 2, trained on generations 0 and 1, beat net 1 by +113 and becomes the default with #129. Every net and dataset is logged in [nets.md](nets.md) and [datasets.md](datasets.md). Phase 5 (first public release) runs alongside.
+**Status:** Phases 0–4b complete and released (`v0.17.0` closed Phase 4, `v0.25.0` Phase 4b). **Phase 6 (NNUE) is in its iteration loop.** Net 1, trained on PeSTO's self-play, became the default in `v0.28.0`: +587 over PeSTO in the timed SPRT, and 2977 ± 32 on the Stockfish 19 ladder. The vectorized net followed in `v0.29.0`. Since then each step has been one change under a timed SPRT: more data (net 2, +113), a longer schedule (net2x80, +21), generation 2 (net 3, +22), 256 then 512 hidden neurons (net 4, +74; net4w512, +44) and generation 3 (net 5, +22, the default in `v0.37.0`). The ladder reads about 3080 (`v0.35.0` 3086 ± 33, `v0.36.0` 3076 ± 30). Every net and dataset is logged in [nets.md](nets.md) and [datasets.md](datasets.md). Phase 5 (first public release) runs alongside.
 
 ## How to use this document
 
@@ -180,7 +180,11 @@ The destination named in the goals: our own network, trained on our own games. *
 - [x] A longer schedule: net2x80 (80 superbatches) beat net 2 by **+21.0 ± 8.9** (#134, v0.31.0)
 - [x] The λ sweep against net2x80's 0.5, decided by timed SPRTs: λ 0.25 **−38.1 ± 12.8** (#137) and λ 0.75 **−3.2 ± 4.5** (#140), both H0, so λ 0.5 stays. Matching the shallow search's scores hurts; predicting results better didn't help ([nets.md](nets.md#the-λ-sweep-net2x80-at-λ-025-and-075))
 - [x] Generation 2, played by net2x80: 307,037,810 positions, fully audited with every worker's games regenerated from their seeds (#143, [datasets.md](datasets.md))
-- [ ] Net 3 on generations 0–2 (about 906M positions), kept on a timed SPRT win over net2x80; then a wider hidden layer (256, 512) on the largest dataset
+- [x] Net 3 on generations 0–2 (857M training positions) beat net2x80 by **+21.8 ± 9.2** (#145, v0.33.0)
+- [x] Wider hidden layers on the same data: the engine reads 256 (#149) and 512 (#152) exactly; net 4 (256) beat net 3 by **+74.2 ± 16.4** (#150, v0.35.0) and net4w512 (512) beat net 4 by **+44.3 ± 13.1** (#152, v0.36.0), 11–18% slower per node
+- [x] Generation 3, played by net4w512: 628,213,254 positions, fully audited with every worker's games regenerated from their seeds, the first with the net recorded in every manifest ([datasets.md](datasets.md)). Net 5 (512, generations 0–3) beat net4w512 by **+21.9 ± 9.2** (#155, v0.37.0); only the data changed
+- [ ] net5x120: net 5's data and width at 120 superbatches, kept on a timed SPRT win over net 5
+- [ ] Generation 4, played by net 5, and a net on generations 0–4
 - [x] The ladder moved up when the engine outgrew 2950: v0.28.0 scored 88% on 2650 (about 3000). Rungs 2800/2950/3100/3190 against an official, pinned Stockfish 19, with v0.26.0–v0.28.0 re-rated for the overlap
 - [ ] A new anchor once the engine outgrows 3190, the top of Stockfish's `UCI_Elo` range (past about 3300 limited Stockfish cannot bracket it): full Stockfish at a fixed node budget, calibrated against the last limited ladder
 
@@ -188,7 +192,7 @@ The destination named in the goals: our own network, trained on our own games. *
 
 - [ ] Lazy SMP
 - [ ] HTTP API (`api` crate on `search`, `POST /analyze`, worker pool of single-threaded searches, per-request time cap; the JSON lines schema is the response shape). Open question: hosting, and whether requests are public or authenticated
-- [ ] Larger nets (256–1024 hidden neurons, more layers, output buckets) and longer iteration once Phase 6's loop is proven, with more data per generation and GPU spot training (a quota increase)
+- [ ] Larger nets (1024 hidden neurons, more layers, output buckets; 256 and 512 are done, above) and longer iteration once Phase 6's loop is proven, with more data per generation and GPU spot training (a quota increase)
 
 ## Repo layout and conventions
 

@@ -9,8 +9,8 @@ available for comparisons. The data the nets are trained on is described in
 ## Architecture
 
 ```text
-768 inputs ──▶ 128 hidden (our perspective)  ─┐
-768 inputs ──▶ 128 hidden (their perspective) ┴─▶ SCReLU ──▶ 1 output
+768 inputs ──▶ H hidden (our perspective)  ─┐
+768 inputs ──▶ H hidden (their perspective) ┴─▶ SCReLU ──▶ 1 output
 ```
 
 - **Inputs:** one feature per colour, piece kind and square, seen from a
@@ -18,9 +18,9 @@ available for comparisons. The data the nets are trained on is described in
   each block ordered pawn, knight, bishop, rook, queen, king with 64 squares
   each. Black's perspective flips the board vertically (`square ^ 56`). This
   is `bullet`'s `Chess768` input.
-- **Hidden layer:** `HIDDEN` neurons per perspective (128 to start; a constant
-  in `crates/search/src/nnue.rs`, raised with the nets). The two perspectives
-  share their weights.
+- **Hidden layer:** H neurons per perspective: 128, 256 or 512, read from
+  the file's size (*Widths* below). The default net has 512 since `v0.36.0`.
+  The two perspectives share their weights.
 - **Activation:** squared clipped ReLU, `clamp(x, 0, QA)²`.
 - **Output:** side-to-move perspective first, then the opponent's,
   concatenated into one weighted sum and scaled to centipawns.
