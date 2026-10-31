@@ -7,6 +7,10 @@ name: Release
 on:
   push:
     branches: [main]
+  # By hand, from main, when GitHub drops a push event: v0.36.0's release PR
+  # merged and no workflow ran on its commit. Release Please then tags any
+  # merged release PR still labelled `autorelease: pending`.
+  workflow_dispatch:
 
 concurrency:
   group: release
@@ -18,6 +22,7 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
       pull-requests: write
