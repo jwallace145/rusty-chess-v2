@@ -7,6 +7,12 @@
 
 * **nnue:** bring the ledgers, roadmap and nnue docs up to v0.37.0 and net 5 ([#157](https://github.com/jwallace145/rusty-chess-v2/issues/157)) ([1f450ed](https://github.com/jwallace145/rusty-chess-v2/commit/1f450ed9e0501e7f60a6ea881b9b19e7a91fea4f))
 
+### Benchmarks
+
+* bench signature 1,101,129, instructions per node 3725, search 1.72M NPS, perft 203.66M NPS (pass (63)), fail-high first 87.5%, EBF 1.82, TT hit 54.1%
+* since v0.37.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.0%, search NPS +2.2%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.37.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.36.0...v0.37.0) (2026-10-31)
 
 
