@@ -177,8 +177,10 @@ The destination named in the goals: our own network, trained on our own games. *
 **Iterating**
 
 - [x] Generation 1, played by net 1: 368,354,466 positions, audited in full with no failures ([datasets.md](datasets.md)). Net 2, trained on generations 0 and 1 with net 1's settings, beat net 1 by **+112.8 ± 21.1** in the timed SPRT (#129); only the data changed
-- [ ] The λ experiment (λ ∈ {0, 0.25, 0.75, 1} against net 2's 0.5, one prepared dataset, strength deciding) and a longer schedule (net 2 was still improving at superbatch 40); queued in [nets.md](nets.md)
-- [ ] Generation 2, played by net 2, and net 3; then a wider hidden layer (256, 512) on the largest dataset
+- [x] A longer schedule: net2x80 (80 superbatches) beat net 2 by **+21.0 ± 8.9** (#134, v0.31.0)
+- [x] The λ sweep against net2x80's 0.5, decided by timed SPRTs: λ 0.25 **−38.1 ± 12.8** (#137) and λ 0.75 **−3.2 ± 4.5** (#140), both H0, so λ 0.5 stays. Matching the shallow search's scores hurts; predicting results better didn't help ([nets.md](nets.md#the-λ-sweep-net2x80-at-λ-025-and-075))
+- [x] Generation 2, played by net2x80: 307,037,810 positions, fully audited with every worker's games regenerated from their seeds (#143, [datasets.md](datasets.md))
+- [ ] Net 3 on generations 0–2 (about 906M positions), kept on a timed SPRT win over net2x80; then a wider hidden layer (256, 512) on the largest dataset
 - [x] The ladder moved up when the engine outgrew 2950: v0.28.0 scored 88% on 2650 (about 3000). Rungs 2800/2950/3100/3190 against an official, pinned Stockfish 19, with v0.26.0–v0.28.0 re-rated for the overlap
 - [ ] A new anchor once the engine outgrows 3190, the top of Stockfish's `UCI_Elo` range (past about 3300 limited Stockfish cannot bracket it): full Stockfish at a fixed node budget, calibrated against the last limited ladder
 
