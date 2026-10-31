@@ -80,20 +80,19 @@ passant, promotions and captures, made and unmade.
 
 ## Widths
 
-The engine reads nets of **128 or 256** hidden neurons per perspective
-(`nnue::WIDTHS`), told apart by the file's size: 197,378 or 394,754 bytes,
-plus up to 63 of padding.
+The engine reads nets of **128, 256 or 512** hidden neurons per perspective
+(`nnue::WIDTHS`), told apart by the file's size: 197,378, 394,754 or 789,506
+bytes, plus up to 63 of padding.
 - **Compiled per width:** each width's code is compiled separately
   (`Net<H>`, `Acc<H>`), and chosen once per evaluation and per move
   (`NnueState`). So the 128-neuron code is the same as before 256 existed,
   and every 128 net's bench signature is unchanged.
-- **Exactness:** the output sums each side in 32 bits and adds the two in 64
-  bits. With output weights within ±127, each side's sum is at most
-  255² × 127 × 256 = 2,114,092,800, inside 32 bits up to 256 neurons, so the
-  result is exact: the same as summing in 64 bits. A test checks the extreme
-  case, where at 256 the two sides together pass 32 bits.
-- **Wider nets (512 and up)** need that bound widened first, which a
-  compile-time check enforces.
+- **Exactness:** the output sums each side in 32-bit runs of 256 neurons and
+  adds the runs in 64 bits. With output weights within ±127, a run's sum is
+  at most 255² × 127 × 256 = 2,114,092,800, inside 32 bits, so the result is
+  exact at any width: the same as summing in 64 bits. At 128 and 256 there's
+  one run a side, as before 512 existed. Tests check the extreme cases: at
+  256 the two sides together pass 32 bits, and at 512 one side alone does.
 
 ## The embedded nets
 
