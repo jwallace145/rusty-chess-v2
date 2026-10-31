@@ -102,7 +102,8 @@ them can be selected by id. A net that replaces another before playing any
 generation replaces its entry: net 2 (`net2-l050-r41110004652`, `v0.30.0`)
 gave generation 2's place to net2x80 before any generation-2 data existed, and
 net 3 (`net3-l050-r41160495666`, `v0.33.0`) gave generation 3's to net 4, and
-net 4 (`net4-l050-r41165115607`, `v0.35.0`) gave it to net4w512. The
+net 4 (`net4-l050-r41165115607`, `v0.35.0`) gave it to net4w512, and
+net 5 (`net5-l050-r41229287546`, `v0.37.0`) gave generation 4's to net5x120. The
 newest is the default. Each net's full history (data, parameters, validation
 curve, SPRT and ladder results) is in [nets.md](nets.md).
 
@@ -111,7 +112,7 @@ curve, SPRT and ladder results) is in [nets.md](nets.md).
 | `net1-l050-r41022503872` | 1 | generation 0 (231M positions) | 1201313 |
 | `net2x80-l050-r41131366975` | 2 | generations 0 and 1 (600M positions), 80 superbatches | 1146589 |
 | `net4w512-l050-r41170687764` (**512 hidden**) | 3 | generations 0–2 (906M positions), 80 superbatches | 1203006 |
-| `net5-l050-r41229287546` (default, 512 hidden) | 4 | generations 0–3 (1.53B positions), 80 superbatches | 1101129 |
+| `net5x120-l050-r41237487627` (default, 512 hidden) | 4 | generations 0–3 (1.53B positions), **120** superbatches | 1130959 |
 
 Each file is `crates/search/nets/<net id>.nnue`, listed in `nnue::NETS` with
 its generation and read with `include_bytes!`. Its record (`training.json`,
