@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.37.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.36.0...v0.37.0) (2026-10-31)
+
+
+### Features
+
+* **nnue:** embed net 5, 512 hidden on generations 0-3, as the default and generation 4's net ([#155](https://github.com/jwallace145/rusty-chess-v2/issues/155)) ([cd69a05](https://github.com/jwallace145/rusty-chess-v2/commit/cd69a051215304eb7ea6120084da9aebfcf9989d))
+
+### Benchmarks
+
+* bench signature 1,101,129, instructions per node 3725, search 1.68M NPS, perft 199.61M NPS (pass (63)), fail-high first 87.5%, EBF 1.82, TT hit 54.1%
+* since v0.36.0: fail-high first -0.6 pt, EBF -0.09, instructions per node −2.0%, search NPS +4.9%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.36.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.35.0...v0.36.0) (2026-10-31)
 
 
