@@ -7,6 +7,12 @@
 
 * **nnue:** read 512-neuron nets and embed net4w512, 512 hidden on net 4's data, as the default ([#152](https://github.com/jwallace145/rusty-chess-v2/issues/152)) ([08c8b1f](https://github.com/jwallace145/rusty-chess-v2/commit/08c8b1f898dcae82b986331723896a703d77388f))
 
+### Benchmarks
+
+* bench signature 1,203,006, instructions per node 3803, search 1.60M NPS, perft 203.02M NPS (pass (63)), fail-high first 88.0%, EBF 1.91, TT hit 51.2%
+* since v0.35.0: fail-high first +0.2 pt, EBF +0.05, instructions per node +12.5%, search NPS −12.7%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.35.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.34.0...v0.35.0) (2026-10-31)
 
 
