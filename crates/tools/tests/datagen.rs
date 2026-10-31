@@ -10,7 +10,8 @@ use rusty_chess_search::nnue::{DEFAULT_NET_GENERATION, NETS, network_by_id};
 use rusty_chess_search::search::Searcher;
 use rusty_chess_tools::datagen::{
     Adjudicator, Manifest, Provenance, SCHEMA, Settings, Termination, board_termination,
-    insufficient_material, parse_record, play_game, record_line, shard_name, write_shard,
+    insufficient_material, net_provenance, parse_record, play_game, record_line, shard_name,
+    write_shard,
 };
 use rusty_chess_tools::openings::Rng;
 
@@ -151,6 +152,7 @@ fn a_shard_is_three_whole_files_whose_counts_agree() {
             engine_version: "0.0.0".into(),
             engine_sha: "abc".into(),
             engine_bench: None,
+            net: net_provenance(s.generation),
         },
         settings: s.clone(),
         games: 2,
@@ -357,6 +359,7 @@ fn a_manifest_carries_the_sha256_of_each_record_file() {
             engine_version: "0".into(),
             engine_sha: "x".into(),
             engine_bench: None,
+            net: net_provenance(s.generation),
         },
         settings: s,
         games: 1,
@@ -382,4 +385,26 @@ fn a_manifest_carries_the_sha256_of_each_record_file() {
         assert_eq!(m["sha256"][i], want, "{f}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn manifests_name_the_net_that_played_and_none_for_pesto() {
+    use rusty_chess_search::nnue::NETS;
+    use sha2::{Digest, Sha256};
+    assert_eq!(net_provenance(0), None, "generation 0 is PeSTO");
+    assert_eq!(net_provenance(99), None);
+    for net in &NETS {
+        let p = net_provenance(net.generation).expect("an embedded generation names its net");
+        assert_eq!(p.id, net.id);
+        let sha: String = Sha256::digest(net.file_bytes())
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert_eq!(p.sha256, sha);
+    }
+    // net2x80's training.json records this hash for its file.
+    assert_eq!(
+        net_provenance(2).unwrap().sha256,
+        "731b30d205c505ae13e9f7a30772c1b02325a2ce00458bb42f4ab397eb36677e"
+    );
 }

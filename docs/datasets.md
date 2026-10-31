@@ -16,7 +16,7 @@ manifests or from `datagen-audit`, never from the workflow's progress lines.
 |--:|:--|--:|--:|--:|--:|:--|:--|
 | 0 | PeSTO (`v0.24.0`–`v0.25.0`) | 231,240,344 | 2,387,961 | 9,329 | 3 | GO: 0 P0 failures | net 1, net 2 |
 | 1 | net 1 (`v0.29.0`) | 368,354,466 | 3,703,015 | 14,716 | 3 | GO: 0 P0 failures, 0 P1 warnings | net 2 |
-| 2 | net 2 | — | — | — | — | — | — |
+| 2 | net2x80 (`v0.31.1`) | 307,037,810 | 3,265,807 | 12,353 | 1 | GO: 0 P0 problems; 2,304/2,304 games regenerated from their seeds | (net 3, next) |
 
 ## Generation 0: PeSTO
 
@@ -95,6 +95,62 @@ the same sign 99.5–99.6% of the time.
 **Cost:** about $15–20. It ran on demand rather than spot, because spot
 capacity was gone. This is an estimate from the instance-hours, not a bill.
 
+## Generation 2: net2x80
+
+**Settings** (identical in every manifest): the same as generation 1. That's
+5,000 nodes a move, 8 or 10 random plies, openings replayed beyond ±250 cp,
+and win adjudication at 1,200 cp for 4 plies. Played by
+`net2x80-l050-r41131366975` (net 2 trained for 80 superbatches; λ 0.5),
+datagen built for the instance's own CPU (`native`, #136).
+
+| Run | Date | Engine | Instances × minutes | Market | Positions | Games | Notes |
+|:--|:--|:--|:--|:--|--:|--:|:--|
+| `20261031-41153094884-1` | 2026-10-31 | `v0.31.1` `75017a5` | 3 × 70 | spot | 307,037,810 | 3,265,807 | t0 98.1M, t1 104.2M, t2 104.7M. No interruptions. The first run with the native build, about 25,150 positions/s an instance |
+
+The two benchmark runs for #136 (`upload: false`) wrote nothing to the
+generation.
+
+**Full audit** (`ci/datagen-full-audit.sh`, 7 minutes on 16 cores): **GO**.
+1. **Inventory:**
+   - every shard complete, with no orphans;
+   - shard numbers gap-free for all 192 workers;
+   - no duplicate shards, and all seeds unique;
+   - one settings block, one engine, one generation;
+   - each task's `task.json` totals equal its manifests.
+2. **Every record:** 0 failures over all 307,037,810 records, and bulletformat
+   exact at 32 bytes a record.
+3. **No P1 warnings** in any of the 63 batches.
+4. **Determinism: 2,304 of 2,304 games regenerated identically** from their
+   seeds (12 per worker, all 192 workers).
+   - This build plays generation 2 with net2x80 (sha256 `731b30d2…677e`).
+   - **Negative controls:** the same seeds with net 1, or at 2,500 nodes,
+     regenerated 0 of 48 games identically.
+   - So **net2x80 at 5,000 nodes played the whole generation**, even though
+     these manifests predate the recorded `provenance.net`.
+
+| Quality | Generation 1 | Generation 2 |
+|:--|--:|--:|
+| Results (W / D / B) | 31.8 / 44.7 / 23.5% | 32.4 / 43.0 / 24.7% |
+| White–black gap | 8.3 points | 7.7 points |
+| Games ended by win adjudication | 55% | 56.6% |
+| Duplicates within a batch (200 shards) | 3.1% | 1.48% |
+| Median game length (engine plies) | 114 | 112 |
+| Records a game | 99.5 | 94.0 |
+| \|score\| ≤ 100 | 32.0% (smoke sample) | 31.0% |
+| Endgame share | 48.7% (smoke sample) | 46.0% |
+
+**Compared with generation 1:**
+- slightly more decisive (draws −1.7 points);
+- half the within-batch repetition;
+- a little shorter.
+- **No sign of the self-play collapsing toward fewer positions,** but these
+  are within-generation measures. Duplicate positions *across* generations and
+  structural novelty aren't measured yet: that needs the cross-generation
+  comparison mode the audit cross-reference recommends.
+
+**Cost:** about $5 on spot (3 instances, about 85 minutes including build and
+upload).
+
 ## Adding a run or a generation
 
 After every Datagen run, including smoke tests and failed or cancelled runs:
@@ -103,7 +159,8 @@ After every Datagen run, including smoke tests and failed or cancelled runs:
    version and commit, instances × minutes asked and run, market, positions
    and games (summed from the manifests), and what happened (interruptions,
    capacity, cancellations).
-2. When the generation is complete, run the full audit
-   ([datagen-runbook.md](datagen-runbook.md)) and record its verdict and the
-   quality numbers, including how they moved from the previous generation.
+2. When the generation is complete, run `ci/datagen-full-audit.sh`
+   ([datagen-runbook.md](datagen-runbook.md)) and record its verdict, the
+   determinism result and the quality numbers, including how they moved from
+   the previous generation.
 3. Update the Generations table, including which nets trained on it.

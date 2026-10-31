@@ -127,6 +127,54 @@ Record every run, including smoke tests and failed or cancelled runs, in
 complete.
 
 
+### The full audit (every generation, before training on it)
+
+Download the whole generation (read-only) and run the full audit locally. It
+needs no cloud resources; generation 1 (368M records) took about 5 minutes on
+16 cores.
+
+```sh
+aws s3 sync s3://jwall-engineering-rusty-chess-nnue/data/selfplay/v1/gen=N/ /tmp/genN
+git checkout <engine_sha>   # the data's commit, printed in every manifest, for step 4
+ci/datagen-full-audit.sh /tmp/genN /tmp/genN-audit
+```
+
+It runs four steps and stops on any P0 problem:
+
+1. **`datagen-audit inventory`:** every manifest and file in the generation,
+   without the records. It checks:
+   - complete shards, with no file missing and no orphans;
+   - each worker's shards numbered without gaps;
+   - no shard duplicating another's records;
+   - seeds unique across the generation;
+   - one settings block, one generation and one net throughout;
+   - complete tasks' `task.json` totals against their manifests.
+
+   It writes `inventory.json` and reports the engines and the **net named in
+   the manifests** (`provenance.net`: the net's id and SHA-256). It's recorded in every shard
+   generated since this was added; generations 0–2 predate it.
+2. **`datagen-audit check --bullet` on every shard,** 200 at a time, 8 at once:
+   every record rebuilt from its replayed game, every result confirmed from
+   its final position, checksums, counts, and bulletformat's parser.
+3. **Totals over all batches** in `summary.json`: records, games, P0
+   failures, bulletformat bytes (= records × 32), results.
+4. **`datagen-audit determinism`:** every worker's first 12 games regenerated
+   from its seed, start position and every move, in parallel.
+   - **Build the tool at the data's `engine_sha`.** Identical games then prove
+     that engine, its net and the recorded settings played the data.
+   - **Why it's conclusive:** a different net or a meaningfully different
+     setting changes the moves within a few games. On generation 2's seeds,
+     net 1 instead of net2x80, or 2,500 nodes instead of 5,000, regenerated
+     0 of 48 games identically. A one-node change (4,999) can still match:
+     the search plays its last *completed* iteration, which one node rarely
+     changes.
+   - **Data without `provenance.net`:** this step is the proof of which net
+     played it.
+
+Record the verdict and the numbers in [datasets.md](datasets.md).
+
+### Sample checks (smoke tests, quick looks)
+
 1. **Download a sample** with `ci/datagen-sample.sh RUN_PREFIX DIR
    [WORKERS_PER_TASK] [SHARDS_PER_WORKER]`. The default, 8 workers per task
    and 3 shards each, is about 1.8M positions. It is read-only and needs AWS
