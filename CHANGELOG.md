@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.37.0...v0.37.1) (2026-10-31)
+
+
+### Documentation
+
+* **nnue:** bring the ledgers, roadmap and nnue docs up to v0.37.0 and net 5 ([#157](https://github.com/jwallace145/rusty-chess-v2/issues/157)) ([1f450ed](https://github.com/jwallace145/rusty-chess-v2/commit/1f450ed9e0501e7f60a6ea881b9b19e7a91fea4f))
+
 ## [0.37.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.36.0...v0.37.0) (2026-10-31)
 
 
