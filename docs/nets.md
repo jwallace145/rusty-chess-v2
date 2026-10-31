@@ -16,10 +16,11 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 |:--|:--|:--|:--|--:|--:|--:|:--|:--|:--|
 | `net1-l050-r41022503872` | Default `v0.28.0`–; embedded | 0 · 214.6M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.018925 (gen-0 held-out) | 8.72 / 29.82 | **+587.3 ± 82.7** vs PeSTO | 2977 ± 32 (`v0.28.0`) |
 | `net2-l050-r41110004652` | Default in `v0.30.0`; replaced by net2x80 (never played a generation) | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.019273 (gen-0 + gen-1 held-out) | 5.52 / 20.32 | **+112.8 ± 21.1** vs net 1 | 3044 ± 28 (`v0.30.0`) |
-| `net2x80-l050-r41131366975` | **Default `v0.31.0`–; plays generation 2** | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | **80** | **0.019204** (same held-out set as net 2: 0.019273) | 5.67 / 22.38 | **+21.0 ± 8.9** vs net 2 | 3025 ± 29 (`v0.31.0`), 3011 ± 32 (`v0.31.1`) |
+| `net2x80-l050-r41131366975` | Default `v0.31.0`–`v0.32.0`; **plays generation 2** | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | **80** | **0.019204** (same held-out set as net 2: 0.019273) | 5.67 / 22.38 | **+21.0 ± 8.9** vs net 2 | 3025 ± 29 (`v0.31.0`), 3011 ± 32 (`v0.31.1`), 3034 ± 30 (`v0.32.0`) |
 | `net2x80-l025-r41141703294` | Dropped (#137): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.25** | 80 | not comparable (other target) | 4.68 / 20.10 | **−38.1 ± 12.8** vs net2x80 (H0) | — |
 | `net2x80-l075-r41145466004` | Dropped (#140): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.75** | 80 | not comparable (other target) | 6.74 / 23.93 | **−3.2 ± 4.5** vs net2x80 (H0) | — |
-| `net3-l050-r41160495666` | Candidate (#145): timed SPRT against net2x80; plays generation 3 | 0 + 1 + 2 · 857.3M | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | pending | — |
+| `net3-l050-r41160495666` | Default `v0.33.0`–`v0.34.0`; replaced by net 4 if its SPRT passes (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | **+21.8 ± 9.2** vs net2x80 | 3051 ± 26 (`v0.33.0`) |
+| `net4-l050-r41165115607` | Candidate (net 4's PR): timed SPRT against net 3; would play generation 3 | 0 + 1 + 2 · 857.3M | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | pending | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -102,6 +103,42 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
+## net4-l050-r41165115607
+
+Net 3's recipe and data at **256 hidden neurons** instead of 128: the first
+change of architecture. Same generations, seeds and split, so the **same
+held-out positions** as net 3.
+
+| | |
+|:--|:--|
+| Data | As net 3: generations 0–2, 857,263,237 training / 49,369,383 held-out records |
+| Network | (768 → 256) × 2 → 1, SCReLU, `Chess768`; QA 255, QB 64, SCALE 400; 394,816 bytes |
+| Schedule | As net 3: λ 0.5, 80 superbatches, LR ×0.1 every 36 |
+| Training | `Train` run [41165115607](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41165115607) (`--hidden 256`, #146): 1,726 s to trained, against net 3's 1,692. Training is bound by data loading, not the GPU, so twice the hidden layer cost about nothing |
+| Validation | **0.019443**, against net 3's 0.019862 on the identical held-out positions: **−2.1%**. Ahead from the first checkpoint (superbatch 4, 0.020058, about level with net 3's 40). Best at 80, held-out equal to the training sample (0.019443 against 0.019459): no overfitting |
+| Engine check | Skipped in training (the engine read 128 only), then run once the engine read 256 (#149): 256 held-out positions, mean 5.80 cp, max 23.94 |
+| Bench | Signature 1190429; EBF 1.86 (net 3: 1.88); **fail-high-first 0.879, under the 0.88 bar** (net 3: 0.886); about 2.49M nodes/s locally, against net 3's about 2.75M (about 7% slower per node on an M-series core) |
+| SPRT vs net 3 | Pending (net 4's PR) |
+
+| Superbatch | 4 | 20 | 40 | 60 | 80 |
+|:--|--:|--:|--:|--:|--:|
+| net 3 (128) held-out | .020502 | .020159 | .019925 | .019892 | .019862 |
+| **net 4 (256) held-out** | .020058 | .019756 | .019515 | .019476 | .019443 |
+
+**Against net 3 on identical held-out positions** (quantized nets):
+
+| Held-out set | Loss against | net 3 (128) | net 4 (256) | Change |
+|:--|:--|--:|--:|--:|
+| Generations 0 + 1 (37,941,221) | the training target (λ 0.5) | 0.019447 | **0.019082** | **−1.9%** |
+| | game results only | 0.070158 | **0.069456** | −1.0% |
+| | search scores only | 0.008301 | **0.008275** | −0.3% |
+| Generation 2 (11,428,162) | the training target (λ 0.5) | 0.021443 | **0.020849** | **−2.8%** |
+| | game results only | 0.074124 | **0.073069** | −1.4% |
+| | search scores only | 0.003443 | **0.003310** | −3.9% |
+
+**Better on all six, on identical data,** so it's the extra capacity. Unlike
+net 3 against net2x80, nothing is mixed.
+
 ## net3-l050-r41160495666
 
 net2x80's recipe on **generations 0 + 1 + 2**, adding generation 2 (307M
@@ -115,7 +152,8 @@ positions played by net2x80). Only the data changed.
 | Validation | Best at the last checkpoint, **0.019862**, flat over the last 4 superbatches: 80 is about right for this much data. Held-out about 0.5% *below* the training sample throughout (an easier held-out mix, not memorization) |
 | Engine check | 256 held-out positions: mean 5.23 cp, max 18.47 |
 | Bench | Signature 1128154; fail-high-first 0.886, EBF 1.88 |
-| SPRT vs net2x80 | Pending (#145) |
+| SPRT vs net2x80 (#145) | Timed 5+0.05: **+21.8 ± 9.2**, H1 in 2,280 games (604 / 461 / 1,215). Fixed 200k nodes: +32.3 ± 11.3, H1 in 1,522 |
+| Ladder | `v0.33.0`: 3051 ± 26, against net2x80's 3034 ± 30 (`v0.32.0`) |
 
 **Against net2x80 on identical held-out positions** (neither net trained on
 them; quantized nets, `rusty-chess-trainer validate`):
