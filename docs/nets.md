@@ -19,6 +19,7 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net2x80-l050-r41131366975` | **Default `v0.31.0`–; plays generation 2** | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | **80** | **0.019204** (same held-out set as net 2: 0.019273) | 5.67 / 22.38 | **+21.0 ± 8.9** vs net 2 | 3025 ± 29 (`v0.31.0`), 3011 ± 32 (`v0.31.1`) |
 | `net2x80-l025-r41141703294` | Dropped (#137): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.25** | 80 | not comparable (other target) | 4.68 / 20.10 | **−38.1 ± 12.8** vs net2x80 (H0) | — |
 | `net2x80-l075-r41145466004` | Dropped (#140): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.75** | 80 | not comparable (other target) | 6.74 / 23.93 | **−3.2 ± 4.5** vs net2x80 (H0) | — |
+| `net3-l050-r41160495666` | Candidate (#145): timed SPRT against net2x80; plays generation 3 | 0 + 1 + 2 · 857.3M | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | pending | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -100,6 +101,43 @@ this asks whether it was under-trained.
 - **Most of the gain is the longer high-LR phase.** At superbatch 40 this run
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
+
+## net3-l050-r41160495666
+
+net2x80's recipe on **generations 0 + 1 + 2**, adding generation 2 (307M
+positions played by net2x80). Only the data changed.
+
+| | |
+|:--|:--|
+| Data | Generations 0–2: 857,263,237 training / 49,369,383 held-out records; workers 722 / 46 at `val_fraction` 0.05, split seed 1, shuffle seed 1. The 39 held-out workers of generations 0 + 1 are the same as net 2's and net2x80's, plus 7 from generation 2 |
+| Schedule | λ 0.5; 80 superbatches (8.0B positions, about 9 passes over the data); LR 0.001, ×0.1 every 36 |
+| Training | `Train` run [41160495666](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41160495666): NVIDIA L4, CUDA 13.2, bullet `da426a4`, engine `66818d8`; 1,692 s to trained, about 31 minutes in all, about $0.45. Downloads 8:20 (the three generations one after another), prepare 7:38 (parallel, #138: 2.07M records/s against 1.02M before), training 11.7M positions/s on local NVMe (8.5 s a superbatch) |
+| Validation | Best at the last checkpoint, **0.019862**, flat over the last 4 superbatches: 80 is about right for this much data. Held-out about 0.5% *below* the training sample throughout (an easier held-out mix, not memorization) |
+| Engine check | 256 held-out positions: mean 5.23 cp, max 18.47 |
+| Bench | Signature 1128154; fail-high-first 0.886, EBF 1.88 |
+| SPRT vs net2x80 | Pending (#145) |
+
+**Against net2x80 on identical held-out positions** (neither net trained on
+them; quantized nets, `rusty-chess-trainer validate`):
+
+| Held-out set | Loss against | net2x80 | net 3 | Change |
+|:--|:--|--:|--:|--:|
+| Generations 0 + 1 (37,941,221) | the training target (λ 0.5) | **0.019255** | 0.019447 | +1.0% |
+| | game results only | 0.071103 | **0.070158** | −1.3% |
+| | search scores only | **0.006973** | 0.008301 | +19% |
+| Generation 2 (11,428,162) | the training target (λ 0.5) | 0.022368 | **0.021443** | **−4.1%** |
+| | game results only | 0.076266 | **0.074124** | −2.8% |
+| | search scores only | **0.003151** | 0.003443 | +9% |
+
+**Reading it:**
+- **Net 3 predicts game results better on both sets.**
+- **On the newest, strongest data it's clearly better** on the training target.
+- **It agrees less with the older generations' search scores.** Those were
+  labelled by PeSTO's and net 1's searches.
+- **net2x80's low score loss on generation 2 is partly circular:** its own
+  search produced those scores.
+- **The λ sweep showed losses don't decide strength.** These point the right
+  way, and the SPRT decides.
 
 ## The λ sweep: net2x80 at λ 0.25 and 0.75
 

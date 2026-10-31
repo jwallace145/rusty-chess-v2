@@ -6,7 +6,7 @@
 [datagen]
 # Which net generation plays: 0 is the hand-written PeSTO evaluation, n the
 # engine carrying net n. Raise it when a new net ships.
-generation = 2
+generation = 3
 # Nodes per move. The search's score at this budget is the training label
 # (with the game's result); about depth 8-10 for this engine. More nodes give
 # better labels and fewer positions per hour.

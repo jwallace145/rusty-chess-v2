@@ -91,7 +91,8 @@ curve, SPRT and ladder results) is in [nets.md](nets.md).
 | Net | Plays generation | Trained on | Bench signature |
 |:--|--:|:--|--:|
 | `net1-l050-r41022503872` | 1 | generation 0 (231M positions) | 1201313 |
-| `net2x80-l050-r41131366975` (default) | 2 | generations 0 and 1 (600M positions), 80 superbatches | 1146589 |
+| `net2x80-l050-r41131366975` | 2 | generations 0 and 1 (600M positions), 80 superbatches | 1146589 |
+| `net3-l050-r41160495666` (default) | 3 | generations 0–2 (906M positions), 80 superbatches | 1128154 |
 
 Each file is `crates/search/nets/<net id>.nnue`, listed in `nnue::NETS` with
 its generation and read with `include_bytes!`. Its record (`training.json`,
