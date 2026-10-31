@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.34.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.33.0...v0.34.0) (2026-10-31)
+
+
+### Features
+
+* **nnue:** read 256-neuron nets beside 128, exact at both widths, with the 128 path unchanged ([#149](https://github.com/jwallace145/rusty-chess-v2/issues/149)) ([5ac652c](https://github.com/jwallace145/rusty-chess-v2/commit/5ac652c5b382ecc29d8f369909c1243666c10fdb))
+* **trainer:** train nets of any hidden width, and skip the engine check for widths it doesn't read ([#146](https://github.com/jwallace145/rusty-chess-v2/issues/146)) ([f232622](https://github.com/jwallace145/rusty-chess-v2/commit/f232622fe24f6a9338150b3a6d574f1ad54f03dc))
+
+### Benchmarks
+
+* bench signature 1,128,154, instructions per node 3114, search 2.38M NPS, perft 200.84M NPS (pass (63)), fail-high first 88.6%, EBF 1.88, TT hit 52.8%
+* since v0.33.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +1.3%, search NPS −36.2%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.33.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.32.0...v0.33.0) (2026-10-31)
 
 
