@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.32.0...v0.33.0) (2026-10-31)
+
+
+### Features
+
+* **nnue:** embed net 3, trained on generations 0-2, as the default and generation 3's net ([#145](https://github.com/jwallace145/rusty-chess-v2/issues/145)) ([47fc6bc](https://github.com/jwallace145/rusty-chess-v2/commit/47fc6bc171ae7aa86654f2e33cf2c7571f0d8826))
+
 ## [0.32.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.31.1...v0.32.0) (2026-10-31)
 
 
