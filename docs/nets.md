@@ -15,8 +15,10 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | Net | Status | Data (generations, training positions) | Architecture | λ | Superbatches | Held-out loss | Engine check (mean / max cp) | Timed SPRT vs previous | Ladder (Stockfish 19) |
 |:--|:--|:--|:--|--:|--:|--:|:--|:--|:--|
 | `net1-l050-r41022503872` | Default `v0.28.0`–; embedded | 0 · 214.6M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.018925 (gen-0 held-out) | 8.72 / 29.82 | **+587.3 ± 82.7** vs PeSTO | 2977 ± 32 (`v0.28.0`) |
-| `net2-l050-r41110004652` | Default in `v0.30.0`; replaced by net2x80 if its SPRT passes | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.019273 (gen-0 + gen-1 held-out) | 5.52 / 20.32 | **+112.8 ± 21.1** vs net 1 | after its release |
-| `net2x80-l050-r41131366975` | Candidate (#134): timed SPRT against net 2 | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | **80** | **0.019204** (same held-out set as net 2: 0.019273) | 5.67 / 22.38 | pending | — |
+| `net2-l050-r41110004652` | Default in `v0.30.0`; replaced by net2x80 (never played a generation) | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.019273 (gen-0 + gen-1 held-out) | 5.52 / 20.32 | **+112.8 ± 21.1** vs net 1 | 3044 ± 28 (`v0.30.0`) |
+| `net2x80-l050-r41131366975` | **Default `v0.31.0`–; plays generation 2** | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | **80** | **0.019204** (same held-out set as net 2: 0.019273) | 5.67 / 22.38 | **+21.0 ± 8.9** vs net 2 | 3025 ± 29 (`v0.31.0`), 3011 ± 32 (`v0.31.1`) |
+| `net2x80-l025-r41141703294` | Dropped (#137): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.25** | 80 | not comparable (other target) | 4.68 / 20.10 | **−38.1 ± 12.8** vs net2x80 (H0) | — |
+| `net2x80-l075-r41145466004` | Dropped (#140): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.75** | 80 | not comparable (other target) | 6.74 / 23.93 | **−3.2 ± 4.5** vs net2x80 (H0) | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -83,7 +85,8 @@ this asks whether it was under-trained.
 | Validation | Best at the last checkpoint, **0.019204**, against net 2's **0.019273** on the identical 4M held-out positions: 6.9·10⁻⁵ (0.36%) lower, more than net 2 gained over its whole second half (0.26%). Train and held-out stay within 0.4%: no overfitting at 14 passes |
 | Engine check | 256 held-out positions: mean 5.67 cp, max 22.38 |
 | Bench | Signature 1146589; fail-high-first 0.884, EBF 1.89 |
-| SPRT vs net 2 | Pending (#134) |
+| SPRT vs net 2 (#134) | Timed 5+0.05: **+21.0 ± 8.9**, H1 in 2,356 games (633 / 491 / 1,232). Fixed 200k nodes: +23.5 ± 9.4, H1 in 2,062 |
+| Ladder | `v0.31.0`: 3025 ± 29; `v0.31.1` (the same engine): 3011 ± 32. Net 2's `v0.30.0` read 3044 ± 28. The ladder can't see +21: two runs of one engine differ by 14, and each rating's interval is ±30 |
 
 | Superbatch | 4 | 12 | 20 | 28 | 36 | 40 | 52 | 64 | 72 | 76 | 80 |
 |:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
@@ -97,6 +100,57 @@ this asks whether it was under-trained.
 - **Most of the gain is the longer high-LR phase.** At superbatch 40 this run
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
+
+## The λ sweep: net2x80 at λ 0.25 and 0.75
+
+**The question:** should the training target lean more on the game result or
+on the 5,000-node search score? The target is
+`λ × result + (1 − λ) × sigmoid(score / 400)`.
+
+**Setup:** each candidate is net2x80 with only λ changed:
+- generations 0 + 1, the same split and shuffle seeds, so the same
+  561,653,589 / 37,941,221 records;
+- 80 superbatches, LR ×0.1 every 36, bullet `da426a4`.
+
+The protocol was decided before the results: each candidate must win a timed
+SPRT against net2x80, and if both did, they'd play each other.
+
+**Training:** the first runs with scratch on local NVMe. About 12M
+positions/s, 27 minutes a net, against net2x80's 52.
+
+| | `net2x80-l025-r41141703294` | net2x80 (λ 0.5) | `net2x80-l075-r41145466004` |
+|:--|--:|--:|--:|
+| `Train` run | [41141703294](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41141703294) | [41131366975](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41131366975) | [41145466004](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41145466004) |
+| Engine check (mean / max cp) | 4.68 / 20.10 | 5.67 / 22.38 | 6.74 / 23.93 |
+| Validation curve | best at 80, no overfitting | best at 80 | best at 80, train and held-out within 0.6% |
+| **Held-out loss against game results only** | 0.075665 | 0.071103 | **0.068570** |
+| **Held-out loss against search scores only** | **0.003933** | 0.006973 | 0.011693 |
+| Bench signature | 1130254 | 1146589 | 975671 |
+| **Timed SPRT 5+0.05 against net2x80** | **−38.1 ± 12.8**, H0 in 1,198 games (233 / 364 / 601) | — | **−3.2 ± 4.5**, H0 in 9,526 games (2,248 / 2,336 / 4,942), LOS 8.2% |
+| Fixed 200k nodes against net2x80 | −60.9 ± 16.7, H0 in 830 games | — | −4.1 ± 4.8, H0 in 7,772 games |
+| PR | #137, closed | #134, merged | #140, closed |
+
+**How the cross-losses were measured:** on all 37.9M held-out positions,
+re-prepared locally from the 39 held-out workers with the same seeds (the
+record count matches exactly), scoring the quantized nets with
+`rusty-chess-trainer validate --wdl 1.0` (results) and `--wdl 0.0`
+(scores). Each λ's own training loss isn't comparable, because the targets
+differ.
+
+**What it showed:**
+- **λ 0.5 is at or near the best for our data.** Strength falls off sharply
+  toward the search score (λ 0.25: about −40 timed, −60 at fixed nodes), and
+  is flat to slightly worse toward the result (λ 0.75: −3, LOS 8%).
+- **Matching the search's scores isn't the same as playing well.** λ 0.25
+  matched the 5,000-node scores 44% better than net2x80 and played clearly
+  worse. At about depth 7 those scores have blind spots the game result
+  doesn't, and a net that imitates them inherits the blind spots.
+- **Predicting results better isn't enough either.** λ 0.75 predicted game
+  results 3.6% better than net2x80 and didn't play better. The result labels
+  each of a game's ~95 positions with one outcome, often decided much later,
+  and about 43% of games are draws, so they're noisy.
+- **Neither held-out loss predicts strength.** The SPRT decides, and we keep
+  using it as the gate.
 
 ## Before net 1
 
@@ -118,6 +172,10 @@ this asks whether it was under-trained.
 | **Self-play SPRT overstates external Elo** | Net 1: +587 in the SPRT against PeSTO, about +275 to +375 on the Stockfish ladders | Judge nets by the timed SPRT, and track absolute strength on the ladder |
 | **The ladder needs moving as nets improve** | `v0.28.0` scored 89% on `UCI_Elo` 2650; the rungs moved to 2800–3190 (#126). 3190 is Stockfish's limit | After about 3300, anchor to full Stockfish at a fixed node budget |
 | **Training slows about 5× once the data outgrows the GPU instance's memory** | Net 1's 6.9 GB training file trained at 20.7M positions/s. Net 2's 18 GB file trained at 4.3M, the EBS root volume pinned at 131 MB/s: both the gp3 volume and the `g6.xlarge`'s EBS bandwidth are 125 MB/s | Put scratch on the instance's local NVMe (an infra change, proposed). Until then, budget about 23 s a superbatch on generations 0 + 1; diagnosing it is in [training.md](training.md#when-training-is-slow) |
+| **λ 0.5 is at or near the best** | The λ sweep: 0.25 lost −38.1 ± 12.8, 0.75 lost −3.2 ± 4.5, both against net2x80 | Keep λ 0.5. Revisit only if the labels change a lot (much deeper search, or far more decisive games). A λ *schedule* (lower early, higher late) is the one variant worth a later try |
+| **Matching a loss isn't playing well** | λ 0.25 matched search scores 44% better and played worse; λ 0.75 predicted results 3.6% better and didn't play better | Use held-out losses as health checks and on identical data only; let the SPRT decide |
+| **Training length was worth +21** | net2x80 (80 superbatches) beat net 2 (40) by +21.0 ± 8.9 timed, from a 0.36% lower held-out loss on the same positions | 80 superbatches is the baseline. With more data, check the curve to decide if more is needed |
+| **The ladder can't see gains of about +20** | net2x80, +21 against net 2 in the SPRT, read 3025 and 3011 on two ladder runs, against net 2's 3044 (each ±30) | Treat a single ladder run as ±40. A dedicated-instance ladder with about 400 games a rung would read ±19 |
 | **Held-out loss doesn't compare across datasets** | Net 2's 0.019273 against net 1's 0.018925, on different held-out data, while net 2 is +113 stronger | Compare nets on one held-out set |
 
 ## Next experiments
@@ -125,17 +183,19 @@ this asks whether it was under-trained.
 One change at a time, each kept only on a timed SPRT win over the current
 default.
 
-1. **Longer schedule:** net 2's data at 80 superbatches.
-2. **λ sweep:** λ ∈ {0, 0.25, 0.75, 1} on generations 0 + 1. It's cheap:
-   one GPU at a time, about 40 minutes a net. The best candidates go to a
-   `Match` or an SPRT.
-3. **Generation 2:** played by net 2 once #129 is released, then net 3 on
-   generations 0–2.
+1. ~~**Longer schedule**~~: done, net2x80 (+21.0 ± 8.9).
+2. ~~**λ sweep**~~: done, λ 0.5 stays (0.25: −38.1; 0.75: −3.2).
+3. **Generation 2 and net 3:** generation 2 (307M positions, played by
+   net2x80) is generated and audited (GO, with 2,304/2,304 games regenerated
+   from their seeds). Net 3 (128 hidden, λ 0.5, 80 superbatches, generations
+   0–2, about 906M positions) is training.
 4. **Wider hidden layer:** 256, then 512. These need the engine's `HIDDEN`
-   to change, cost speed per node, and want more data. Measure them on the
-   largest dataset available.
+   to change and the output sum's exactness proof to be widened (at 256 the
+   `i32` bound no longer holds), cost speed per node, and want more data.
+   Measure them on the largest dataset available.
 5. **Retune search margins for the net's scores,** and revisit the
    improving heuristic (#95), as engine PRs.
+6. **Later, if λ is revisited:** a schedule, λ rising during training.
 
 ## Adding a net
 
