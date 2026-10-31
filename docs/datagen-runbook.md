@@ -162,8 +162,12 @@ It runs four steps and stops on any P0 problem:
    from its seed, start position and every move, in parallel.
    - **Build the tool at the data's `engine_sha`.** Identical games then prove
      that engine, its net and the recorded settings played the data.
-   - **Why it's conclusive:** a different net or setting changes the moves
-     within a few games.
+   - **Why it's conclusive:** a different net or a meaningfully different
+     setting changes the moves within a few games. On generation 2's seeds,
+     net 1 instead of net2x80, or 2,500 nodes instead of 5,000, regenerated
+     0 of 48 games identically. A one-node change (4,999) can still match:
+     the search plays its last *completed* iteration, which one node rarely
+     changes.
    - **Data without `provenance.net`:** this step is the proof of which net
      played it.
 
