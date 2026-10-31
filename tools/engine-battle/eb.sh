@@ -3,8 +3,9 @@
 # (https://github.com/lepned/EngineBattle), and watch the games live.
 #
 #   tools/engine-battle/eb.sh setup                     # install EngineBattle and two opponents, register them and this tree's rusty-chess
+#   tools/engine-battle/eb.sh bots                      # add a ladder of opponents from about 1100 to 3000: Maia, Stockfish levels, old rusty-chess
 #   tools/engine-battle/eb.sh add-rusty [--ref REF] [--net NET] [--name NAME]
-#   tools/engine-battle/eb.sh add-engine NAME PATH [--uci OPTION=VALUE ...]
+#   tools/engine-battle/eb.sh add-engine NAME PATH [--uci OPTION=VALUE ...] [--policy]
 #   tools/engine-battle/eb.sh list
 #   tools/engine-battle/eb.sh play --engines A,B[,C...] [--mode match|rr|gauntlet] [--tc 2:00+1 | --nodes N]
 #                                  [--rounds N] [--parallel N] [--name NAME] [--console]
@@ -28,6 +29,24 @@ SF_TAG="sf_19"
 SF_SHA256="a1f0e3bcc5a6927a11fe6fc8e54a779754645f3c2bae2cf13420fd1957adaa77" # stockfish-macos-universal.tar.gz
 VIR_TAG="v20.0.0"
 VIR_SHA256="9ab84379f0241d94f926666eef8385ab032c585bb3055f27a3fbae423b75fd41" # viridithas-20-macos-aarch64 (Apple silicon only)
+# Maia (https://github.com/CSSLab/maia-chess): Lc0 nets trained to play like
+# Lichess players of each rating, at one node a move.
+MAIA_COMMIT="1303068186418e38e2e1f93f058e8efd9efccefd"
+maia_sha256() {
+  case "$1" in
+    1100) echo e1cf1cd0c96b8a4fa6a275f4b9fd54ed1ffebf9fe44641b9fceded310e9619c4 ;;
+    1200) echo ead4ba953f233ae732999ebc1e2b675378148527ebcfad2f0acbc5e4c224d98e ;;
+    1300) echo 36195f87bf4761834baa0bf87472b18509a7261a9d7d6f1a8443261369a733f2 ;;
+    1400) echo d5353ea6766356dad2d28920c6692f37a5f30963767f1a3105d33b4d0af011e8 ;;
+    1500) echo 35ab6f20421d59e1df3b17c5a5016947af4c6761368ef84044a9a9c7619a9a00 ;;
+    1600) echo d2c9e5948581acf4b9fc0b1e720c5dc0fe64ce80cfc4a239d3f8a42e1176c876 ;;
+    1700) echo d277eacd792d340a30abb464dc65127254e65cac57abca17facc469889b96478 ;;
+    1800) echo 0031ad7c4256b1fd09fbebd28418d644d68b26cd2a45df4967ccf5c7ec9c4965 ;;
+    1900) echo e2f565f42d7cd9f122557e6dc4eb84e5bbaedceda1d404dc485d3611c7c97a12 ;;
+  esac
+}
+# Old releases worth playing, with their ladder ratings (release notes).
+RUSTY_LADDER="v0.3.0 v0.9.0 v0.11.0 v0.17.0" # about 1900, 2180, 2350, 2600
 
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
@@ -76,7 +95,11 @@ if "Threads" in opts:
     opts["Threads"] = 1
 if "Hash" in opts:
     opts["Hash"] = 64
+tcid = 1
 for o in overrides:
+    if o == "--policy":  # plays one node a move: time control 2 in every tournament
+        tcid = 2
+        continue
     k, _, v = o.partition("=")
     if k not in opts:
         sys.exit(f"{name}: the engine has no UCI option '{k}' (it has: {', '.join(opts)})")
@@ -85,9 +108,10 @@ for o in overrides:
 d["Version"] = d.get("Name", "")
 d["Name"] = name
 d["Alias"] = name
-d["TimeControlID"] = 1
+d["TimeControlID"] = tcid
 json.dump(d, open(out, "w"), indent=2)
-print(f"registered {name}: {d['Path']} ({', '.join(f'{k}={v}' for k, v in opts.items())})")
+shown = ", ".join(f"{k}={v}" for k, v in opts.items() if k in ("Threads", "Hash", "UCI_LimitStrength", "UCI_Elo", "EvalFile", "WeightsFile"))
+print(f"registered {name}: {d['Path']} ({shown}{', one node a move' if tcid == 2 else ''})")
 PY
   rm -rf "$tmp"
   last_registered=$name
@@ -137,6 +161,35 @@ cmd_setup() {
   echo "Ready. Try:  $0 play --engines $last_registered,stockfish-19-elo3000"
 }
 
+cmd_bots() {
+  [ -x "$app/eb-cli" ] || die "run '$0 setup' first"
+  if command -v brew >/dev/null; then
+    brew list --formula lc0 >/dev/null 2>&1 || { echo "==> brew install lc0"; brew install --quiet lc0; }
+  else
+    echo "eb: no Homebrew: skipping Maia (it needs lc0)" >&2
+  fi
+  if command -v lc0 >/dev/null; then
+    mkdir -p "$local_dir/nets"
+    local elo f
+    for elo in 1100 1200 1300 1400 1500 1600 1700 1800 1900; do
+      f="$local_dir/nets/maia-$elo.pb.gz"
+      fetch "https://raw.githubusercontent.com/CSSLab/maia-chess/$MAIA_COMMIT/maia_weights/maia-$elo.pb.gz" "$f" "$(maia_sha256 $elo)"
+      register "maia-$elo" "$(command -v lc0)" "WeightsFile=$f" --policy
+    done
+  fi
+  local elo
+  for elo in 1500 2000 2500; do
+    register "stockfish-19-elo$elo" "$engines/stockfish-19" UCI_LimitStrength=true "UCI_Elo=$elo"
+  done
+  local ref
+  for ref in $RUSTY_LADDER; do
+    git -C "$root" rev-parse --verify --quiet "$ref^{commit}" >/dev/null || git -C "$root" fetch --quiet --tags origin
+    cmd_add_rusty --ref "$ref"
+  done
+  echo
+  echo "Added. 'eb.sh list' shows everything; tools/engine-battle/README.md has the ladder with approximate ratings."
+}
+
 cmd_add_rusty() {
   local ref="" net="" name=""
   while [ $# -gt 0 ]; do
@@ -183,6 +236,7 @@ cmd_add_engine() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --uci) opts+=("$2"); shift 2 ;;
+      --policy) opts+=("--policy"); shift ;;
       *) die "add-engine: unknown argument $1" ;;
     esac
   done
@@ -202,6 +256,8 @@ for f in sorted(glob.glob(f"{sys.argv[1]}/*.json")):
         extra.append(f"UCI_Elo={o.get('UCI_Elo')}")
     if name.startswith("rusty-chess") and o.get("EvalFile") not in (None, "<default>"):
         extra.append(f"EvalFile={o['EvalFile']}")
+    if d.get("TimeControlID") == 2:
+        extra.append("one node a move")
     extra = ", ".join(extra)
     print(f"{name:<48} {d.get('Version', ''):<24} {extra}")
 PY
@@ -253,7 +309,9 @@ else:
 t["Name"] = name
 t["Rounds"] = int(rounds)
 t["NumberOfGamesInParallel"] = int(parallel)
-t["TimeControl"]["TimeConfigs"] = [{"Id": 1, "Nodes": int(nodes)} if nodes else {"Id": 1, "Tc": tc}]
+# Id 2 is for policy players such as Maia (registered with --policy), which
+# play one node a move whatever the others play.
+t["TimeControl"]["TimeConfigs"] = [{"Id": 1, "Nodes": int(nodes)} if nodes else {"Id": 1, "Tc": tc}, {"Id": 2, "Nodes": 1}]
 t["Opening"]["OpeningsPath"] = book
 t["PgnOutPath"] = pgn
 t["EngineSetup"] = {"EngineDefFolder": defs, "EngineDefList": [f"{e}.json" for e in engines]}
@@ -282,10 +340,11 @@ cmd_gui() {
 
 case "${1:-}" in
   setup) shift; cmd_setup "$@" ;;
+  bots) shift; cmd_bots "$@" ;;
   add-rusty) shift; cmd_add_rusty "$@" ;;
   add-engine) shift; cmd_add_engine "$@" ;;
   list) shift; cmd_list ;;
   play) shift; cmd_play "$@" ;;
   gui) shift; cmd_gui "$@" ;;
-  *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac
