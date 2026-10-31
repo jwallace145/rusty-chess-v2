@@ -22,7 +22,7 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net3-l050-r41160495666` | Default `v0.33.0`–`v0.34.0`; replaced by net 4 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | **+21.8 ± 9.2** vs net2x80 | 3051 ± 26 (`v0.33.0`), 3040 ± 32 (`v0.34.0`) |
 | `net4-l050-r41165115607` | Default `v0.35.0`; replaced by net4w512 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | **+74.2 ± 16.4** vs net 3 | 3086 ± 33 (`v0.35.0`) |
 | `net4w512-l050-r41170687764` | Default `v0.36.0`; **plays generation 3** | 0 + 1 + 2 · 857.3M | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | **+44.3 ± 13.1** vs net 4 | 3076 ± 30 (`v0.36.0`) |
-| `net5-l050-r41229287546` | Default `v0.37.0`–; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | `v0.37.0`: being rated |
+| `net5-l050-r41229287546` | Default `v0.37.0`–; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | 3129 ± 32 (`v0.37.0`) |
 | `net5x120-l050-r41237487627` | Training ([run 41237487627](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41237487627)): schedule experiment against net 5 | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | — | — | — | — |
 
 **Comparing the columns:**
@@ -123,7 +123,7 @@ added**: the only change is the data. It's the first net trained on data a
 | Engine check | 256 held-out positions: mean **7.77 cp**, max 26.67, none beyond max(50 cp, 5%). Run in training, the first time for a 512-neuron net |
 | Bench | Signature 1101129 (net4w512: 1203006), identical run to run; fail-high-first 0.875 (bar 0.87), **EBF 1.818** (net4w512: 1.906); about 2.13–2.20M nodes/s locally, the same width and speed as net4w512 |
 | SPRT vs net4w512 (#155) | Timed 5+0.05: **+21.9 ± 9.2**, H1 in 2,288 games (603 / 459 / 1,226). Fixed 200k nodes: +35.4 ± 11.7, H1 in 1,370. Runner: +1.4% ± 1.9% speed per node (unchanged), **−9.7% ± 1.7% time to depth** |
-| Ladder | `v0.37.0`: being rated |
+| Ladder | `v0.37.0`: **3129 ± 32**, against net4w512's 3076 ± 30 (`v0.36.0`): the highest yet. Rungs: 2800 86.0%, 2950 64.0%, 3100 57.5%, 3190 45.0% ([Rating run 41236545440](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41236545440)). Within about 60 of the ladder's top rung |
 
 | Superbatch | 4 | 20 | 40 | 60 | 80 |
 |:--|--:|--:|--:|--:|--:|
