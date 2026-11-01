@@ -24,7 +24,8 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net4w512-l050-r41170687764` | Default `v0.36.0`; **plays generation 3** | 0 + 1 + 2 · 857.3M | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | **+44.3 ± 13.1** vs net 4 | 3076 ± 30 (`v0.36.0`) |
 | `net5-l050-r41229287546` | Default `v0.37.0`–`v0.38.0`; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | 3129 ± 32 (`v0.37.0`), 3132 ± 29 (`v0.38.0`) |
 | `net5x120-l050-r41237487627` | Dropped (#159): schedule experiment, inconclusive at the cap | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | **0.019399** (same held-out set as net 5: 0.019432) | 6.68 / 23.20 | +4.9 ± 3.9 vs net 5 (inconclusive) | — |
-| `net5b8-l050-r41265636815` | Default `v0.39.0`–; **plays generation 5** | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → **8** (output buckets) | 0.5 | 80 | **0.019349** (same held-out set as net 5: 0.019432) | 6.14 / 21.71 | **+6.5 ± 4.4** vs net 5 | `v0.39.0`: being rated |
+| `net5b8-l050-r41265636815` | Default `v0.39.0`–`v0.39.2`; replaced by net6 if its SPRT passes (never played a generation) | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → **8** (output buckets) | 0.5 | 80 | **0.019349** (same held-out set as net 5: 0.019432) | 6.14 / 21.71 | **+6.5 ± 4.4** vs net 5 | `v0.39.0`: being rated |
+| `net6-l050-r41273387683` | Candidate (net6's PR): timed SPRT against net5b8; would play generation 5 | 0 + 1 + 2 + 3 + **4** · 1,932.3M | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | pending | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -106,6 +107,41 @@ this asks whether it was under-trained.
 - **Most of the gain is the longer high-LR phase.** At superbatch 40 this run
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
+
+## net6-l050-r41273387683
+
+net5b8's recipe (512 hidden, 8 output buckets, λ 0.5, 80 superbatches) with
+**generation 4 added**: the only change is the data.
+
+| | |
+|:--|:--|
+| Data | Generations 0–4: 1,932,314,071 training / 97,679,562 held-out records (81,394 shards); workers 1,152 / 64 at `val_fraction` 0.05, split seed 1, shuffle seed 1. Generations 0–3's held-out workers are net5b8's; generation 4 adds 12 held-out workers, 28,343,627 records. 32% more training data than net5b8 |
+| Network | (768 → 512) × 2 → 8, as net5b8; 803,904 bytes; sha256 `282c21ba…2b1f` |
+| Schedule | As net5b8: 80 superbatches (8.0B positions, about 4.1 passes, against 5.5); LR 0.001, ×0.1 after 36 and 72 |
+| Training | `Train` run [41273387683](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41273387683), from `v0.39.1`: prepare 988 s, 3,768 s to trained (net5b8: 3,240; the 62 GB training file is about four times the instance's memory), 65 minutes for the job, about $0.90 |
+| Validation | 0.019626 on generations 0–4's held-out set, 0.89% above the training sample (net5b8: 0.54%). Not comparable with net5b8's 0.019349: the set adds generation 4, the most drawn and hardest to predict, and generation 4 is a larger share of the held-out records (29%) than of the training records (24%), which inflates the gap. Best at superbatch 80 |
+| Engine check | 256 held-out positions: mean **7.58 cp**, max 26.35, none beyond max(50 cp, 5%) |
+| Bench | Signature 1099777 (net5b8: 1048958), identical run to run; **fail-high-first 0.873** (bar 0.87; net5b8 0.8702), EBF 1.937 (net5b8: 1.887); 2.10M nodes/s locally on an idle machine |
+| SPRT vs net5b8 | Pending (net6's PR) |
+
+**Against net5b8 on identical held-out positions.** `prepare` puts a worker
+in the held-out set by a hash of its key and the split seed alone, so
+preparing one generation by itself with seed 1 rebuilds exactly the held-out
+workers both nets excluded (19,966,552 records for generation 3, 28,343,627
+for generation 4, matching their splits). Both quantised nets were scored on
+the first 8M of each with `rusty-chess-trainer validate`:
+
+| Held-out set | net5b8 | net6 | Change |
+|:--|--:|--:|--:|
+| Generation 3 (data both nets trained on) | 0.019447 | **0.019230** | **−1.11%** |
+| Generation 4 (net5b8 never saw generation 4) | 0.020378 | **0.020046** | **−1.63%** |
+
+**Reading it:**
+- **Better on old data too:** −1.11% on generation 3, which both nets trained
+  on, so net6 learned more in general, not just generation 4's style of play.
+- **The largest gain measured on identical positions at 512** so far: 2.5–4×
+  net5b8's −0.43% from buckets. Data stays the main lever.
+- **The SPRT decides.**
 
 ## net5b8-l050-r41265636815
 
