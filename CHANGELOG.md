@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.39.0...v0.39.1) (2026-11-01)
+
+
+### Documentation
+
+* **datagen:** record generation 4, its spot interruption, top-up and full audit ([#165](https://github.com/jwallace145/rusty-chess-v2/issues/165)) ([2f01b2f](https://github.com/jwallace145/rusty-chess-v2/commit/2f01b2f5efd91c9ca9d07b3fe4ad6718f287553b))
+
 ## [0.39.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.38.0...v0.39.0) (2026-11-01)
 
 
