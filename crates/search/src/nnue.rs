@@ -720,11 +720,22 @@ fn push_move<const H: usize>(
     // perspective.
     let (below, above) = stack.split_at_mut(*top + 1);
     let (old, new) = (&below[*top], &mut above[0]);
+    if net.king_buckets == 1 {
+        // A single view: the constant (0, 0) folds away, so this is the
+        // incremental update as it was before king buckets.
+        for (i, side) in [Color::White, Color::Black].into_iter().enumerate() {
+            update(net, &old[i], &mut new[i], d, |c, k, sq| {
+                feature_in((0, 0), side, c, k, sq)
+            });
+        }
+        *top += 1;
+        return;
+    }
     for (i, side) in [Color::White, Color::Black].into_iter().enumerate() {
         // The side's view after the move (`pos` has made it). Only its own
         // king moving can change it; then the accumulator is rebuilt.
         let view = net.view(pos, side);
-        if net.king_buckets > 1 && d.us == side && d.moved == PieceKind::King {
+        if d.us == side && d.moved == PieceKind::King {
             let from = if side == Color::White {
                 d.from.index()
             } else {
@@ -735,23 +746,35 @@ fn push_move<const H: usize>(
                 continue;
             }
         }
-        let f = |color, kind, sq| feature_in(view, side, color, kind, sq);
-        let on = f(d.us, d.placed, d.to);
-        let off = f(d.us, d.moved, d.from);
-        match (d.captured, d.castle) {
-            (Some((color, kind, sq)), _) => {
-                new[i].add_sub_sub(&old[i], net, on, off, f(color, kind, sq))
-            }
-            (None, Some((rook_from, rook_to))) => new[i].add_add_sub_sub(
-                &old[i],
-                net,
-                [on, f(d.us, PieceKind::Rook, rook_to)],
-                [off, f(d.us, PieceKind::Rook, rook_from)],
-            ),
-            (None, None) => new[i].add_sub(&old[i], net, on, off),
-        }
+        update(net, &old[i], &mut new[i], d, |c, k, sq| {
+            feature_in(view, side, c, k, sq)
+        });
     }
     *top += 1;
+}
+
+/// One perspective's incremental update for a move, with `f` giving each
+/// changed piece's feature index in that perspective's view.
+#[inline(always)]
+fn update<const H: usize>(
+    net: &Net<H>,
+    old: &Acc<H>,
+    new: &mut Acc<H>,
+    d: &MoveDelta,
+    f: impl Fn(Color, PieceKind, Square) -> usize,
+) {
+    let on = f(d.us, d.placed, d.to);
+    let off = f(d.us, d.moved, d.from);
+    match (d.captured, d.castle) {
+        (Some((color, kind, sq)), _) => new.add_sub_sub(old, net, on, off, f(color, kind, sq)),
+        (None, Some((rook_from, rook_to))) => new.add_add_sub_sub(
+            old,
+            net,
+            [on, f(d.us, PieceKind::Rook, rook_to)],
+            [off, f(d.us, PieceKind::Rook, rook_from)],
+        ),
+        (None, None) => new.add_sub(old, net, on, off),
+    }
 }
 
 impl NnueState {
