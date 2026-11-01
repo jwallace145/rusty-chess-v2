@@ -49,7 +49,7 @@ size.
 
 | Block | Count |
 |:--|--:|
-| feature weights, feature-major (`[768][HIDDEN]`) | 98,304 |
+| feature weights, feature-major (`[768 × K][HIDDEN]`, king bucket 0's first) | 98,304 × K |
 | feature bias | 128 |
 | output weights, per bucket (our perspective, then theirs) | 256 × B |
 | output biases | B |
@@ -121,6 +121,29 @@ weighting changes, so endgames, middlegames and openings each get their own.
 - **Exactness:** each bucket's sum is the same computation as a
   single-bucket net's, so the bound above holds in every bucket. Tests check
   the extremes and random accumulators in every bucket of every shape.
+
+## King buckets
+
+A net can index its inputs by **where each side's own king stands**: 4 king
+buckets, each with its own 768 input columns, and the board mirrored left to
+right when that king is on files e–h. It is how an NNUE learns king safety
+without hand-made features. The design, the bucket layout and the training
+are in [king-buckets.md](king-buckets.md).
+
+- **Read from the size:** `nnue::KING_BUCKETS` is 1 or 4, told apart by file
+  size like the widths and output buckets. A 4 always means
+  `KING_BUCKET_LAYOUT`: a1–b1 → 0, c1–d1 → 1, rank 2 → 2, ranks 3–8 → 3, from
+  each side's own point of view, files e–h mirrored.
+- **Indexing:** `768 × bucket + (the 768-feature index XOR 7 when mirrored)`,
+  bullet's `ChessBucketsMirrored`. One king bucket is bucket 0 unmirrored, so
+  every single-view net evaluates exactly as before.
+- **The accumulator:** only a side's own king moving can change its view. A
+  king move that changes it rebuilds that side's accumulator from the
+  position after the move; every other move is the usual incremental update.
+  There is no refresh cache yet.
+- **Cost:** none measurable for single-view nets (the paired bench, 1.003 ±
+  0.021). A 4-bucket net at 512 × 8 is 3,163,152 bytes, but a position only
+  reads its own buckets' columns.
 
 ## The embedded nets
 
