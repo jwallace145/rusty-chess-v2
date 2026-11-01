@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.42.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.41.0...v0.42.0) (2026-11-01)
+
+
+### Features
+
+* **nnue:** embed net6k4, net6 with 4 mirrored king buckets, as the default and generation 5's net ([#175](https://github.com/jwallace145/rusty-chess-v2/issues/175)) ([540cfca](https://github.com/jwallace145/rusty-chess-v2/commit/540cfcaf1280510755216e358f6bc07a36e61d4e))
+
+### Benchmarks
+
+* bench signature 1,046,838, instructions per node 4143, search 1.57M NPS, perft 200.35M NPS (pass (63)), fail-high first 87.9%, EBF 1.86, TT hit 51.8%
+* since v0.41.0: fail-high first +0.6 pt, EBF -0.08, instructions per node +8.8%, search NPS −7.2%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.41.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.40.0...v0.41.0) (2026-11-01)
 
 
