@@ -186,7 +186,9 @@ The destination named in the goals: our own network, trained on our own games. *
 - [x] ~~net5x120: net 5's data and width at 120 superbatches~~ **Dropped on record** (#159): +4.9 ± 3.9 timed and −1.2 ± 4.2 at fixed nodes, both inconclusive at 10,000 games; at 1.5B positions the schedule is saturated
 - [x] Output buckets: the engine reads 8-bucket nets with single-bucket nets unchanged (#162, +0.6% instructions a node) and the trainer trains them (#163); net5b8, net 5 with 8 output buckets, beat net 5 by **+6.5 ± 4.4** timed and +12.4 ± 6.6 at fixed nodes (#164, v0.39.0)
 - [x] Generation 4, played by net 5: 495,147,759 positions, fully audited with every worker's games regenerated from their seeds (#165, [datasets.md](datasets.md)); draws rose to 47.2%
-- [ ] net6: net5b8's recipe on generations 0–4, kept on a timed SPRT win over net5b8
+- [x] net6: net5b8's recipe on generations 0–4 beat net5b8 by **+14.5 ± 7.1** timed and +11.4 ± 6.3 at fixed nodes (#170, v0.40.0)
+- [x] King-bucketed inputs: design ([king-buckets.md](king-buckets.md)), the engine reads 4 mirrored king buckets with single-view nets unchanged (#172, +0.2% instructions a node) and the trainer trains them with a factoriser (#173)
+- [ ] net6k4: net6 with 4 king buckets, kept on a timed SPRT win over net6
 - [x] The ladder moved up when the engine outgrew 2950: v0.28.0 scored 88% on 2650 (about 3000). Rungs 2800/2950/3100/3190 against an official, pinned Stockfish 19, with v0.26.0–v0.28.0 re-rated for the overlap
 - [ ] A new anchor once the engine outgrows 3190, the top of Stockfish's `UCI_Elo` range (past about 3300 limited Stockfish cannot bracket it): full Stockfish at a fixed node budget, calibrated against the last limited ladder
 
