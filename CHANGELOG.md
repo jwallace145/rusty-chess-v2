@@ -7,6 +7,12 @@
 
 * **datagen:** record generation 4, its spot interruption, top-up and full audit ([#165](https://github.com/jwallace145/rusty-chess-v2/issues/165)) ([2f01b2f](https://github.com/jwallace145/rusty-chess-v2/commit/2f01b2f5efd91c9ca9d07b3fe4ad6718f287553b))
 
+### Benchmarks
+
+* bench signature 1,048,958, instructions per node 3779, search 2.03M NPS, perft 272.36M NPS (pass (63)), fail-high first 87.0%, EBF 1.89, TT hit 52.7%
+* since v0.39.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.0%, search NPS −27.1%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.39.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.38.0...v0.39.0) (2026-11-01)
 
 
