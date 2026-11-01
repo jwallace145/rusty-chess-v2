@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.38.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.37.1...v0.38.0) (2026-11-01)
+
+
+### Features
+
+* **nnue:** read nets with 8 output buckets chosen by piece count, single-bucket nets unchanged ([#162](https://github.com/jwallace145/rusty-chess-v2/issues/162)) ([3be2f5b](https://github.com/jwallace145/rusty-chess-v2/commit/3be2f5badd7abaeaf05f8e27e9e3bdc4f09966a1))
+* **trainer:** train nets with 8 output buckets chosen by piece count ([#163](https://github.com/jwallace145/rusty-chess-v2/issues/163)) ([ca4c17a](https://github.com/jwallace145/rusty-chess-v2/commit/ca4c17a297c125750c2560eb8aee127190e5dd04))
+
+
+### Documentation
+
+* **nnue:** record net5x120, dropped on an inconclusive SPRT, and the next experiments ([#160](https://github.com/jwallace145/rusty-chess-v2/issues/160)) ([1a6c3d3](https://github.com/jwallace145/rusty-chess-v2/commit/1a6c3d345f6b4d39923ea3454b2d14fd29a70ac7))
+
+### Benchmarks
+
+* bench signature 1,101,129, instructions per node 3749, search 2.02M NPS, perft 287.34M NPS (pass (63)), fail-high first 87.5%, EBF 1.82, TT hit 54.1%
+* since v0.37.1: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.6%, search NPS +17.8%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.37.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.37.0...v0.37.1) (2026-10-31)
 
 
