@@ -23,7 +23,7 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net4-l050-r41165115607` | Default `v0.35.0`; replaced by net4w512 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | **+74.2 ± 16.4** vs net 3 | 3086 ± 33 (`v0.35.0`) |
 | `net4w512-l050-r41170687764` | Default `v0.36.0`; **plays generation 3** | 0 + 1 + 2 · 857.3M | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | **+44.3 ± 13.1** vs net 4 | 3076 ± 30 (`v0.36.0`) |
 | `net5-l050-r41229287546` | Default `v0.37.0`–; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | 3129 ± 32 (`v0.37.0`) |
-| `net5x120-l050-r41237487627` | Training ([run 41237487627](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41237487627)): schedule experiment against net 5 | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | — | — | — | — |
+| `net5x120-l050-r41237487627` | Dropped (#159): schedule experiment, inconclusive at the cap | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | **0.019399** (same held-out set as net 5: 0.019432) | 6.68 / 23.20 | +4.9 ± 3.9 vs net 5 (inconclusive) | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -105,6 +105,43 @@ this asks whether it was under-trained.
 - **Most of the gain is the longer high-LR phase.** At superbatch 40 this run
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
+
+## net5x120-l050-r41237487627
+
+Net 5 trained for **120 superbatches** instead of 80: the only change is the
+schedule. **Dropped (#159):** inconclusive on both SPRT legs at the cap. Byte-identical prepared data (the same `train.data` and `val.data`
+SHA-256s), so the **same held-out positions** as net 5.
+
+| | |
+|:--|:--|
+| Data | As net 5: generations 0–3, 1,465,509,939 training / 69,335,935 held-out records |
+| Network | (768 → 512) × 2 → 1, as net 5; sha256 `c24e670f…6a95` |
+| Schedule | λ 0.5; **120 superbatches** (12.0B positions, about 8.2 passes); LR 0.001 for 1–54, 0.0001 for 55–108, 0.00001 for 109–120 (step 54, the default 45%) |
+| Training | `Train` run [41237487627](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41237487627), from `v0.37.0`: 3,599 s to trained (net 5: 2,937), 62 minutes for the job, about $0.85. A first dispatch named `net6` (run 41236717509) was cancelled before training and renamed to follow the `net2x80` convention |
+| Validation | **0.019399** against net 5's 0.019432 on identical held-out positions: **−0.17%**. Best at 120. Held-out sits 0.60% above the training sample (net 5: 0.56%) |
+| Engine check | 256 held-out positions: mean **6.68 cp**, max 23.20 (net 5: 7.77 / 26.67) |
+| Bench | Signature 1130959 (net 5: 1101129); fail-high-first 0.875; **EBF 2.049** (net 5: 1.818), past the 2.0 bar. The PR declared a 2.1 exception to be kept only on an SPRT pass; with the PR closed, the bar stays 2.0 |
+| SPRT vs net 5 (#159) | Timed 5+0.05: **+4.9 ± 3.9**, LOS 99.2%, inconclusive at the 10,000-game cap (2,148 / 2,008 / 5,844; LLR 2.45). Fixed 200k nodes: **−1.2 ± 4.2**, LOS 28.0%, inconclusive at the cap (LLR −1.88). Runner: −7.5% ± 9.7% speed per node, +11.7% ± 12.7% time to depth. The owner's rule, set before the run: both legs must pass, or the PR closes |
+
+| Superbatch | 36 | 52 | 72 | 80 | 108 | 120 |
+|:--|--:|--:|--:|--:|--:|--:|
+| net 5 held-out (LR drops after 36 and 72) | .019801 | — | .019469 | .019432 | — | — |
+| **net5x120 held-out** (LR drops after 54 and 108) | .019798 | .019755 | .019463 | .019452 | .019436 | .019399 |
+
+**Reading it:**
+- **Where the gain comes from:** the longer first phase ended 0.23% lower
+  than net 5's (.019755 at 52 against .019801 at 36), and the lead held to the
+  end at −0.17%.
+- **The middle phase flattened** from about superbatch 88 (.019444 → .019436
+  at 108), so stretching it bought little; the last drop gave the same 0.19%
+  as net 5's.
+- **Smaller than the last schedule gain:** net2x80's −0.36% held-out was
+  worth +21.0 against net 2. Here −0.17% was worth +4.9 at a clock and
+  nothing at fixed nodes: the net isn't measurably smarter per node.
+- **Why it was dropped:** the fixed-node leg, which isolates the net's
+  knowledge, is level (−1.2 ± 4.2). The small timed edge, if real, is
+  inside what a different tree shape can give at a clock, and it came with
+  EBF 2.05.
 
 ## net5-l050-r41229287546
 
@@ -331,6 +368,7 @@ differ.
 | **Wide nets want more data** | net4w512's held-out loss sat 0.5% above its training sample (net 3: −0.5%, net 4: level). Adding generation 3 (+71% data) to the same recipe gave net 5 **+21.9 ± 9.2** timed and a 9.7% shorter time to depth | Keep growing the data with each generation; a 512-neuron net plays at about 21,800 positions/s an instance, so a 600M generation costs about $9 on spot |
 | **A stronger net draws more of its self-play** | Generation 3 (net4w512): 46.4% draws, against 43.0% for generation 2 (net2x80), and win adjudications 53.2% against 56.6% | Watch the draw rate as nets improve; results carry less signal as it rises, which matters for λ |
 | **The ladder can't separate releases about +20–45 apart** | net 4 read 3086 ± 33 and net4w512 3076 ± 30, though net4w512 won the SPRT by +44 | The SPRT is the verdict between nets. The ladder tracks the trend over several releases |
+| **At 1.5B positions, a longer schedule is saturated** | net5x120 (120 superbatches) against net 5 (80) on identical data: held-out −0.17%, SPRT +4.9 ± 3.9 timed and −1.2 ± 4.2 at fixed nodes, both inconclusive at 10,000 games. The middle LR phase flattened from superbatch 88 | Keep 80 superbatches. Revisit length only when the data grows a lot; add data or capacity instead |
 
 ## Next experiments
 
@@ -344,11 +382,19 @@ default.
    (net4w512, +44.3 ± 13.1), with the output kept exact at any width.
 5. ~~**Generation 3 and net 5**~~: done, net 5 (512, generations 0–3,
    +21.9 ± 9.2 against net4w512).
-6. **Longer schedule at 512 on generations 0–3:** net5x120 (120
-   superbatches, LR drops after 54 and 108) is training, against net 5.
-   Same data and split, so the held-out losses compare directly.
+6. ~~**Longer schedule at 512 on generations 0–3**~~: dropped, net5x120
+   (+4.9 ± 3.9 timed, −1.2 ± 4.2 at fixed nodes, both inconclusive; #159).
 7. **Generation 4,** played by net 5 (`datagen.toml` is at
    `generation = 4`), then a net on generations 0–4.
+   - **Output buckets** (8 output layers chosen by piece count): almost no
+     cost per node, a small engine change; test on generations 0–3 against
+     net 5.
+   - **King-bucketed inputs** with horizontal mirroring: usually the largest
+     architecture gain, but it needs an accumulator refresh cache and more
+     data per weight; after generation 4.
+   - **1024 neurons or a second hidden layer:** later, at about 3B
+     positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
+     clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
 8. **Retune search margins for the net's scores,** and revisit the
    improving heuristic (#95), as engine PRs.
 9. **Later, if λ is revisited:** a schedule, λ rising during training.
