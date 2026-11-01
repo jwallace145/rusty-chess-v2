@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.42.0...v0.42.1) (2026-11-01)
+
+
+### Documentation
+
+* **nnue:** record generation 5 and its audit, and net6k4's SPRT and rating ([#177](https://github.com/jwallace145/rusty-chess-v2/issues/177)) ([1d50071](https://github.com/jwallace145/rusty-chess-v2/commit/1d500712f0231699bd4cd274a145ab2d5999e3c8))
+
 ## [0.42.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.41.0...v0.42.0) (2026-11-01)
 
 
