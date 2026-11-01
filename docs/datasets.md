@@ -14,11 +14,12 @@ manifests or from `datagen-audit`, never from the workflow's progress lines.
 
 | Gen | Played by | Positions | Games | Shards | Runs | Full audit | Trained into |
 |--:|:--|--:|--:|--:|--:|:--|:--|
-| 0 | PeSTO (`v0.24.0`–`v0.25.0`) | 231,240,344 | 2,387,961 | 9,329 | 3 | GO: 0 P0 failures | net 1, net 2, net2x80, net 3, net 4, net4w512, net 5, net5x120, net5b8 |
-| 1 | net 1 (`v0.29.0`) | 368,354,466 | 3,703,015 | 14,716 | 3 | GO: 0 P0 failures, 0 P1 warnings | net 2, net2x80, net 3, net 4, net4w512, net 5, net5x120, net5b8 |
-| 2 | net2x80 (`v0.31.1`) | 307,037,810 | 3,265,807 | 12,353 | 1 | GO: 0 P0 problems; 2,304/2,304 games regenerated from their seeds | net 3, net 4, net4w512, net 5, net5x120, net5b8 |
-| 3 | net4w512 (`v0.36.0`) | 628,213,254 | 6,562,925 | 25,158 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | net 5, net5x120, net5b8 |
-| 4 | net 5 (`v0.37.1`) | 495,147,759 | 5,252,191 | 19,838 | 2 | GO: 0 P0 problems, 0 P1 warnings; 3,072/3,072 games regenerated from their seeds | (next) |
+| 0 | PeSTO (`v0.24.0`–`v0.25.0`) | 231,240,344 | 2,387,961 | 9,329 | 3 | GO: 0 P0 failures | net 1, net 2, net2x80, net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4 |
+| 1 | net 1 (`v0.29.0`) | 368,354,466 | 3,703,015 | 14,716 | 3 | GO: 0 P0 failures, 0 P1 warnings | net 2, net2x80, net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4 |
+| 2 | net2x80 (`v0.31.1`) | 307,037,810 | 3,265,807 | 12,353 | 1 | GO: 0 P0 problems; 2,304/2,304 games regenerated from their seeds | net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4 |
+| 3 | net4w512 (`v0.36.0`) | 628,213,254 | 6,562,925 | 25,158 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | net 5, net5x120, net5b8, net6, net6k4 |
+| 4 | net 5 (`v0.37.1`) | 495,147,759 | 5,252,191 | 19,838 | 2 | GO: 0 P0 problems, 0 P1 warnings; 3,072/3,072 games regenerated from their seeds | net6, net6k4 |
+| 5 | net6k4 (`v0.42.0`) | 318,934,530 | 3,409,848 | 12,755 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | (next) |
 
 ## Generation 0: PeSTO
 
@@ -242,6 +243,51 @@ a 13-minute download of 8.1 GB, then 12 minutes): **GO**.
 
 **Cost:** about $8 on spot, an estimate from instance-hours at generation
 3's spot price (about $1.15/h), not billed figures.
+
+## Generation 5: net6k4
+
+**Settings** (identical in every manifest): the same as generations 1–4.
+Played by `net6k4-l050-r41282883885` (512 hidden, 8 output buckets, **4 king
+buckets**; generations 0–4), the default in `v0.42.0` (`a921f3f`), with the
+native build. One engine commit throughout.
+
+| Run | Date | Engine | Instances × minutes | Market | Positions | Games | Notes |
+|:--|:--|:--|:--|:--|--:|--:|:--|
+| `20261101-41352126811-1` | 2026-11-01 | `v0.42.0` `a921f3f` | 3 × 150 asked; t1 ran 84, t0 and t2 about 95 | spot | 318,934,530 | 3,409,848 | t0 111.0M, t1 98.5M, t2 109.5M. **t1 was reclaimed by spot at 22:52 UTC**, 84 minutes in (its 3,960 complete shards kept). The run was **cancelled** at 23:05 to limit cost, at about 317M of the 500M asked for, with no top-up. About **19,570 positions/s an instance**, 11% below generation 4's: net6k4 is about 11% slower per node |
+
+**Full audit** (`ci/datagen-full-audit.sh` on 16 cores, built at
+`a921f3f`): **GO**.
+1. **Inventory:** 0 P0 problems over 12,755 shards, the interrupted task
+   included: no gaps, orphans, duplicate shards or shared seeds; one settings
+   block, one engine, one generation, one net.
+2. **Every record:** 0 failures over all 318,934,530 records, and
+   bulletformat exact at 32 bytes a record.
+3. **No P1 warnings** in any of the 65 batches.
+4. **Determinism: 2,304 of 2,304 games regenerated identically** from their
+   seeds (12 per worker, all 192 workers), with net6k4 named in every
+   manifest and played by the build.
+
+| Quality | Generation 3 | Generation 4 | Generation 5 |
+|:--|--:|--:|--:|
+| Results (W / D / B) | 30.3 / 46.4 / 23.3% | 29.7 / 47.2 / 23.1% | 29.2 / 47.7 / 23.1% |
+| White–black gap | 7.0 points | 6.6 points | 6.1 points |
+| Games ended by win adjudication | 53.2% | 52.5% | 52.0% |
+| Duplicates within a batch (200 shards) | 1.76% | 1.71% | **0.98%** |
+| Median game length (engine plies) | 112 | 109 | 108 |
+| Records a game | 95.7 | 94.3 | 93.5 |
+| \|score\| ≤ 100 | 31.8% | 32.4% | 34.1% |
+| Endgame share | 47.1% | 46.0% | 45.6% |
+
+**Compared with generation 4:**
+- **draws up again, by less:** +0.5 points to 47.7% (generations 3 → 4:
+  +0.8; 2 → 3: +3.4), still well inside the 55% bar;
+- **within-batch repetition nearly halved,** 1.71% → 0.98%: the king-bucketed
+  net's games vary more;
+- more level positions (|score| ≤ 100 up 1.7 points), a smaller colour gap,
+  slightly shorter games.
+
+**Cost:** about $5–6 on spot (about 4.7 instance-hours), an estimate, not
+billed figures.
 
 ## Adding a run or a generation
 

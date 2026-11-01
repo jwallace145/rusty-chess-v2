@@ -175,8 +175,11 @@ held-out positions (both sides counted), by bucket:
 - **Training cost:** 3,891 s to trained against net6's 3,768 (+3%).
 - **Held-out loss:** −1.04% against net6 on identical positions, all of it
   after the first learning-rate drop (−0.04% at superbatch 36).
-- **Speed:** 11% slower per node and 7.4% longer to depth than net6 locally,
-  with EBF 1.937 → 1.855 and fail-high-first 0.873 → 0.879.
+- **Speed:** 10.8% ± 2.3% slower per node and 6.8% ± 2.9% longer to depth
+  than net6 on the runner (4,143 instructions a node against 3,799), with EBF
+  1.94 → 1.86 and fail-high-first 87.3% → 87.9%.
+- **The SPRT (#175): kept.** +21.7 ± 9.0 timed and +40.0 ± 12.4 at fixed
+  nodes against net6; `v0.42.0` rated 3166 ± 31 on the ladder.
 
 ## Plan
 

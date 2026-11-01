@@ -25,8 +25,8 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net5-l050-r41229287546` | Default `v0.37.0`–`v0.38.0`; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | 3129 ± 32 (`v0.37.0`), 3114 ± 30 (`v0.37.1`), 3132 ± 29 (`v0.38.0`) |
 | `net5x120-l050-r41237487627` | Dropped (#159): schedule experiment, inconclusive at the cap | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | **0.019399** (same held-out set as net 5: 0.019432) | 6.68 / 23.20 | +4.9 ± 3.9 vs net 5 (inconclusive) | — |
 | `net5b8-l050-r41265636815` | Default `v0.39.0`–`v0.39.2`; replaced by net6 (never played a generation) | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → **8** (output buckets) | 0.5 | 80 | **0.019349** (same held-out set as net 5: 0.019432) | 6.14 / 21.71 | **+6.5 ± 4.4** vs net 5 | 3127 ± 31 (`v0.39.0`), 3125 ± 29 (`v0.39.1`), 3120 ± 32 (`v0.39.2`) |
-| `net6-l050-r41273387683` | Default `v0.40.0`–`v0.41.0`; replaced by net6k4 if its SPRT passes (never played a generation) | 0 + 1 + 2 + 3 + **4** · 1,932.3M | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | **+14.5 ± 7.1** vs net5b8 | 3156 ± 30 (`v0.40.0`), 3119 ± 29 (`v0.41.0`) |
-| `net6k4-l050-r41282883885` | Candidate (net6k4's PR): timed SPRT against net6; would play generation 5 | 0 + 1 + 2 + 3 + 4 · 1,932.3M | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | pending | — |
+| `net6-l050-r41273387683` | Default `v0.40.0`–`v0.41.0`; replaced by net6k4 (never played a generation) | 0 + 1 + 2 + 3 + **4** · 1,932.3M | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | **+14.5 ± 7.1** vs net5b8 | 3156 ± 30 (`v0.40.0`), 3119 ± 29 (`v0.41.0`) |
+| `net6k4-l050-r41282883885` | Default `v0.42.0`–; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | 3166 ± 31 (`v0.42.0`) |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -127,7 +127,8 @@ positions** as net6.
 | Validation | **0.019422** against net6's 0.019626 on identical held-out positions: **−1.04%**. Scorer against bullet: 0.0012 cp. Held-out sits **1.67%** above the training sample (net6: 0.89%): the 4× input weights fit the training data more closely, but held-out still improved by the most yet. Best at superbatch 80, the lead still widening |
 | Engine check | 256 held-out positions: mean **7.30 cp**, max 30.03, none beyond max(50 cp, 5%). The first full-size king-bucketed net through the engine |
 | Bench | Signature 1046838 (net6: 1099777), identical run to run; **fail-high-first 0.879** (net6: 0.873), **EBF 1.855** (net6: 1.937). Paired locally against net6 over 8 runs: **11% slower per node, 7.4% ± 3.7% longer to depth**: rebuilds on king moves and a 4× weight table. 1.88M nodes/s locally (local bar 2M, informational; CI's bar is 1M) |
-| SPRT vs net6 | Pending (net6k4's PR) |
+| SPRT vs net6 (#175) | Timed 5+0.05: **+21.7 ± 9.0**, LOS 100%, H1 in 2,210 games (584 / 446 / 1,180). Fixed 200k nodes: **+40.0 ± 12.4**, H1 in 1,220 (368 / 228 / 624). Runner: **−10.8% ± 2.3% speed per node, +6.8% ± 2.9% time to depth**; EBF 1.94 → 1.86, fail-high-first 87.3% → 87.9%; 4,143 instructions a node (net6: 3,799, +9%) |
+| Ladder | `v0.42.0`: **3166 ± 31**, the highest yet (net6: 3156 and 3119) |
 
 | Superbatch | 4 | 20 | 36 | 40 | 60 | 72 | 80 |
 |:--|--:|--:|--:|--:|--:|--:|--:|
@@ -143,9 +144,10 @@ positions** as net6.
   nets may want a longer low-LR phase (unlike net5x120's single-view net).
 - **The largest same-data gain measured:** −1.04%, against net5b8's −0.43%
   from output buckets and net6's −1.11% / −1.63% from a new generation.
-- **Paid for in speed:** 7.4% longer to depth locally. The fixed-node SPRT
-  leg measures the knowledge; the timed leg decides whether it survives the
-  cost. A refresh cache (a `perf` change) is the lever if it doesn't.
+- **Paid for in speed, and worth it:** 6.8% longer to depth on the runner,
+  yet **+40.0 at fixed nodes became +21.7 at a clock**: about half the
+  knowledge survives the cost. A refresh cache (a `perf` change, signature
+  unchanged) would win back some of the 10.8% per node.
 
 ## net6-l050-r41273387683
 
@@ -488,6 +490,7 @@ differ.
 | **Fail-high-first sits at its bar** | net5b8 read 0.8702 against the 0.87 bar (net 5: 0.875; net 4 forced the last lowering, 0.88 → 0.87) | Expect a net to cross it soon. Decide before that SPRT whether a crossing gets a declared exception, as EBF's did for net5x120 |
 | **One ladder run is ±40, even for one net** | net6 read 3156 ± 30 (`v0.40.0`) and 3119 ± 29 (`v0.41.0`), the same net; net5b8's three releases read 3120–3127 | Never compare two single ladder runs; average several releases of a net, or use the SPRT |
 | **Capacity needs the low learning rate** | net6k4's lead over net6 was −0.04% at LR 0.001 (superbatch 36) and −1.04% after both drops, still widening at 80 | For bigger nets, test a longer low-LR phase before concluding they don't pay |
+| **King buckets were the best architecture step since 512** | net6k4 against net6 on identical data: held-out −1.04%, SPRT **+21.7 ± 9.0** timed and **+40.0 ± 12.4** at fixed nodes, at 10.8% slower per node | Keep 4 king buckets. A refresh cache is the cheap follow-up; a finer layout and a longer low-LR phase are the experiments |
 
 ## Next experiments
 
@@ -510,11 +513,13 @@ default.
      bucketed.
    - ~~**net6:**~~ done, net5b8's recipe on generations 0–4 (+14.5 ± 7.1
      timed, +11.4 ± 6.3 at fixed nodes; #170).
-   - **King-bucketed inputs:** net6k4 (4 mirrored king buckets, #172,
-     #173), held-out −1.04% against net6, SPRT against net6 in its PR. Next
-     if it pays: a refresh cache for speed, a longer low-LR phase, and a finer
-     layout (bucket 3 holds 31% of kings over 24 squares;
+   - ~~**King-bucketed inputs**~~: done, net6k4 (4 mirrored king buckets,
+     +21.7 ± 9.0 timed, +40.0 ± 12.4 at fixed nodes; #172, #173, #175).
+     Follow-ups: a refresh cache for speed, a longer low-LR phase, and a
+     finer layout (bucket 3 holds 31% of kings over 24 squares;
      [king-buckets.md](king-buckets.md#measured)).
+   - **net7:** net6k4's recipe on generations 0–5 (generation 5: 319M
+     positions played by net6k4).
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
