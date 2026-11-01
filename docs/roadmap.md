@@ -183,7 +183,7 @@ The destination named in the goals: our own network, trained on our own games. *
 - [x] Net 3 on generations 0–2 (857M training positions) beat net2x80 by **+21.8 ± 9.2** (#145, v0.33.0)
 - [x] Wider hidden layers on the same data: the engine reads 256 (#149) and 512 (#152) exactly; net 4 (256) beat net 3 by **+74.2 ± 16.4** (#150, v0.35.0) and net4w512 (512) beat net 4 by **+44.3 ± 13.1** (#152, v0.36.0), 11–18% slower per node
 - [x] Generation 3, played by net4w512: 628,213,254 positions, fully audited with every worker's games regenerated from their seeds, the first with the net recorded in every manifest ([datasets.md](datasets.md)). Net 5 (512, generations 0–3) beat net4w512 by **+21.9 ± 9.2** (#155, v0.37.0); only the data changed
-- [ ] net5x120: net 5's data and width at 120 superbatches, kept on a timed SPRT win over net 5
+- [x] ~~net5x120: net 5's data and width at 120 superbatches~~ **Dropped on record** (#159): +4.9 ± 3.9 timed and −1.2 ± 4.2 at fixed nodes, both inconclusive at 10,000 games; at 1.5B positions the schedule is saturated
 - [ ] Generation 4, played by net 5, and a net on generations 0–4
 - [x] The ladder moved up when the engine outgrew 2950: v0.28.0 scored 88% on 2650 (about 3000). Rungs 2800/2950/3100/3190 against an official, pinned Stockfish 19, with v0.26.0–v0.28.0 re-rated for the overlap
 - [ ] A new anchor once the engine outgrows 3190, the top of Stockfish's `UCI_Elo` range (past about 3300 limited Stockfish cannot bracket it): full Stockfish at a fixed node budget, calibrated against the last limited ladder
