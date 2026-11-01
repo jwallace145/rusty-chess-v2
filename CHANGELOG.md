@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.41.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.40.0...v0.41.0) (2026-11-01)
+
+
+### Features
+
+* **nnue:** read nets with 4 mirrored king buckets, single-view nets unchanged ([#172](https://github.com/jwallace145/rusty-chess-v2/issues/172)) ([1adb797](https://github.com/jwallace145/rusty-chess-v2/commit/1adb7978372c754c6a81fd3eb2c73dfd7cb6878d))
+* **trainer:** train nets with 4 mirrored king buckets and a factoriser ([#173](https://github.com/jwallace145/rusty-chess-v2/issues/173)) ([ca9a87a](https://github.com/jwallace145/rusty-chess-v2/commit/ca9a87aa4d4d847bc1d9c4dec914bd358aa7e570))
+
 ## [0.40.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.39.2...v0.40.0) (2026-11-01)
 
 
