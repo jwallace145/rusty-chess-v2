@@ -8,6 +8,12 @@
 * **nnue:** read nets with 4 mirrored king buckets, single-view nets unchanged ([#172](https://github.com/jwallace145/rusty-chess-v2/issues/172)) ([1adb797](https://github.com/jwallace145/rusty-chess-v2/commit/1adb7978372c754c6a81fd3eb2c73dfd7cb6878d))
 * **trainer:** train nets with 4 mirrored king buckets and a factoriser ([#173](https://github.com/jwallace145/rusty-chess-v2/issues/173)) ([ca9a87a](https://github.com/jwallace145/rusty-chess-v2/commit/ca9a87aa4d4d847bc1d9c4dec914bd358aa7e570))
 
+### Benchmarks
+
+* bench signature 1,099,777, instructions per node 3807, search 1.69M NPS, perft 198.10M NPS (pass (63)), fail-high first 87.3%, EBF 1.94, TT hit 51.6%
+* since v0.40.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.2%, search NPS −21.2%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.40.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.39.2...v0.40.0) (2026-11-01)
 
 
