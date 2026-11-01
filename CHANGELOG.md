@@ -7,6 +7,12 @@
 
 * **nnue:** embed net6, net5b8's recipe on generations 0-4, as the default and generation 5's net ([#170](https://github.com/jwallace145/rusty-chess-v2/issues/170)) ([1905792](https://github.com/jwallace145/rusty-chess-v2/commit/190579269bdc5546381ff14650be4c0cfba66cae))
 
+### Benchmarks
+
+* bench signature 1,099,777, instructions per node 3799, search 2.15M NPS, perft 289.25M NPS (pass (63)), fail-high first 87.3%, EBF 1.94, TT hit 51.6%
+* since v0.39.2: fail-high first +0.3 pt, EBF +0.05, instructions per node +0.5%, search NPS +5.0%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.39.2](https://github.com/jwallace145/rusty-chess-v2/compare/v0.39.1...v0.39.2) (2026-11-01)
 
 
