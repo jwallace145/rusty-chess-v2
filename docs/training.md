@@ -35,7 +35,7 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
      written.
      `bullet-utils shuffle` seeds itself from the clock, which is why the
      trainer shuffles itself.
-2. **`rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--output-buckets 1] [--checkpoint-every 4] [--val-positions 4000000]`**
+2. **`rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--output-buckets 1] [--king-buckets 1] [--checkpoint-every 4] [--val-positions 4000000]`**
    - **Width:** `--hidden` sets the hidden neurons per perspective (a
      multiple of 16, up to 1024; 128 by default). The `Train` workflow's
      `hidden` input passes it on, and `training.json` records it.
@@ -52,11 +52,22 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
      the output layer column-major, so `raw.bin` interleaves the buckets'
      weights; `net.nnue` is saved transposed, each bucket's 2H weights
      together, the engine's order ([nnue.md](nnue.md#output-buckets)).
+   - **King buckets:** `--king-buckets 4` indexes each side's inputs by its
+     own king's bucket, mirrored with the king on files e–h (bullet's
+     `ChessBucketsMirrored` with the engine's `KING_BUCKET_LAYOUT`; a test
+     checks the trainer's copy matches). A factoriser, one 768 × H block
+     shared by every bucket, trains alongside and is added to each bucket in
+     `net.nnue`; `l0w` and `l0f` are each clipped to ±0.99. bullet's
+     `raw.bin` skips save transforms, so `l0f` is listed last in the save
+     format: `raw.bin` ends with it (the scorer adds it back) and so does
+     `quantised.bin`, which `train` cuts to the engine's size for `net.nnue`.
+     The `Train` workflow's `king-buckets` input passes it on; `training.json`
+     records `king_buckets`. Design: [king-buckets.md](king-buckets.md).
    - **Scoring:** the checkpoint scorer and `validate` infer the width and the
      buckets from the file's size, so they score nets of any width, in either
      order. A quantised file whose size two shapes fit within the padding
      (880 neurons with 8 buckets and 896 with 1) is refused.
-   - **The network:** (768 → H) × 2 → B with SCReLU and `Chess768` inputs,
+   - **The network:** (768 × K → H) × 2 → B with SCReLU and `Chess768` inputs,
      as in bullet's reference example (H = 128 there). The default net is
      512 wide since `v0.36.0`.
    - **Loss:** `sigmoid(output)` against `λ · result + (1 − λ) · sigmoid(score / 400)`.

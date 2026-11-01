@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! rusty-chess-trainer prepare --shards DIR --out DIR [--val-fraction 0.05] [--split-seed 1] [--shuffle-seed 1] [--threads N]
-//! rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--output-buckets 1] [--scale 400]
+//! rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--output-buckets 1] [--king-buckets 1] [--scale 400]
 //!                           [--batches-per-superbatch 6104] [--batch-size 16384] [--lr 0.001]
 //!                           [--lr-gamma 0.1] [--lr-step N] [--threads 4] [--out DIR]
 //!                           [--checkpoint-every 4] [--val-positions 4000000]
@@ -20,8 +20,10 @@
 //! both outputs) and `check.fens` (validation positions for the net check).
 //! The same inputs and seeds give byte-identical outputs.
 //!
-//! `train` trains the (768 → H) × 2 → B SCReLU network (H = `--hidden`, B =
-//! `--output-buckets`, one output chosen per position by its piece count) the engine's
+//! `train` trains the (768 × K → H) × 2 → B SCReLU network (H = `--hidden`, B =
+//! `--output-buckets`, one output chosen per position by its piece count, K =
+//! `--king-buckets`, each side's inputs indexed by its own king's bucket and
+//! mirrored with the king on files e–h; `docs/king-buckets.md`) the engine's
 //! `crates/search/src/nnue.rs` evaluates, quantized QA = 255, QB = 64, saves
 //! `net.nnue` in the engine's file format, and evaluates `check.fens` with
 //! the trainer's own float network into `eval_check.json`, for comparison with
@@ -55,9 +57,40 @@ const MAX_HIDDEN: usize = 1024;
 /// there).
 const OUTPUT_BUCKETS: [usize; 2] = [1, 8];
 
-/// The number of weights and biases in a (768 → h) × 2 → b net.
-const fn params(h: usize, b: usize) -> usize {
-    768 * h + h + b * (2 * h + 1)
+/// The king bucket counts the trainer builds: one view, or the engine's four
+/// (`nnue::KING_BUCKETS` there).
+const KING_BUCKETS: [usize; 2] = [1, 4];
+
+/// The engine's `nnue::KING_BUCKET_LAYOUT`: the king bucket of each square a
+/// mirrored king can stand on, files a–d of ranks 1 to 8 from its own side. A
+/// test checks the two tables are the same.
+#[rustfmt::skip]
+const KING_BUCKET_LAYOUT: [usize; 32] = [
+    0, 0, 1, 1,
+    2, 2, 2, 2,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+];
+
+/// The number of weights and biases in a (768 × k → h) × 2 → b net.
+const fn params(h: usize, b: usize, k: usize) -> usize {
+    768 * k * h + h + b * (2 * h + 1)
+}
+
+/// A perspective's view: its king bucket's feature offset and the XOR that
+/// mirrors a square's file, from its own king square `ksq` seen from its own
+/// side. bullet's `ChessBucketsMirrored`; the engine's `nnue::king_view`.
+fn king_view(king_buckets: usize, ksq: usize) -> (usize, usize) {
+    if king_buckets == 1 {
+        return (0, 0);
+    }
+    let file = ksq % 8;
+    let (flip, half) = if file > 3 { (7, 7 - file) } else { (0, file) };
+    (768 * KING_BUCKET_LAYOUT[(ksq / 8) * 4 + half], flip)
 }
 
 /// The output bucket of a position with `pieces` pieces in a net of `buckets`:
@@ -454,8 +487,14 @@ fn prepare(args: &[String]) -> Result<(), String> {
 
 fn train(args: &[String]) -> Result<(), String> {
     use bullet_lib::{
-        game::{inputs::Chess768, outputs::MaterialCount},
-        nn::optimiser::AdamW,
+        game::{
+            inputs::{Chess768, ChessBucketsMirrored},
+            outputs::MaterialCount,
+        },
+        nn::{
+            InitSettings, Shape,
+            optimiser::{AdamW, AdamWParams},
+        },
         trainer::{
             save::SavedFormat,
             schedule::{TrainingSchedule, TrainingSteps, lr, wdl},
@@ -488,6 +527,12 @@ fn train(args: &[String]) -> Result<(), String> {
     if !OUTPUT_BUCKETS.contains(&buckets) {
         return Err(format!(
             "--output-buckets {buckets}: one of {OUTPUT_BUCKETS:?}"
+        ));
+    }
+    let king_buckets: usize = get(&f, "king-buckets", Some(1))?;
+    if !KING_BUCKETS.contains(&king_buckets) {
+        return Err(format!(
+            "--king-buckets {king_buckets}: one of {KING_BUCKETS:?}"
         ));
     }
     if checkpoint_every == 0 {
@@ -539,23 +584,56 @@ fn train(args: &[String]) -> Result<(), String> {
     // 0 of every bucket, then input 1, ...); transposed, each bucket's 2H
     // weights are contiguous, the engine's `[B][2H]`. At one bucket the two
     // orders are the same, and the file is byte for byte what it was.
+    //
+    // With king buckets, the factoriser `l0f` (768 × H, shared by every king
+    // bucket) is added to each bucket's weights in the saved net. bullet's
+    // raw.bin skips save transforms, so `l0f` is also listed last: raw.bin
+    // then ends with it (the float scorer adds it back) and so does
+    // quantised.bin, which is cut to the engine's size below.
     let formats = || {
         let l1w = SavedFormat::id("l1w").round().quantise::<i16>(QB);
-        [
-            SavedFormat::id("l0w").round().quantise::<i16>(QA),
+        let l0w = SavedFormat::id("l0w");
+        let l0w = if king_buckets > 1 {
+            l0w.transform(move |store, weights| {
+                let factoriser = store.get("l0f").values.f32().repeat(king_buckets);
+                weights
+                    .into_iter()
+                    .zip(factoriser)
+                    .map(|(a, b)| a + b)
+                    .collect()
+            })
+        } else {
+            l0w
+        };
+        let mut formats = vec![
+            l0w.round().quantise::<i16>(QA),
             SavedFormat::id("l0b").round().quantise::<i16>(QA),
             if buckets > 1 { l1w.transpose() } else { l1w },
             SavedFormat::id("l1b").round().quantise::<i16>(QA * QB),
-        ]
+        ];
+        if king_buckets > 1 {
+            formats.push(SavedFormat::id("l0f").round().quantise::<i16>(QA));
+        }
+        formats
     };
     // Train, then the trainer's own (float) evaluation of the check
     // positions, in centipawns for the side to move, for comparison with the
     // engine's. bulletformat's parser wants a full record: a score and result
-    // are placeholders here. The two networks are different types, hence the
-    // macro.
+    // are placeholders here. The networks are different types, hence the
+    // macro. With king buckets, `l0w` and `l0f` are each clipped to ±0.99, so
+    // their sum stays within the ±1.98 the quantisation assumes.
     macro_rules! run_and_evaluate {
         ($trainer:expr) => {{
             let mut trainer = $trainer;
+            if king_buckets > 1 {
+                let clip = AdamWParams {
+                    max_weight: 0.99,
+                    min_weight: -0.99,
+                    ..Default::default()
+                };
+                trainer.optimiser.set_params_for_weight("l0w", clip);
+                trainer.optimiser.set_params_for_weight("l0f", clip);
+            }
             trainer.run(&schedule, &settings, &loader);
             fens.lines()
                 .filter(|l| !l.is_empty())
@@ -563,8 +641,9 @@ fn train(args: &[String]) -> Result<(), String> {
                 .collect::<Vec<f32>>()
         }};
     }
-    let trainer_cps = if buckets == 1 {
-        run_and_evaluate!(
+    let layout = ChessBucketsMirrored::new(KING_BUCKET_LAYOUT);
+    let trainer_cps = match (buckets, king_buckets) {
+        (1, 1) => run_and_evaluate!(
             ValueTrainerBuilder::default()
                 .dual_perspective()
                 .optimiser(AdamW)
@@ -578,9 +657,8 @@ fn train(args: &[String]) -> Result<(), String> {
                     let them = l0.forward(ntm).screlu();
                     l1.forward(us.concat(them))
                 })
-        )
-    } else {
-        run_and_evaluate!(
+        ),
+        (_, 1) => run_and_evaluate!(
             ValueTrainerBuilder::default()
                 .dual_perspective()
                 .optimiser(AdamW)
@@ -595,13 +673,63 @@ fn train(args: &[String]) -> Result<(), String> {
                     let them = l0.forward(ntm).screlu();
                     l1.forward(us.concat(them)).select(output_buckets)
                 })
-        )
+        ),
+        (1, _) => run_and_evaluate!(
+            ValueTrainerBuilder::default()
+                .dual_perspective()
+                .optimiser(AdamW)
+                .inputs(layout)
+                .save_format(&formats())
+                .loss_fn(|output, target| output.sigmoid().squared_error(target))
+                .build(|builder, stm, ntm| {
+                    let l0f =
+                        builder.new_weights("l0f", Shape::new(hidden, 768), InitSettings::Zeroed);
+                    let mut l0 = builder.new_affine("l0", 768 * king_buckets, hidden);
+                    l0.weights = l0.weights + l0f.repeat(king_buckets);
+                    let l1 = builder.new_affine("l1", 2 * hidden, 1);
+                    let us = l0.forward(stm).screlu();
+                    let them = l0.forward(ntm).screlu();
+                    l1.forward(us.concat(them))
+                })
+        ),
+        _ => run_and_evaluate!(
+            ValueTrainerBuilder::default()
+                .dual_perspective()
+                .optimiser(AdamW)
+                .inputs(layout)
+                .output_buckets(MaterialCount::<8>)
+                .save_format(&formats())
+                .loss_fn(|output, target| output.sigmoid().squared_error(target))
+                .build(|builder, stm, ntm, output_buckets| {
+                    let l0f =
+                        builder.new_weights("l0f", Shape::new(hidden, 768), InitSettings::Zeroed);
+                    let mut l0 = builder.new_affine("l0", 768 * king_buckets, hidden);
+                    l0.weights = l0.weights + l0f.repeat(king_buckets);
+                    let l1 = builder.new_affine("l1", 2 * hidden, 8);
+                    let us = l0.forward(stm).screlu();
+                    let them = l0.forward(ntm).screlu();
+                    l1.forward(us.concat(them)).select(output_buckets)
+                })
+        ),
     };
 
     // The quantised net, in the engine's format.
     let ckpt = PathBuf::from(&out).join(format!("{net_id}-{superbatches}"));
-    let net = std::fs::read(ckpt.join("quantised.bin"))
+    let mut net = std::fs::read(ckpt.join("quantised.bin"))
         .map_err(|e| format!("{}: {e}", ckpt.display()))?;
+    if king_buckets > 1 {
+        // Drop the factoriser listed after the engine's blocks (it is already
+        // in every bucket's weights), and pad to 64 bytes as bullet does.
+        let size = 2 * params(hidden, buckets, king_buckets);
+        if net.len() < size {
+            return Err(format!(
+                "quantised.bin is {} bytes, short of the engine's {size}",
+                net.len()
+            ));
+        }
+        net.truncate(size);
+        net.resize(size.next_multiple_of(64), 0);
+    }
     std::fs::write(PathBuf::from(&out).join("net.nnue"), &net).map_err(|e| e.to_string())?;
     let checks: Vec<serde_json::Value> = fens
         .lines()
@@ -623,10 +751,12 @@ fn train(args: &[String]) -> Result<(), String> {
     // The scorer must be bullet's network: its float forward pass on the
     // final weights against bullet's own evaluation of the check positions.
     let final_net = FloatNet::from_file(&ckpt.join("raw.bin"))?;
-    if (final_net.hidden, final_net.buckets) != (hidden, buckets) {
+    if (final_net.hidden, final_net.buckets, final_net.king_buckets)
+        != (hidden, buckets, king_buckets)
+    {
         return Err(format!(
-            "raw.bin read as {} hidden and {} buckets, trained as {hidden} and {buckets}",
-            final_net.hidden, final_net.buckets
+            "raw.bin read as {} hidden, {} output and {} king buckets, trained as {hidden}, {buckets} and {king_buckets}",
+            final_net.hidden, final_net.buckets, final_net.king_buckets
         ));
     }
     let mut agree = 0f32;
@@ -754,13 +884,15 @@ fn sigmoid(x: f32) -> f32 {
     1.0 / (1.0 + (-x).exp())
 }
 
-/// The (768 → h) × 2 → b SCReLU network in floats, as bullet trains it:
-/// output in units of `eval_scale` centipawns. The width `h` and the output
-/// buckets `b` come from the file's size.
+/// The (768 × k → h) × 2 → b SCReLU network in floats, as bullet trains it:
+/// output in units of `eval_scale` centipawns. The width `h`, the output
+/// buckets `b` and the king buckets `k` come from the file's size.
 struct FloatNet {
     hidden: usize,
     buckets: usize,
-    /// Feature-major: feature `i`'s weights are `l0w[i * hidden..][..hidden]`.
+    king_buckets: usize,
+    /// Feature-major: feature `i`'s weights are `l0w[i * hidden..][..hidden]`,
+    /// with any factoriser already added.
     l0w: Vec<f32>,
     l0b: Vec<f32>,
     /// Bucket-major, `[b][2h]`: each bucket's side-to-move half first.
@@ -771,19 +903,22 @@ struct FloatNet {
 
 impl FloatNet {
     /// bullet's `raw.bin` (f32 weights, untransformed: a bucketed output
-    /// layer's weights interleaved by bucket) or a quantised net
-    /// (`quantised.bin`, `net.nnue`: i16 in the engine's order, padded to 64
-    /// bytes), told apart by size, at any width and bucket count the scorer
-    /// handles.
+    /// layer's weights interleaved by bucket, and with king buckets the
+    /// factoriser at the end) or a quantised net (`quantised.bin` without a
+    /// factoriser, `net.nnue`: i16 in the engine's order, padded to 64 bytes),
+    /// told apart by size, at any width and bucket counts the scorer handles.
     fn from_file(path: &Path) -> Result<FloatNet, String> {
         let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let shapes: Vec<(usize, usize)> = (16..=MAX_HIDDEN)
+        let shapes: Vec<(usize, usize, usize)> = (16..=MAX_HIDDEN)
             .step_by(16)
             .flat_map(|h| OUTPUT_BUCKETS.map(|b| (h, b)))
+            .flat_map(|(h, b)| KING_BUCKETS.map(|k| (h, b, k)))
             .collect();
-        if let Some(&(h, b)) = shapes
+        let raw =
+            |h: usize, b: usize, k: usize| 4 * (params(h, b, k) + if k > 1 { 768 * h } else { 0 });
+        if let Some(&(h, b, k)) = shapes
             .iter()
-            .find(|&&(h, b)| bytes.len() == 4 * params(h, b))
+            .find(|&&(h, b, k)| bytes.len() == raw(h, b, k))
         {
             let w: Vec<f32> = bytes
                 .as_chunks::<4>()
@@ -791,20 +926,20 @@ impl FloatNet {
                 .iter()
                 .map(|&c| f32::from_le_bytes(c))
                 .collect();
-            return Ok(FloatNet::from_params(&w, h, b, true, "float (raw.bin)"));
+            return Ok(FloatNet::from_params(&w, h, b, k, true, "float (raw.bin)"));
         }
-        let quantised: Vec<(usize, usize)> = shapes
+        let quantised: Vec<(usize, usize, usize)> = shapes
             .iter()
             .copied()
-            .filter(|&(h, b)| {
-                bytes.len() >= 2 * params(h, b) && bytes.len() - 2 * params(h, b) < 64
+            .filter(|&(h, b, k)| {
+                bytes.len() >= 2 * params(h, b, k) && bytes.len() - 2 * params(h, b, k) < 64
             })
             .collect();
         match quantised[..] {
-            [(h, b)] => {
-                let n = params(h, b);
+            [(h, b, k)] => {
+                let n = params(h, b, k);
                 let (qa, qb) = (f32::from(QA), f32::from(QB));
-                let (l1, biases) = (768 * h + h, n - b);
+                let (l1, biases) = (768 * k * h + h, n - b);
                 let w: Vec<f32> = bytes
                     .as_chunks::<2>()
                     .0
@@ -822,49 +957,60 @@ impl FloatNet {
                     &w,
                     h,
                     b,
+                    k,
                     false,
                     "quantised weights, dequantised to floats",
                 ))
             }
             [] => Err(format!(
-                "{}: {} bytes is not a float or quantised (768 → h) × 2 → b net for any h in 16..={MAX_HIDDEN} and b in {OUTPUT_BUCKETS:?} (h = 128, b = 1: {} or {} bytes)",
+                "{}: {} bytes is not a float or quantised (768 × k → h) × 2 → b net for any h in 16..={MAX_HIDDEN}, b in {OUTPUT_BUCKETS:?} and k in {KING_BUCKETS:?} (h = 128, b = 1, k = 1: {} or {} bytes)",
                 path.display(),
                 bytes.len(),
-                4 * params(128, 1),
-                2 * params(128, 1)
+                raw(128, 1, 1),
+                2 * params(128, 1, 1)
             )),
             _ => Err(format!(
-                "{}: {} bytes fits more than one quantised shape with padding: {quantised:?} (hidden, buckets)",
+                "{}: {} bytes fits more than one quantised shape with padding: {quantised:?} (hidden, output buckets, king buckets)",
                 path.display(),
                 bytes.len()
             )),
         }
     }
 
-    /// A net from its parameters in file order. `interleaved`: the output
-    /// weights are bullet's raw column-major `[2h][b]`, not the engine's
-    /// `[b][2h]`.
+    /// A net from its parameters in file order. `raw`: bullet's raw.bin,
+    /// whose output weights are column-major `[2h][b]` rather than the
+    /// engine's `[b][2h]`, and which, with king buckets, ends with the
+    /// factoriser to add to every bucket's input weights.
     fn from_params(
         w: &[f32],
         hidden: usize,
         buckets: usize,
-        interleaved: bool,
+        king_buckets: usize,
+        raw: bool,
         source: &'static str,
     ) -> FloatNet {
-        let (l0w, rest) = w.split_at(768 * hidden);
+        let (l0w, rest) = w.split_at(768 * king_buckets * hidden);
         let (l0b, rest) = rest.split_at(hidden);
-        let (l1w, l1b) = rest.split_at(buckets * 2 * hidden);
-        let l1w = if interleaved {
+        let (l1w, rest) = rest.split_at(buckets * 2 * hidden);
+        let (l1b, factoriser) = rest.split_at(buckets);
+        let l1w = if raw {
             (0..buckets)
                 .flat_map(|k| (0..2 * hidden).map(move |j| l1w[buckets * j + k]))
                 .collect()
         } else {
             l1w.to_vec()
         };
+        let mut l0w = l0w.to_vec();
+        if raw && king_buckets > 1 {
+            for (i, w) in l0w.iter_mut().enumerate() {
+                *w += factoriser[i % factoriser.len()];
+            }
+        }
         FloatNet {
             hidden,
             buckets,
-            l0w: l0w.to_vec(),
+            king_buckets,
+            l0w,
             l0b: l0b.to_vec(),
             l1w,
             l1b: l1b.to_vec(),
@@ -882,14 +1028,18 @@ impl FloatNet {
         let (us, them) = (&mut us_buf[..h], &mut them_buf[..h]);
         us.copy_from_slice(&self.l0b);
         them.copy_from_slice(&self.l0b);
+        // Each side's view from its own king, seen from its own side:
+        // bulletformat stores the opponent's king square flipped.
+        let (sb, sf) = king_view(self.king_buckets, usize::from(b.our_ksq()));
+        let (nb, nf) = king_view(self.king_buckets, usize::from(b.opp_ksq()));
         let mut pieces = 0;
         for (piece, square) in *b {
             pieces += 1;
             let c = usize::from(piece & 8 > 0);
             let pc = 64 * usize::from(piece & 7);
             let sq = usize::from(square);
-            let stm = [0, 384][c] + pc + sq;
-            let ntm = [384, 0][c] + pc + (sq ^ 56);
+            let stm = sb + (([0, 384][c] + pc + sq) ^ sf);
+            let ntm = nb + (([384, 0][c] + pc + (sq ^ 56)) ^ nf);
             let (ws, wn) = (&self.l0w[stm * h..][..h], &self.l0w[ntm * h..][..h]);
             for i in 0..h {
                 us[i] += ws[i];
@@ -950,7 +1100,7 @@ mod tests {
         l1: impl Fn(usize) -> f32,
         l1b: f32,
     ) -> FloatNet {
-        let mut w = Vec::with_capacity(params(hidden, 1));
+        let mut w = Vec::with_capacity(params(hidden, 1, 1));
         for f in 0..768 {
             for h in 0..hidden {
                 w.push(l0(f, h));
@@ -959,7 +1109,7 @@ mod tests {
         w.extend((0..hidden).map(|_| 0.0));
         w.extend((0..2 * hidden).map(l1));
         w.push(l1b);
-        FloatNet::from_params(&w, hidden, 1, false, "test")
+        FloatNet::from_params(&w, hidden, 1, 1, false, "test")
     }
 
     #[test]
@@ -1022,7 +1172,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("rc-trainer-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         for hidden in [128, 256] {
-            let n = params(hidden, 1);
+            let n = params(hidden, 1, 1);
             let mut q = vec![0i16; n];
             q[0] = QA; // l0w → 1.0
             q[768 * hidden + hidden] = QB; // l1w[0] → 1.0
@@ -1057,7 +1207,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("rc-trainer-buckets-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let (h, b) = (128, 8);
-        let n = params(h, b);
+        let n = params(h, b, 1);
         let ow = 768 * h + h;
         // Output weight j of bucket k is (k * 2h + j) / 4096 in floats.
         let want = |k: usize, j: usize| (k * 2 * h + j) as f32 / 4096.0;
@@ -1114,12 +1264,12 @@ mod tests {
     fn forward_uses_the_bucket_of_the_piece_count() {
         // Zero hidden layer, so the output is the bucket's bias.
         let (h, b) = (128, 8);
-        let mut w = vec![0f32; params(h, b)];
+        let mut w = vec![0f32; params(h, b, 1)];
         let n = w.len();
         for k in 0..b {
             w[n - b + k] = k as f32;
         }
-        let net = FloatNet::from_params(&w, h, b, false, "test");
+        let net = FloatNet::from_params(&w, h, b, 1, false, "test");
         for (fen, pieces) in [
             (
                 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
@@ -1140,9 +1290,102 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("rc-trainer-ambiguous-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join("net.nnue");
-        std::fs::write(&p, vec![0u8; 2 * params(896, 1)]).unwrap();
+        std::fs::write(&p, vec![0u8; 2 * params(896, 1, 1)]).unwrap();
         let err = FloatNet::from_file(&p).err().expect("refused");
         assert!(err.contains("more than one"), "{err}");
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn the_king_bucket_layout_is_the_engines() {
+        let engine = include_str!("../../crates/search/src/nnue.rs");
+        let start = engine
+            .find("pub const KING_BUCKET_LAYOUT: [usize; 32] = [")
+            .expect("the engine defines KING_BUCKET_LAYOUT");
+        let body = &engine[start..];
+        let body = &body[body.find('=').unwrap() + 1..body.find("];").unwrap()];
+        let engine_layout: Vec<usize> = body
+            .split(|c: char| !c.is_ascii_digit())
+            .filter(|t| !t.is_empty())
+            .map(|t| t.parse().unwrap())
+            .collect();
+        assert_eq!(engine_layout, KING_BUCKET_LAYOUT);
+    }
+
+    #[test]
+    fn king_views_are_bullets_mirrored_buckets() {
+        // bullet expands the 32-entry layout to 64 squares by mirroring files
+        // e–h onto d–a, and flips with XOR 7 when the king is on files e–h.
+        for ksq in 0..64 {
+            let expanded = KING_BUCKET_LAYOUT[(ksq / 8) * 4 + [0, 1, 2, 3, 3, 2, 1, 0][ksq % 8]];
+            let flip = if ksq % 8 > 3 { 7 } else { 0 };
+            assert_eq!(king_view(4, ksq), (768 * expanded, flip), "square {ksq}");
+            assert_eq!(king_view(1, ksq), (0, 0));
+        }
+    }
+
+    #[test]
+    fn raw_files_add_the_factoriser_to_every_king_bucket() {
+        let (h, b, k) = (128, 8, 4);
+        let n = params(h, b, k);
+        let mut raw = vec![0f32; n + 768 * h];
+        for (i, w) in raw.iter_mut().enumerate().take(768 * k * h) {
+            *w = (i / (768 * h)) as f32; // bucket index
+        }
+        for (i, w) in raw[n..].iter_mut().enumerate() {
+            *w = 0.25 + i as f32 / 1e6; // the factoriser
+        }
+        let dir =
+            std::env::temp_dir().join(format!("rc-trainer-factoriser-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("raw.bin");
+        std::fs::write(
+            &p,
+            raw.iter()
+                .flat_map(|w| w.to_le_bytes())
+                .collect::<Vec<u8>>(),
+        )
+        .unwrap();
+        let net = FloatNet::from_file(&p).unwrap();
+        assert_eq!((net.hidden, net.buckets, net.king_buckets), (h, b, k));
+        for i in [0, 1, 768 * h - 1, 768 * h, 3 * 768 * h + 5] {
+            let want = (i / (768 * h)) as f32 + 0.25 + (i % (768 * h)) as f32 / 1e6;
+            assert_eq!(net.l0w[i], want, "weight {i}");
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_king_bucketed_net_is_mirror_symmetric_and_uses_the_kings_bucket() {
+        // Random weights: a position and its left-right mirror give the same
+        // output, and moving a king into another bucket changes it.
+        let (h, b, k) = (64, 1, 4);
+        let mut state = 0x9E37_79B9_7F4A_7C15u64;
+        let mut rnd = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state % 2001) as f32 / 1000.0 - 1.0
+        };
+        let w: Vec<f32> = (0..params(h, b, k)).map(|_| rnd() * 0.3).collect();
+        let net = FloatNet::from_params(&w, h, b, k, false, "test");
+        let eval = |fen: &str| net.forward(&record(fen).unwrap());
+        for (fen, mirrored) in [
+            (
+                "6k1/5ppp/8/8/8/8/PP6/1K6 w - - 0 1",
+                "1k6/ppp5/8/8/8/8/6PP/6K1 w - - 0 1",
+            ),
+            (
+                "8/2p5/3k4/8/8/4K3/5P2/8 b - - 0 1",
+                "8/5p2/4k3/8/8/3K4/2P5/8 b - - 0 1",
+            ),
+        ] {
+            assert!((eval(fen) - eval(mirrored)).abs() < 1e-5, "{fen}");
+        }
+        // White's king from g1 (bucket 0) to g3 (bucket 3).
+        assert!(
+            (eval("6k1/8/8/8/8/8/8/6K1 w - - 0 1") - eval("6k1/8/8/8/8/6K1/8/8 w - - 0 1")).abs()
+                > 1e-4
+        );
     }
 }

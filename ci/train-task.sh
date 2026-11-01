@@ -11,21 +11,23 @@
 #                    [--batches-per-superbatch 6104] [--val-fraction 0.05]
 #                    [--split-seed 1] [--shuffle-seed 1] [--backend cuda|metal]
 #                    [--checkpoint-every 4] [--val-positions 4000000] [--hidden 128]
-#                    [--output-buckets 1]
+#                    [--output-buckets 1] [--king-buckets 1]
 #
 # 1. downloads every complete shard's positions and manifest under each
 #    --dataset (repeat it to train on several generations at once);
 # 2. prepares train.data and val.data: whole workers per split, a seeded
 #    shuffle, every record parsed by bulletformat (rusty-chess-trainer prepare);
-# 3. trains the (768 → H) × 2 → B net (rusty-chess-trainer train; H =
-#    --hidden, B = --output-buckets, one output chosen by piece count), saving a
+# 3. trains the (768 × K → H) × 2 → B net (rusty-chess-trainer train; H =
+#    --hidden, B = --output-buckets, one output chosen by piece count, K =
+#    --king-buckets, docs/king-buckets.md), saving a
 #    checkpoint every --checkpoint-every superbatches and scoring each on
 #    --val-positions held-out records and as many training records;
 # 4. checks the engine's quantized evaluation against the trainer's float one
 #    on held-out positions (nnue-eval --check); a mismatch fails the task. A
 #    net of a shape the engine doesn't read yet (--hidden not in the
-#    engine's nnue::WIDTHS, or --output-buckets not in its
-#    nnue::OUTPUT_BUCKETS) skips this check and says so in training.json:
+#    engine's nnue::WIDTHS, --output-buckets not in its
+#    nnue::OUTPUT_BUCKETS, or --king-buckets not in its nnue::KING_BUCKETS)
+#    skips this check and says so in training.json:
 #    run nnue-eval --check on it once the engine reads that shape;
 # 5. writes training.json (data, split, schedule, versions, hardware, losses,
 #    the validation curve, the check) and uploads the net and its records to
@@ -36,7 +38,7 @@
 set -euo pipefail
 
 datasets=() nets="" net_id="" wdl="" superbatches="" batches=6104 val_fraction=0.05 split_seed=1 shuffle_seed=1 backend=cuda
-checkpoint_every=4 val_positions=4000000 hidden=128 buckets=1
+checkpoint_every=4 val_positions=4000000 hidden=128 buckets=1 king_buckets=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --dataset) datasets+=("${2%/}"); shift 2 ;;
@@ -53,6 +55,7 @@ while [ $# -gt 0 ]; do
     --val-positions) val_positions="$2"; shift 2 ;;
     --hidden) hidden="$2"; shift 2 ;;
     --output-buckets) buckets="$2"; shift 2 ;;
+    --king-buckets) king_buckets="$2"; shift 2 ;;
     *) echo "train-task: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -83,7 +86,7 @@ if command -v nvidia-smi >/dev/null; then
   driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)
   cuda=$(nvcc --version 2>/dev/null | sed -n 's/.*release \([0-9.]*\).*/\1/p' || true)
 fi
-echo "== train: $net_id, $hidden hidden, $buckets output bucket(s), λ $wdl, $superbatches superbatches of $batches batches; commit ${sha:0:7}; GPU: $gpu"
+echo "== train: $net_id, $hidden hidden, $buckets output bucket(s), $king_buckets king bucket(s), λ $wdl, $superbatches superbatches of $batches batches; commit ${sha:0:7}; GPU: $gpu"
 
 echo "-- building ($(since)s)"
 export CARGO_TERM_COLOR=never
@@ -115,22 +118,25 @@ threads=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 trainer/target/release/rusty-chess-trainer train --data "$scratch/data" --net-id "$net_id" --wdl "$wdl" \
   --superbatches "$superbatches" --batches-per-superbatch "$batches" --threads "$threads" --out "$scratch/out" \
   --checkpoint-every "$checkpoint_every" --val-positions "$val_positions" --hidden "$hidden" \
-  --output-buckets "$buckets" 2>&1 | tee "$scratch/train.log"
+  --output-buckets "$buckets" --king-buckets "$king_buckets" 2>&1 | tee "$scratch/train.log"
 trained=$(since)
 
 engine_widths=$(sed -n 's/^pub const WIDTHS: \[usize; [0-9]*\] = \[\(.*\)\];.*/\1/p' crates/search/src/nnue.rs | tr -d ' ')
 # An engine from before output buckets reads single-bucket nets only.
 engine_buckets=$(sed -n 's/^pub const OUTPUT_BUCKETS: \[usize; [0-9]*\] = \[\(.*\)\];.*/\1/p' crates/search/src/nnue.rs | tr -d ' ')
 engine_buckets=${engine_buckets:-1}
+# An engine from before king buckets reads single-view nets only.
+engine_kings=$(sed -n 's/^pub const KING_BUCKETS: \[usize; [0-9]*\] = \[\(.*\)\];.*/\1/p' crates/search/src/nnue.rs | tr -d ' ')
+engine_kings=${engine_kings:-1}
 check_ran=True
-if [[ ",$engine_widths," == *",$hidden,"* && ",$engine_buckets," == *",$buckets,"* ]]; then
+if [[ ",$engine_widths," == *",$hidden,"* && ",$engine_buckets," == *",$buckets,"* && ",$engine_kings," == *",$king_buckets,"* ]]; then
   echo "-- checking the engine's evaluation against the trainer's ($(since)s)"
   set +e
   check=$(target/release/nnue-eval --net "$scratch/out/net.nnue" --check "$scratch/out/eval_check.json" 2>&1)
   check_code=$?
   set -e
 else
-  check="not run: the engine reads ${engine_widths:-?}-neuron nets with ${engine_buckets} output bucket(s), and this one has $hidden and $buckets; run nnue-eval --check on it once the engine reads this shape"
+  check="not run: the engine reads ${engine_widths:-?}-neuron nets with ${engine_buckets} output bucket(s) and ${engine_kings} king bucket(s), and this one has $hidden, $buckets and $king_buckets; run nnue-eval --check on it once the engine reads this shape"
   check_code=0 check_ran=None
 fi
 echo "$check" | tee "$scratch/check.txt"
@@ -148,9 +154,10 @@ json.dump({
     "schema": "rusty-chess-net/2",
     "net_id": "$net_id",
     "net_sha256": "$net_sha",
-    "architecture": "(768 -> $hidden) x 2 -> $buckets, SCReLU, Chess768 inputs, QA 255, QB 64, SCALE 400" + (", output bucket (pieces - 2) / 4" if $buckets > 1 else ""),
+    "architecture": "(768 x $king_buckets -> $hidden) x 2 -> $buckets, SCReLU, Chess768 inputs, QA 255, QB 64, SCALE 400" + (", output bucket (pieces - 2) / 4" if $buckets > 1 else "") + (", king buckets mirrored (docs/king-buckets.md), factoriser merged" if $king_buckets > 1 else ""),
     "hidden": $hidden,
     "output_buckets": $buckets,
+    "king_buckets": $king_buckets,
     "datasets": datasets,
     "split": {k: v for k, v in split.items() if k != "val_workers"},
     "val_workers": split["val_workers"],
@@ -182,5 +189,5 @@ done
 if [ "$check_ran" = True ]; then
   echo "train-task: $net_id trained and checked in $(since)s; net sha256 $net_sha"
 else
-  echo "train-task: $net_id trained in $(since)s (engine check not run: $hidden hidden, $buckets bucket(s)); net sha256 $net_sha"
+  echo "train-task: $net_id trained in $(since)s (engine check not run: $hidden hidden, $buckets output and $king_buckets king bucket(s)); net sha256 $net_sha"
 fi
