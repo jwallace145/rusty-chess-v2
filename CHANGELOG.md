@@ -7,6 +7,12 @@
 
 * **nnue:** embed net5b8, net 5 with 8 output buckets, as the default and generation 5's net ([#164](https://github.com/jwallace145/rusty-chess-v2/issues/164)) ([86d16aa](https://github.com/jwallace145/rusty-chess-v2/commit/86d16aace42eb3880a5ced563ea3bb4a4f377806))
 
+### Benchmarks
+
+* bench signature 1,048,958, instructions per node 3779, search 2.78M NPS, perft 361.44M NPS (pass (63)), fail-high first 87.0%, EBF 1.89, TT hit 52.7%
+* since v0.38.0: fail-high first -0.4 pt, EBF +0.07, instructions per node +0.8%, search NPS +37.5%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.38.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.37.1...v0.38.0) (2026-11-01)
 
 
