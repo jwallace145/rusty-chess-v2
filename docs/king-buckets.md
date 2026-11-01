@@ -147,6 +147,36 @@ Unchanged except the feature-weight block grows:
   proves the reconstruction, as it did for output buckets.
 - **Data:** no new data. Every record stores both kings' squares, so
   generations 0–4 train it as they are.
+- **Built as designed** in #173: the scorer reconstructs the factoriser from
+  `raw.bin` to 0.0012 cp of bullet's evaluation on net6k4.
+
+## Measured
+
+**Where the kings are.** Each side's king in 2,000,000 of generation 4's
+held-out positions (both sides counted), by bucket:
+
+| Bucket | Squares (own side, files e–h mirrored) | Share of kings |
+|:--|:--|--:|
+| 0 | a1, b1 (castled into the corner) | 23.3% |
+| 1 | c1, d1 (central back rank) | 23.7% |
+| 2 | rank 2 | 22.1% |
+| 3 | ranks 3–8 | 30.9% |
+
+- **Balanced:** every bucket gets 22–31% of the data, about 400–600M of
+  generations 0–4's 1.9B training positions, so none starves. Fewer than half
+  the kings are on the back rank: the data is about 46% endgame positions.
+- **Room for a finer layout:** bucket 3 holds 31% of the kings over 24
+  squares, from an advanced middlegame king to an endgame king on rank 7. A
+  later layout could split it (say ranks 3–4 and 5–8). It would be a new
+  bucket count, since 4 always means the table above.
+
+**The first king-bucketed net, net6k4** (full record in
+[nets.md](nets.md#net6k4-l050-r41282883885)):
+- **Training cost:** 3,891 s to trained against net6's 3,768 (+3%).
+- **Held-out loss:** −1.04% against net6 on identical positions, all of it
+  after the first learning-rate drop (−0.04% at superbatch 36).
+- **Speed:** 11% slower per node and 7.4% longer to depth than net6 locally,
+  with EBF 1.937 → 1.855 and fail-high-first 0.873 → 0.879.
 
 ## Plan
 
