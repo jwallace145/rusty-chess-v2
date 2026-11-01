@@ -2,7 +2,7 @@
 
 A living checklist. Started Oct 26, 2026 · @Jimmy, maintained as the engine is built; last reviewed 2026-10-31 (`v0.37.0`).
 
-**Status:** Phases 0–4b complete and released (`v0.17.0` closed Phase 4, `v0.25.0` Phase 4b). **Phase 6 (NNUE) is in its iteration loop.** Net 1, trained on PeSTO's self-play, became the default in `v0.28.0`: +587 over PeSTO in the timed SPRT, and 2977 ± 32 on the Stockfish 19 ladder. The vectorized net followed in `v0.29.0`. Since then each step has been one change under a timed SPRT: more data (net 2, +113), a longer schedule (net2x80, +21), generation 2 (net 3, +22), 256 then 512 hidden neurons (net 4, +74; net4w512, +44) and generation 3 (net 5, +22, the default in `v0.37.0`). The ladder reads **3129 ± 32** for `v0.37.0` (`v0.35.0` 3086 ± 33, `v0.36.0` 3076 ± 30), 45% against the top rung, `UCI_Elo` 3190: the new anchor below is getting close. Every net and dataset is logged in [nets.md](nets.md) and [datasets.md](datasets.md). Phase 5 (first public release) runs alongside.
+**Status:** Phases 0–4b complete and released (`v0.17.0` closed Phase 4, `v0.25.0` Phase 4b). **Phase 6 (NNUE) is in its iteration loop.** Net 1, trained on PeSTO's self-play, became the default in `v0.28.0`: +587 over PeSTO in the timed SPRT, and 2977 ± 32 on the Stockfish 19 ladder. The vectorized net followed in `v0.29.0`. Since then each step has been one change under a timed SPRT: more data (net 2, +113), a longer schedule (net2x80, +21), generation 2 (net 3, +22), 256 then 512 hidden neurons (net 4, +74; net4w512, +44), generation 3 (net 5, +22) and 8 output buckets (net5b8, +6.5, the default in `v0.39.0`). The ladder reads **3132 ± 29** for `v0.38.0` (`v0.37.0` 3129 ± 32, `v0.36.0` 3076 ± 30), 48% against the top rung, `UCI_Elo` 3190: the new anchor below is getting close. Every net and dataset is logged in [nets.md](nets.md) and [datasets.md](datasets.md). Phase 5 (first public release) runs alongside.
 
 ## How to use this document
 
@@ -184,7 +184,9 @@ The destination named in the goals: our own network, trained on our own games. *
 - [x] Wider hidden layers on the same data: the engine reads 256 (#149) and 512 (#152) exactly; net 4 (256) beat net 3 by **+74.2 ± 16.4** (#150, v0.35.0) and net4w512 (512) beat net 4 by **+44.3 ± 13.1** (#152, v0.36.0), 11–18% slower per node
 - [x] Generation 3, played by net4w512: 628,213,254 positions, fully audited with every worker's games regenerated from their seeds, the first with the net recorded in every manifest ([datasets.md](datasets.md)). Net 5 (512, generations 0–3) beat net4w512 by **+21.9 ± 9.2** (#155, v0.37.0); only the data changed
 - [x] ~~net5x120: net 5's data and width at 120 superbatches~~ **Dropped on record** (#159): +4.9 ± 3.9 timed and −1.2 ± 4.2 at fixed nodes, both inconclusive at 10,000 games; at 1.5B positions the schedule is saturated
-- [ ] Generation 4, played by net 5, and a net on generations 0–4
+- [x] Output buckets: the engine reads 8-bucket nets with single-bucket nets unchanged (#162, +0.6% instructions a node) and the trainer trains them (#163); net5b8, net 5 with 8 output buckets, beat net 5 by **+6.5 ± 4.4** timed and +12.4 ± 6.6 at fixed nodes (#164, v0.39.0)
+- [x] Generation 4, played by net 5: 495,147,759 positions, fully audited with every worker's games regenerated from their seeds (#165, [datasets.md](datasets.md)); draws rose to 47.2%
+- [ ] net6: net5b8's recipe on generations 0–4, kept on a timed SPRT win over net5b8
 - [x] The ladder moved up when the engine outgrew 2950: v0.28.0 scored 88% on 2650 (about 3000). Rungs 2800/2950/3100/3190 against an official, pinned Stockfish 19, with v0.26.0–v0.28.0 re-rated for the overlap
 - [ ] A new anchor once the engine outgrows 3190, the top of Stockfish's `UCI_Elo` range (past about 3300 limited Stockfish cannot bracket it): full Stockfish at a fixed node budget, calibrated against the last limited ladder
 
