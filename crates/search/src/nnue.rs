@@ -67,7 +67,7 @@ impl EmbeddedNet {
 /// Older nets stay so the data they played can still be re-searched
 /// (`datagen-audit`) and so they can be selected by id for comparisons. A net
 /// is about 200 KB at 128 hidden neurons, 400 KB at 256 and 790 KB at 512
-/// (800 KB with 8 output buckets).
+/// (800 KB with 8 output buckets, 3.2 MB with 4 king buckets as well).
 pub const NETS: [EmbeddedNet; 5] = [
     EmbeddedNet {
         id: "net1-l050-r41022503872",
@@ -90,9 +90,9 @@ pub const NETS: [EmbeddedNet; 5] = [
         bytes: include_bytes!("../nets/net5-l050-r41229287546.nnue"),
     },
     EmbeddedNet {
-        id: "net6-l050-r41273387683",
+        id: "net6k4-l050-r41282883885",
         generation: 5,
-        bytes: include_bytes!("../nets/net6-l050-r41273387683.nnue"),
+        bytes: include_bytes!("../nets/net6k4-l050-r41282883885.nnue"),
     },
 ];
 

@@ -519,10 +519,12 @@ fn single_bucket_files_keep_their_size_and_buckets_are_thousands_of_bytes_apart(
             );
         }
     }
-    // Every net before net5b8 has one output; net5b8 is the first with 8.
+    // Every net before generation 5 has one output and one view; generation
+    // 5's (net6k4) has 8 output buckets and 4 king buckets.
     for n in &NETS {
-        let want = if n.generation >= 5 { 8 } else { 1 };
-        assert_eq!(network_by_id(n.id).unwrap().buckets(), want, "{}", n.id);
+        let net = network_by_id(n.id).unwrap();
+        let want = if n.generation >= 5 { (8, 4) } else { (1, 1) };
+        assert_eq!((net.buckets(), net.king_buckets()), want, "{}", n.id);
     }
 }
 
