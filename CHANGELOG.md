@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.38.0...v0.39.0) (2026-11-01)
+
+
+### Features
+
+* **nnue:** embed net5b8, net 5 with 8 output buckets, as the default and generation 5's net ([#164](https://github.com/jwallace145/rusty-chess-v2/issues/164)) ([86d16aa](https://github.com/jwallace145/rusty-chess-v2/commit/86d16aace42eb3880a5ced563ea3bb4a4f377806))
+
 ## [0.38.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.37.1...v0.38.0) (2026-11-01)
 
 
