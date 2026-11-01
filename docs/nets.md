@@ -24,6 +24,7 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net4w512-l050-r41170687764` | Default `v0.36.0`; **plays generation 3** | 0 + 1 + 2 · 857.3M | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | **+44.3 ± 13.1** vs net 4 | 3076 ± 30 (`v0.36.0`) |
 | `net5-l050-r41229287546` | Default `v0.37.0`–; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | 3129 ± 32 (`v0.37.0`) |
 | `net5x120-l050-r41237487627` | Dropped (#159): schedule experiment, inconclusive at the cap | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | **0.019399** (same held-out set as net 5: 0.019432) | 6.68 / 23.20 | +4.9 ± 3.9 vs net 5 (inconclusive) | — |
+| `net5b8-l050-r41265636815` | Candidate (net5b8's PR): timed SPRT against net 5; would play generation 5 | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → **8** (output buckets) | 0.5 | 80 | **0.019349** (same held-out set as net 5: 0.019432) | 6.14 / 21.71 | pending | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -105,6 +106,39 @@ this asks whether it was under-trained.
 - **Most of the gain is the longer high-LR phase.** At superbatch 40 this run
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
+
+## net5b8-l050-r41265636815
+
+Net 5 with **8 output buckets**: the output layer has 8 sets of weights, one
+chosen per position by its piece count, `(pieces − 2) / 4` (#162, #163). The
+only change: same data, width, λ, schedule and seeds, and byte-identical
+prepared data (net 5's `train.data` and `val.data` SHA-256s), so the **same
+held-out positions** as net 5.
+
+| | |
+|:--|:--|
+| Data | As net 5: generations 0–3, 1,465,509,939 training / 69,335,935 held-out records |
+| Network | (768 → 512) × 2 → 8, SCReLU, `Chess768`, output bucket `(pieces − 2) / 4`; QA 255, QB 64, SCALE 400; 803,904 bytes; sha256 `1317c14a…3d74` |
+| Schedule | As net 5: λ 0.5, 80 superbatches, LR 0.001, ×0.1 after 36 and 72 |
+| Training | `Train` run [41265636815](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41265636815), from `v0.38.0`, alongside generation 4's datagen (the GPU quota is separate): 3,240 s to trained (net 5: 2,937, +10%), 56 minutes for the job, about $0.75 |
+| Validation | **0.019349** against net 5's 0.019432 on identical held-out positions: **−0.43%**, ahead at every checkpoint (−0.37% to −0.50%). Held-out sits 0.54% above the training sample (net 5: 0.56%): no extra overfitting from the 7 more output layers |
+| Engine check | 256 held-out positions: mean **6.14 cp**, max 21.71 (net 5: 7.77 / 26.67). The first full-size bucketed net through the engine |
+| Bench | Signature 1048958 (net 5: 1101129); **fail-high-first 0.8702, at the 0.87 bar** (net 5: 0.875); EBF 1.887 (net 5: 1.818). About 2.09M nodes/s locally; #162 measured the bucket choice at +0.6% instructions a node |
+| SPRT vs net 5 | Pending (net5b8's PR) |
+
+| Superbatch | 4 | 20 | 36 | 40 | 72 | 80 |
+|:--|--:|--:|--:|--:|--:|--:|
+| net 5 held-out | .020165 | .019840 | .019801 | .019525 | .019469 | .019432 |
+| **net5b8 held-out** | .020065 | .019753 | .019708 | .019440 | .019384 | .019349 |
+| Change | −0.50% | −0.44% | −0.47% | −0.43% | −0.43% | −0.43% |
+
+**Reading it:**
+- **A constant lead from the first checkpoint,** not a late one: the buckets
+  let the net fit every phase of the schedule better, rather than training
+  longer.
+- **The largest same-data gain so far** at 512: net5x120's longer schedule
+  gave −0.17% and nothing at fixed nodes; net2x80's gave −0.36% and +21.0.
+- **The SPRT decides.** Held-out loss has misled before (the λ sweep).
 
 ## net5x120-l050-r41237487627
 
