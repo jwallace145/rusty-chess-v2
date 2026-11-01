@@ -7,6 +7,12 @@
 
 * **nnue:** record net5b8's SPRT, generation 4 and v0.38.0's rating in the ledger and roadmap ([#168](https://github.com/jwallace145/rusty-chess-v2/issues/168)) ([743326f](https://github.com/jwallace145/rusty-chess-v2/commit/743326f149382e2a1af207a2b86feb9ed3126c98))
 
+### Benchmarks
+
+* bench signature 1,048,958, instructions per node 3779, search 2.04M NPS, perft 290.79M NPS (pass (63)), fail-high first 87.0%, EBF 1.89, TT hit 52.7%
+* since v0.39.1: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.0%, search NPS +0.8%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.39.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.39.0...v0.39.1) (2026-11-01)
 
 
