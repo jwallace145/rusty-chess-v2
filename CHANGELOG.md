@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.2](https://github.com/jwallace145/rusty-chess-v2/compare/v0.39.1...v0.39.2) (2026-11-01)
+
+
+### Documentation
+
+* **nnue:** record net5b8's SPRT, generation 4 and v0.38.0's rating in the ledger and roadmap ([#168](https://github.com/jwallace145/rusty-chess-v2/issues/168)) ([743326f](https://github.com/jwallace145/rusty-chess-v2/commit/743326f149382e2a1af207a2b86feb9ed3126c98))
+
 ## [0.39.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.39.0...v0.39.1) (2026-11-01)
 
 
