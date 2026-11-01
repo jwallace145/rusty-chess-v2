@@ -10,8 +10,9 @@ use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
 use rusty_chess_search::nnue::{
-    DEFAULT_NET_ID, INPUTS, MAX_OUTPUT_WEIGHT, NETS, Network, OUTPUT_BUCKETS, QA, QB, SCALE,
-    WIDTHS, bucketed_file_bytes, default_network, file_bytes, network_by_id, output_bucket,
+    DEFAULT_NET_ID, INPUTS, KING_BUCKET_LAYOUT, KING_BUCKETS, MAX_OUTPUT_WEIGHT, NETS, Network,
+    OUTPUT_BUCKETS, QA, QB, SCALE, WIDTHS, bucketed_file_bytes, default_network, file_bytes,
+    king_view, net_file_bytes, network_by_id, output_bucket,
 };
 use rusty_chess_search::search::{Limits, Searcher};
 
@@ -28,35 +29,43 @@ impl Rng {
     }
 }
 
-/// Every (width, output buckets) the engine reads.
-fn shapes() -> impl Iterator<Item = (usize, usize)> {
-    WIDTHS
-        .iter()
-        .flat_map(|&h| OUTPUT_BUCKETS.iter().map(move |&b| (h, b)))
+/// Every (width, output buckets, king buckets) the engine reads.
+fn shapes() -> impl Iterator<Item = (usize, usize, usize)> {
+    WIDTHS.iter().flat_map(|&h| {
+        OUTPUT_BUCKETS
+            .iter()
+            .flat_map(move |&b| KING_BUCKETS.iter().map(move |&k| (h, b, k)))
+    })
 }
 
-/// A network of width `hidden` with `buckets` output buckets from its weights
-/// in file order: feature weights, feature bias, each bucket's output weights
-/// (ours, theirs), the output biases.
-fn net_from(hidden: usize, buckets: usize, mut word: impl FnMut(usize) -> i16) -> Network {
-    let words = bucketed_file_bytes(hidden, buckets) / 2;
+/// A network of width `hidden`, `buckets` output buckets and `king` king
+/// buckets from its weights in file order: feature weights (king bucket 0's
+/// first), feature bias, each output bucket's weights (ours, theirs), the
+/// output biases.
+fn net_from(
+    hidden: usize,
+    buckets: usize,
+    king: usize,
+    mut word: impl FnMut(usize) -> i16,
+) -> Network {
+    let words = net_file_bytes(hidden, buckets, king) / 2;
     let bytes: Vec<u8> = (0..words).flat_map(|i| word(i).to_le_bytes()).collect();
     Network::from_bytes(&bytes).unwrap()
 }
 
 /// Where a net's sections start, in words: feature bias, output weights,
 /// output biases.
-fn sections(hidden: usize, buckets: usize) -> (usize, usize, usize) {
-    let fb = INPUTS * hidden;
+fn sections(hidden: usize, buckets: usize, king: usize) -> (usize, usize, usize) {
+    let fb = INPUTS * king * hidden;
     let ow = fb + hidden;
     (fb, ow, ow + buckets * 2 * hidden)
 }
 
 /// A random network with weights of the size a trained net has.
-fn random_net(seed: u64, hidden: usize, buckets: usize) -> Network {
+fn random_net(seed: u64, hidden: usize, buckets: usize, king: usize) -> Network {
     let mut rng = Rng(seed | 1);
-    let (fb, ow, ob) = sections(hidden, buckets);
-    net_from(hidden, buckets, |i| match i {
+    let (fb, ow, ob) = sections(hidden, buckets, king);
+    net_from(hidden, buckets, king, |i| match i {
         _ if i < fb => rng.range(-40, 40),
         _ if i < ow => rng.range(-40, 120),
         _ if i < ob => rng.range(-127, 127),
@@ -66,13 +75,26 @@ fn random_net(seed: u64, hidden: usize, buckets: usize) -> Network {
 
 /// A network with zero hidden weights and biases, every output weight `w`
 /// and every output bias `bias`.
-fn flat_net(hidden: usize, buckets: usize, w: i16, bias: i16) -> Network {
-    let (_, ow, ob) = sections(hidden, buckets);
-    net_from(hidden, buckets, |i| match i {
+fn flat_net(hidden: usize, buckets: usize, king: usize, w: i16, bias: i16) -> Network {
+    let (_, ow, ob) = sections(hidden, buckets, king);
+    net_from(hidden, buckets, king, |i| match i {
         _ if i < ow => 0,
         _ if i < ob => w,
         _ => bias,
     })
+}
+
+/// A FEN mirrored left to right (files a ↔ h), without castling or en passant.
+fn mirror_fen(fen: &str) -> String {
+    let mut parts = fen.split(' ');
+    let board: Vec<String> = parts
+        .next()
+        .unwrap()
+        .split('/')
+        .map(|rank| rank.chars().rev().collect())
+        .collect();
+    let side = parts.next().unwrap();
+    format!("{} {side} - - 0 1", board.join("/"))
 }
 
 fn board(fen: &str, net: &Arc<Network>) -> Board {
@@ -91,10 +113,13 @@ fn fresh(b: &Board, net: &Network) -> [Vec<i16>; 2] {
 
 #[test]
 fn a_network_file_round_trips_and_wrong_sizes_are_refused() {
-    for (h, buckets) in shapes() {
-        let size = bucketed_file_bytes(h, buckets);
-        let net = random_net(1, h, buckets);
-        assert_eq!((net.hidden(), net.buckets()), (h, buckets));
+    for (h, buckets, king) in shapes() {
+        let size = net_file_bytes(h, buckets, king);
+        let net = random_net(1, h, buckets, king);
+        assert_eq!(
+            (net.hidden(), net.buckets(), net.king_buckets()),
+            (h, buckets, king)
+        );
         let bytes = net.to_bytes();
         assert_eq!(bytes.len(), size);
         let back = Network::from_bytes(&bytes).unwrap();
@@ -103,7 +128,10 @@ fn a_network_file_round_trips_and_wrong_sizes_are_refused() {
         let mut padded = bytes.clone();
         padded.resize(size.div_ceil(64) * 64, 0);
         let back = Network::from_bytes(&padded).unwrap();
-        assert_eq!((back.hidden(), back.buckets()), (h, buckets));
+        assert_eq!(
+            (back.hidden(), back.buckets(), back.king_buckets()),
+            (h, buckets, king)
+        );
         assert!(Network::from_bytes(&bytes[..size - 2]).is_err());
         let mut long = bytes;
         long.resize(size + 64, 0);
@@ -118,8 +146,8 @@ fn a_network_file_round_trips_and_wrong_sizes_are_refused() {
 fn the_output_is_the_bias_scaled_when_nothing_activates() {
     // All-zero hidden weights and bias: every activation is 0, so the output
     // is the bias times SCALE over QA · QB.
-    for (h, buckets) in shapes() {
-        let net = Arc::new(flat_net(h, buckets, 7, 6_400));
+    for (h, buckets, king) in shapes() {
+        let net = Arc::new(flat_net(h, buckets, king, 7, 6_400));
         let b = board(
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             &net,
@@ -127,7 +155,7 @@ fn the_output_is_the_bias_scaled_when_nothing_activates() {
         assert_eq!(
             b.evaluate(),
             6_400 * SCALE / (QA * QB),
-            "width {h}, {buckets} buckets"
+            "width {h}, {buckets} buckets, {king} king buckets"
         );
     }
 }
@@ -135,19 +163,25 @@ fn the_output_is_the_bias_scaled_when_nothing_activates() {
 #[test]
 fn make_and_unmake_keep_the_accumulators_equal_to_a_fresh_computation() {
     for &h in &WIDTHS {
-        walks(h);
+        for &king in &KING_BUCKETS {
+            walks(h, king);
+        }
     }
 }
 
-fn walks(hidden: usize) {
+fn walks(hidden: usize, king: usize) {
     // Random walks from positions that reach castling, en passant,
     // promotion and captures, checked at every ply going down and up.
-    let net = Arc::new(random_net(7, hidden, 1));
+    let net = Arc::new(random_net(7, hidden, 1, king));
+    // The last two give the kings room to walk across the d/e mirror line
+    // and between king buckets.
     for (i, fen) in [
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
         "8/2P5/8/3pP3/8/8/5p2/4K2k w - d6 0 1",
         "r3k2r/1P6/8/8/8/8/6p1/R3K2R b KQkq - 0 1",
+        "8/2p5/3k4/8/8/4K3/5P2/8 w - - 0 1",
+        "4k3/8/8/3n4/8/8/3N4/4K3 b - - 0 1",
     ]
     .iter()
     .enumerate()
@@ -187,8 +221,8 @@ fn walks(hidden: usize) {
 fn a_long_game_played_forward_wraps_the_stack_safely() {
     // More plies than the stack holds, played without unmaking, as the UCI
     // `position ... moves` and self-play do.
-    for &h in &WIDTHS {
-        let net = Arc::new(random_net(11, h, 1));
+    for (h, _, king) in shapes().filter(|s| s.1 == 1) {
+        let net = Arc::new(random_net(11, h, 1, king));
         let mut b = board(
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             &net,
@@ -207,13 +241,13 @@ fn a_long_game_played_forward_wraps_the_stack_safely() {
 #[test]
 fn the_evaluation_is_the_same_for_a_mirrored_position() {
     // Perspective features make a net colour-symmetric by construction.
-    for (h, buckets) in shapes() {
-        mirrored_at(h, buckets);
+    for (h, buckets, king) in shapes() {
+        mirrored_at(h, buckets, king);
     }
 }
 
-fn mirrored_at(hidden: usize, buckets: usize) {
-    let net = Arc::new(random_net(3, hidden, buckets));
+fn mirrored_at(hidden: usize, buckets: usize, king: usize) {
+    let net = Arc::new(random_net(3, hidden, buckets, king));
     for (fen, mirrored) in [
         (
             "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w - - 4 4",
@@ -248,7 +282,7 @@ fn a_search_with_a_network_runs_and_without_one_is_unchanged() {
     let plain = run(None);
     let again = run(None);
     assert_eq!((plain.best, plain.nodes), (again.best, again.nodes));
-    let with_net = run(Some(Arc::new(random_net(5, 256, 1))));
+    let with_net = run(Some(Arc::new(random_net(5, 256, 1, 1))));
     let mut list = MoveList::new();
     Position::from_fen(fen).unwrap().legal_moves(&mut list);
     assert!(list.as_slice().contains(&with_net.best));
@@ -316,7 +350,7 @@ struct Output {
 /// Bucket `bucket` of a net's output layer, read back from its file bytes.
 fn output_layer(net: &Network, bucket: usize) -> Output {
     let h = net.hidden();
-    let (_, ow, ob) = sections(h, net.buckets());
+    let (_, ow, ob) = sections(h, net.buckets(), net.king_buckets());
     let words: Vec<i16> = net
         .to_bytes()
         .chunks_exact(2)
@@ -350,10 +384,12 @@ fn the_output_is_exact_at_the_extremes_and_on_random_accumulators() {
     // alone does. These are the cases that need the sum in i32 chunks of 256
     // and the chunks added in i64.
     let mut nets = Vec::new();
-    for (h, buckets) in shapes() {
-        nets.push(flat_net(h, buckets, MAX_OUTPUT_WEIGHT, 0));
-        nets.push(flat_net(h, buckets, -MAX_OUTPUT_WEIGHT, 0));
-        nets.push(random_net(5, h, buckets));
+    // King buckets change only which input columns build the accumulator,
+    // never the output sum, so single-view nets cover every output shape.
+    for (h, buckets, king) in shapes().filter(|s| s.2 == 1) {
+        nets.push(flat_net(h, buckets, king, MAX_OUTPUT_WEIGHT, 0));
+        nets.push(flat_net(h, buckets, king, -MAX_OUTPUT_WEIGHT, 0));
+        nets.push(random_net(5, h, buckets, king));
     }
     nets.push(Network::from_bytes(&default_network().to_bytes()).unwrap());
     for net in &nets {
@@ -403,11 +439,11 @@ fn exact_in_bucket(net: &Network, bucket: usize, rng: &mut Rng) {
 
 #[test]
 fn a_net_with_an_output_weight_beyond_the_bound_is_refused() {
-    for (h, buckets) in shapes() {
-        let (_, ow, ob) = sections(h, buckets);
+    for (h, buckets, king) in shapes() {
+        let (_, ow, ob) = sections(h, buckets, king);
         // The first output weight, and the last bucket's last one.
         for word in [ow, ob - 1] {
-            let mut bytes = random_net(7, h, buckets).to_bytes();
+            let mut bytes = random_net(7, h, buckets, king).to_bytes();
             bytes[2 * word..2 * word + 2].copy_from_slice(&128i16.to_le_bytes());
             let err = Network::from_bytes(&bytes).err().expect("refused");
             assert!(err.contains("beyond ±127"), "{err}");
@@ -439,8 +475,8 @@ fn a_bucketed_net_uses_the_bucket_of_the_piece_count_on_the_board() {
     // Zero hidden weights and a different output bias per bucket: the
     // evaluation is the bias of the bucket the position falls in.
     for &h in &WIDTHS {
-        let (_, _, ob) = sections(h, 8);
-        let net = Arc::new(net_from(h, 8, |i| {
+        let (_, _, ob) = sections(h, 8, 1);
+        let net = Arc::new(net_from(h, 8, 1, |i| {
             if i < ob {
                 0
             } else {
@@ -474,7 +510,7 @@ fn single_bucket_files_keep_their_size_and_buckets_are_thousands_of_bytes_apart(
         assert_eq!(file_bytes(h), bucketed_file_bytes(h, 1));
         assert_eq!(file_bytes(h), 2 * (INPUTS * h + h + 2 * h + 1));
     }
-    let sizes: Vec<usize> = shapes().map(|(h, b)| bucketed_file_bytes(h, b)).collect();
+    let sizes: Vec<usize> = shapes().map(|(h, b, k)| net_file_bytes(h, b, k)).collect();
     for (i, a) in sizes.iter().enumerate() {
         for b in &sizes[i + 1..] {
             assert!(
@@ -488,4 +524,76 @@ fn single_bucket_files_keep_their_size_and_buckets_are_thousands_of_bytes_apart(
         let want = if n.generation >= 5 { 8 } else { 1 };
         assert_eq!(network_by_id(n.id).unwrap().buckets(), want, "{}", n.id);
     }
+}
+
+#[test]
+fn king_views_follow_the_layout_and_mirror_files_e_to_h() {
+    // One king bucket is a single view: today's indexing.
+    assert!((0..64).all(|sq| king_view(1, sq) == (0, 0)));
+    // From its own side: a1 b1 → bucket 0, c1 d1 → 1, rank 2 → 2, above → 3,
+    // and files e–h mirror a–d with the file XOR.
+    let at = |sq: usize| king_view(4, sq);
+    assert_eq!(
+        (at(0), at(1), at(2), at(3)),
+        ((0, 0), (0, 0), (768, 0), (768, 0))
+    );
+    assert_eq!(
+        (at(4), at(5), at(6), at(7)),
+        ((768, 7), (768, 7), (0, 7), (0, 7))
+    );
+    assert!((8..16).all(|sq| at(sq).0 == 2 * 768));
+    assert!((16..64).all(|sq| at(sq).0 == 3 * 768));
+    for sq in 0..64 {
+        let mirrored = sq ^ 7;
+        assert_eq!(
+            at(sq).0,
+            at(mirrored).0,
+            "the layout is symmetric about d/e"
+        );
+        assert_ne!(
+            at(sq).1,
+            at(mirrored).1,
+            "exactly one of a square and its mirror flips"
+        );
+    }
+    assert_eq!(KING_BUCKET_LAYOUT.iter().max(), Some(&3));
+}
+
+#[test]
+fn a_king_bucketed_net_evaluates_a_mirrored_position_identically() {
+    // With the board mirrored whenever a king is on files e–h, a position and
+    // its left-right mirror are the same inputs to a 4-king-bucket net.
+    for (h, buckets, _) in shapes().filter(|s| s.2 == 4) {
+        let net = Arc::new(random_net(13, h, buckets, 4));
+        for fen in [
+            "r1bq1rk1/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQ1RK1 w - - 0 1",
+            "8/2p5/3k4/8/8/4K3/5P2/8 b - - 0 1",
+            "2kr3r/ppp2ppp/8/8/8/8/PPP2PPP/R4RK1 w - - 0 1",
+        ] {
+            let mirrored = mirror_fen(fen);
+            assert_eq!(
+                board(fen, &net).evaluate(),
+                board(&mirrored, &net).evaluate(),
+                "width {h}, {buckets} buckets: {fen} vs {mirrored}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_king_move_across_the_mirror_line_rebuilds_its_side_only() {
+    // Ke1-d1 crosses the d/e line (white's view changes and is rebuilt);
+    // black's accumulator updates incrementally. Both must equal a fresh
+    // computation, and the evaluation must match a board set up directly.
+    let net = Arc::new(random_net(17, 128, 1, 4));
+    let mut b = board("4k3/8/8/8/8/8/8/R3K3 w - - 0 1", &net);
+    let m = b.position().parse_uci_move("e1d1").unwrap();
+    let undo = b.make_move(m);
+    assert_eq!(b.accumulators().unwrap(), fresh(&b, &net));
+    assert_eq!(
+        b.evaluate(),
+        board("4k3/8/8/8/8/8/8/R2K4 b - - 0 1", &net).evaluate()
+    );
+    b.unmake_move(m, undo);
+    assert_eq!(b.accumulators().unwrap(), fresh(&b, &net));
 }

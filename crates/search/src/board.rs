@@ -171,15 +171,18 @@ impl Board {
         }
 
         if let Some(n) = &mut self.nnue {
-            n.push(&MoveDelta {
-                us,
-                moved: piece.kind,
-                placed,
-                from,
-                to,
-                captured: captured.map(|(c, sq)| (c.color, c.kind, sq)),
-                castle,
-            });
+            n.push(
+                &MoveDelta {
+                    us,
+                    moved: piece.kind,
+                    placed,
+                    from,
+                    to,
+                    captured: captured.map(|(c, sq)| (c.color, c.kind, sq)),
+                    castle,
+                },
+                &self.pos,
+            );
         }
 
         debug_assert!(self.len < MAX_HISTORY, "game too long for the key history");

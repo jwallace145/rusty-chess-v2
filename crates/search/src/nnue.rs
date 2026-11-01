@@ -1,7 +1,8 @@
-//! NNUE evaluation: a (768 → H) × 2 → B network with squared clipped ReLU,
-//! quantized to `i16`, evaluated from an accumulator that make and unmake
-//! update incrementally. H is 128, 256 or 512 ([`WIDTHS`]) and B, the output
-//! buckets, 1 or 8 ([`OUTPUT_BUCKETS`]), both read from the file's size; each
+//! NNUE evaluation: a (768 × K → H) × 2 → B network with squared clipped
+//! ReLU, quantized to `i16`, evaluated from an accumulator that make and
+//! unmake update incrementally. H is 128, 256 or 512 ([`WIDTHS`]), B, the
+//! output buckets, 1 or 8 ([`OUTPUT_BUCKETS`]), and K, the king buckets, 1 or
+//! 4 ([`KING_BUCKETS`], `docs/king-buckets.md`), all read from the file's size; each
 //! width's code is compiled separately ([`Net`], [`Acc`]) and chosen once per
 //! call ([`Network`], `NnueState`).
 //!
@@ -11,9 +12,16 @@
 //! king, 64 squares each; black's perspective flips the board vertically
 //! (square ^ 56). This is `bullet`'s `Chess768` layout.
 //!
+//! **King buckets.** With K = 4, each perspective's features are indexed in
+//! its *view*: the bucket of its own king's square ([`KING_BUCKET_LAYOUT`])
+//! and, with the king on files e–h, the board mirrored left to right
+//! (`index ^ 7`). This is `bullet`'s `ChessBucketsMirrored`. K = 1 is a single
+//! view, today's indexing.
+//!
 //! **Hidden layer.** One accumulator of H `i16` values per
 //! perspective: the feature bias plus the weight column of every active
-//! feature. A move only adds and subtracts a few columns.
+//! feature. A move only adds and subtracts a few columns; a king move that
+//! changes its side's view rebuilds that side's accumulator.
 //!
 //! **Output.** For the side to move, `screlu(ours) · w[b][..H] +
 //! screlu(theirs) · w[b][H..]`, scaled back by `QA`, plus the output bias
@@ -23,7 +31,8 @@
 //! bucket 0.
 //!
 //! **File format** (all `i16`, little-endian, in this order; a trailing pad
-//! to a multiple of 64 bytes is allowed): feature weights `[768][H]`,
+//! to a multiple of 64 bytes is allowed): feature weights `[768 × K][H]`
+//! (bucket 0's 768 rows first),
 //! feature bias `[H]`, output weights `[B][2 * H]` (per bucket: ours, then
 //! theirs), output biases `[B]`. At B = 1 this is what `bullet`'s simple example saves
 //! for this architecture at `QA = 255`, `QB = 64`, `SCALE = 400`; the first
@@ -134,6 +143,46 @@ pub const OUTPUT_BUCKETS: [usize; 2] = [1, 8];
 /// The most output buckets a net may have.
 pub const MAX_OUTPUT_BUCKETS: usize = 8;
 
+/// The king bucket counts the engine reads, told apart by file size: one
+/// view (no king buckets), or [`KING_BUCKET_LAYOUT`]'s four.
+pub const KING_BUCKETS: [usize; 2] = [1, 4];
+
+/// The king bucket of each square a mirrored king can stand on, from its own
+/// side of the board: files a–d of ranks 1 to 8, four to a rank. Files e–h
+/// mirror these. Part of the file format: a 4-king-bucket net always means
+/// this table (`docs/king-buckets.md`).
+#[rustfmt::skip]
+pub const KING_BUCKET_LAYOUT: [usize; 32] = [
+    0, 0, 1, 1,
+    2, 2, 2, 2,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+    3, 3, 3, 3,
+];
+
+/// A perspective's view in a net of `king_buckets`: the offset of its king
+/// bucket's features and the XOR that mirrors a square's file, from its own
+/// king's square `ksq` seen from its own side (`square ^ 56` for black).
+#[inline]
+pub const fn king_view(king_buckets: usize, ksq: usize) -> (usize, usize) {
+    if king_buckets == 1 {
+        return (0, 0);
+    }
+    let file = ksq % 8;
+    let (flip, half) = if file > 3 { (7, 7 - file) } else { (0, file) };
+    (INPUTS * KING_BUCKET_LAYOUT[(ksq / 8) * 4 + half], flip)
+}
+
+/// `color`'s king square seen from its own side of the board.
+#[inline]
+fn own_king_square(pos: &Position, color: Color) -> usize {
+    let sq = pos.king_square(color).index();
+    if color == Color::White { sq } else { sq ^ 56 }
+}
+
 /// The output bucket of a position with `pieces` pieces on the board (kings
 /// and pawns included) in a net of `buckets` buckets: the piece counts 2..=32
 /// split into `buckets` bands of `32 / buckets`, fewest pieces first. At 8
@@ -170,9 +219,15 @@ pub const fn file_bytes(hidden: usize) -> usize {
 }
 
 /// The size in bytes of a network file of width `hidden` with `buckets`
-/// output buckets, without padding.
+/// output buckets (one view), without padding.
 pub const fn bucketed_file_bytes(hidden: usize, buckets: usize) -> usize {
-    2 * (INPUTS * hidden + hidden + buckets * (2 * hidden + 1))
+    net_file_bytes(hidden, buckets, 1)
+}
+
+/// The size in bytes of a network file of width `hidden`, `buckets` output
+/// buckets and `king_buckets` king buckets, without padding.
+pub const fn net_file_bytes(hidden: usize, buckets: usize, king_buckets: usize) -> usize {
+    2 * (INPUTS * king_buckets * hidden + hidden + buckets * (2 * hidden + 1))
 }
 
 /// The size in bytes of a 128-neuron network file without padding.
@@ -183,8 +238,11 @@ const CHUNK: usize = 256;
 
 /// A network's quantized weights at width `H`.
 pub struct Net<const H: usize> {
-    /// `[INPUTS][H]`, feature-major: one column per feature.
-    feature_weights: Box<[[i16; H]; INPUTS]>,
+    /// `[INPUTS × king_buckets][H]`, feature-major: one column per feature,
+    /// king bucket 0's first.
+    feature_weights: Box<[[i16; H]]>,
+    /// King buckets, one of [`KING_BUCKETS`].
+    king_buckets: usize,
     feature_bias: [i16; H],
     /// The side to move's half of each bucket's output weights; buckets past
     /// `buckets` are zero and never read.
@@ -201,12 +259,13 @@ impl<const H: usize> Net<H> {
     /// them by summing in chunks of `CHUNK`.
     const VALID: () = assert!(H % 16 == 0 && H > 0);
 
-    fn from_words(next: &mut impl FnMut() -> i16, buckets: usize) -> Result<Net<H>, String> {
+    fn from_words(
+        next: &mut impl FnMut() -> i16,
+        buckets: usize,
+        king_buckets: usize,
+    ) -> Result<Net<H>, String> {
         let () = Self::VALID;
-        let mut feature_weights: Box<[[i16; H]; INPUTS]> = vec![[0i16; H]; INPUTS]
-            .into_boxed_slice()
-            .try_into()
-            .unwrap_or_else(|_| unreachable!("the vector has INPUTS rows"));
+        let mut feature_weights = vec![[0i16; H]; INPUTS * king_buckets].into_boxed_slice();
         for row in feature_weights.iter_mut() {
             for w in row.iter_mut() {
                 *w = next();
@@ -234,6 +293,7 @@ impl<const H: usize> Net<H> {
         }
         Ok(Net {
             feature_weights,
+            king_buckets,
             feature_bias,
             output_us,
             output_them,
@@ -273,6 +333,7 @@ impl<const H: usize> Net<H> {
         );
         let mut net = Net {
             feature_weights,
+            king_buckets: 1,
             feature_bias,
             output_us: [[0; H]; MAX_OUTPUT_BUCKETS],
             output_them: [[0; H]; MAX_OUTPUT_BUCKETS],
@@ -321,12 +382,22 @@ impl<const H: usize> Net<H> {
         out as i32
     }
 
+    /// `perspective`'s view in `pos` (see [`king_view`]).
+    #[inline]
+    fn view(&self, pos: &Position, perspective: Color) -> (usize, usize) {
+        if self.king_buckets == 1 {
+            return (0, 0);
+        }
+        king_view(self.king_buckets, own_king_square(pos, perspective))
+    }
+
     /// The accumulator for `perspective`, computed from scratch.
     pub fn refresh(&self, pos: &Position, perspective: Color) -> Acc<H> {
+        let view = self.view(pos, perspective);
         let mut acc = Acc(self.feature_bias);
         for sq in Square::ALL {
             if let Some(p) = pos.piece_at(sq) {
-                acc.add(self, feature(perspective, p.color, p.kind, sq));
+                acc.add(self, feature_in(view, perspective, p.color, p.kind, sq));
             }
         }
         acc
@@ -349,26 +420,29 @@ pub enum Network {
 
 impl Network {
     /// Read a network from its file bytes (see the module documentation);
-    /// the width and the output buckets are the ones whose size the file has
-    /// (a trailing pad of up to 63 bytes is allowed). Every combination's
-    /// size is thousands of bytes from every other's, so at most one fits.
+    /// the width, the output buckets and the king buckets are the ones whose
+    /// size the file has (a trailing pad of up to 63 bytes is allowed).
+    /// Every combination's size is thousands of bytes from every other's, so
+    /// at most one fits.
     pub fn from_bytes(bytes: &[u8]) -> Result<Network, String> {
         let shapes = || {
-            WIDTHS
-                .iter()
-                .flat_map(|&h| OUTPUT_BUCKETS.iter().map(move |&b| (h, b)))
+            WIDTHS.iter().flat_map(|&h| {
+                OUTPUT_BUCKETS
+                    .iter()
+                    .flat_map(move |&b| KING_BUCKETS.iter().map(move |&k| (h, b, k)))
+            })
         };
-        let (width, buckets) = shapes()
-            .find(|&(h, b)| {
-                let size = bucketed_file_bytes(h, b);
+        let (width, buckets, king_buckets) = shapes()
+            .find(|&(h, b, k)| {
+                let size = net_file_bytes(h, b, k);
                 bytes.len() >= size && bytes.len() - size < 64
             })
             .ok_or_else(|| {
                 let sizes: Vec<String> = shapes()
-                    .map(|(h, b)| {
+                    .map(|(h, b, k)| {
                         format!(
-                            "{INPUTS} → {h} × 2 → {b} ({} bytes)",
-                            bucketed_file_bytes(h, b)
+                            "{INPUTS} × {k} → {h} × 2 → {b} ({} bytes)",
+                            net_file_bytes(h, b, k)
                         )
                     })
                     .collect();
@@ -383,10 +457,19 @@ impl Network {
             .map(|c| i16::from_le_bytes([c[0], c[1]]));
         let mut next = || words.next().expect("length checked above");
         Ok(match width {
-            128 => Network::H128(Net::from_words(&mut next, buckets)?),
-            256 => Network::H256(Net::from_words(&mut next, buckets)?),
-            _ => Network::H512(Net::from_words(&mut next, buckets)?),
+            128 => Network::H128(Net::from_words(&mut next, buckets, king_buckets)?),
+            256 => Network::H256(Net::from_words(&mut next, buckets, king_buckets)?),
+            _ => Network::H512(Net::from_words(&mut next, buckets, king_buckets)?),
         })
+    }
+
+    /// King buckets: 1, or [`KING_BUCKET_LAYOUT`]'s four.
+    pub fn king_buckets(&self) -> usize {
+        match self {
+            Network::H128(n) => n.king_buckets,
+            Network::H256(n) => n.king_buckets,
+            Network::H512(n) => n.king_buckets,
+        }
     }
 
     /// Output buckets: 1, or one per band of piece counts.
@@ -409,7 +492,11 @@ impl Network {
 
     /// The file bytes of this network (for tests and tools).
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(bucketed_file_bytes(self.hidden(), self.buckets()));
+        let mut out = Vec::with_capacity(net_file_bytes(
+            self.hidden(),
+            self.buckets(),
+            self.king_buckets(),
+        ));
         match self {
             Network::H128(n) => n.put_words(&mut out),
             Network::H256(n) => n.put_words(&mut out),
@@ -465,16 +552,29 @@ impl Network {
     }
 }
 
-/// The feature index of a piece from a perspective (see the module
-/// documentation).
+/// The feature index of a piece from a perspective with one view (see the
+/// module documentation).
 #[inline]
 pub fn feature(perspective: Color, color: Color, kind: PieceKind, sq: Square) -> usize {
+    feature_in((0, 0), perspective, color, kind, sq)
+}
+
+/// The feature index of a piece from a perspective in `view` (its king
+/// bucket's offset and file mirror, from [`king_view`]).
+#[inline]
+pub fn feature_in(
+    (base, flip): (usize, usize),
+    perspective: Color,
+    color: Color,
+    kind: PieceKind,
+    sq: Square,
+) -> usize {
     let (theirs, sq) = if perspective == Color::White {
         (color != Color::White, sq.index())
     } else {
         (color != Color::Black, sq.index() ^ 56)
     };
-    usize::from(theirs) * 384 + kind.index() * 64 + sq
+    base + ((usize::from(theirs) * 384 + kind.index() * 64 + sq) ^ flip)
 }
 
 /// One perspective's hidden layer before activation, at width `H`.
@@ -607,6 +707,7 @@ fn push_move<const H: usize>(
     stack: &mut [[Acc<H>; 2]],
     top: &mut usize,
     d: &MoveDelta,
+    pos: &Position,
 ) {
     // Outside a search (a long game played move by move) the stack can fill;
     // it then restarts from the bottom, which is safe because a game is never
@@ -619,18 +720,33 @@ fn push_move<const H: usize>(
     // perspective.
     let (below, above) = stack.split_at_mut(*top + 1);
     let (old, new) = (&below[*top], &mut above[0]);
-    for (i, view) in [Color::White, Color::Black].into_iter().enumerate() {
-        let on = feature(view, d.us, d.placed, d.to);
-        let off = feature(view, d.us, d.moved, d.from);
+    for (i, side) in [Color::White, Color::Black].into_iter().enumerate() {
+        // The side's view after the move (`pos` has made it). Only its own
+        // king moving can change it; then the accumulator is rebuilt.
+        let view = net.view(pos, side);
+        if net.king_buckets > 1 && d.us == side && d.moved == PieceKind::King {
+            let from = if side == Color::White {
+                d.from.index()
+            } else {
+                d.from.index() ^ 56
+            };
+            if king_view(net.king_buckets, from) != view {
+                new[i] = net.refresh(pos, side);
+                continue;
+            }
+        }
+        let f = |color, kind, sq| feature_in(view, side, color, kind, sq);
+        let on = f(d.us, d.placed, d.to);
+        let off = f(d.us, d.moved, d.from);
         match (d.captured, d.castle) {
             (Some((color, kind, sq)), _) => {
-                new[i].add_sub_sub(&old[i], net, on, off, feature(view, color, kind, sq))
+                new[i].add_sub_sub(&old[i], net, on, off, f(color, kind, sq))
             }
             (None, Some((rook_from, rook_to))) => new[i].add_add_sub_sub(
                 &old[i],
                 net,
-                [on, feature(view, d.us, PieceKind::Rook, rook_to)],
-                [off, feature(view, d.us, PieceKind::Rook, rook_from)],
+                [on, f(d.us, PieceKind::Rook, rook_to)],
+                [off, f(d.us, PieceKind::Rook, rook_from)],
             ),
             (None, None) => new[i].add_sub(&old[i], net, on, off),
         }
@@ -664,13 +780,13 @@ impl NnueState {
         }
     }
 
-    /// Push the accumulators after a move.
+    /// Push the accumulators after a move; `pos` is the position after it.
     #[inline]
-    pub(crate) fn push(&mut self, d: &MoveDelta) {
+    pub(crate) fn push(&mut self, d: &MoveDelta, pos: &Position) {
         match (&*self.net, &mut self.stack) {
-            (Network::H128(n), Stack::H128(s)) => push_move(n, s, &mut self.top, d),
-            (Network::H256(n), Stack::H256(s)) => push_move(n, s, &mut self.top, d),
-            (Network::H512(n), Stack::H512(s)) => push_move(n, s, &mut self.top, d),
+            (Network::H128(n), Stack::H128(s)) => push_move(n, s, &mut self.top, d, pos),
+            (Network::H256(n), Stack::H256(s)) => push_move(n, s, &mut self.top, d, pos),
+            (Network::H512(n), Stack::H512(s)) => push_move(n, s, &mut self.top, d, pos),
             _ => unreachable!("the stack has the network's width"),
         }
     }
