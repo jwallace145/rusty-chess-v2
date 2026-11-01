@@ -32,15 +32,20 @@ on:
         required: true
         default: "0,1"
       hidden:
-        description: Hidden neurons per perspective (a multiple of 16). The engine reads 128 today; another width trains, but skips the engine check until the engine reads it
+        description: Hidden neurons per perspective (a multiple of 16). The engine reads 128, 256 and 512; another width trains, but skips the engine check until the engine reads it
         required: true
         default: "128"
+      output-buckets:
+        description: Output layers chosen by piece count, (pieces - 2) / 4 (1 is a single output)
+        type: choice
+        options: ["1", "8"]
+        default: "1"
       val-fraction:
         description: Share of workers held out for validation
         required: false
         default: "0.05"
 
-run-name: "Train: ${{ inputs.net-id }} ${{ inputs.hidden }} hidden, λ ${{ inputs.wdl }}, ${{ inputs.superbatches }} superbatches, gen ${{ inputs.generations }}"
+run-name: "Train: ${{ inputs.net-id }} ${{ inputs.hidden }} hidden${{ inputs.output-buckets != '1' && format(' × {0} buckets', inputs.output-buckets) || '' }}, λ ${{ inputs.wdl }}, ${{ inputs.superbatches }} superbatches, gen ${{ inputs.generations }}"
 
 permissions: {}
 
@@ -63,6 +68,7 @@ jobs:
           GENERATIONS: ${{ inputs.generations }}
           VAL_FRACTION: ${{ inputs.val-fraction }}
           HIDDEN: ${{ inputs.hidden }}
+          BUCKETS: ${{ inputs.output-buckets }}
           RUN_ID: ${{ github.run_id }}
         run: |
           [[ "$NET_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "::error::net-id must be lower-case letters, digits and '-'"; exit 1; }
@@ -83,8 +89,8 @@ jobs:
             awk -v x="$l" 'BEGIN { exit !(x ~ /^(0(\.[0-9]+)?|1(\.0+)?)$/) }' || { echo "::error::λ must be in 0..1, got $l"; exit 1; }
             tag=$(awk -v x="$l" 'BEGIN { printf "%03d", x * 100 + 0.5 }')
             id="$NET_ID-l$tag-r$RUN_ID"
-            args=$(jq -cn --argjson d "$datasets" --arg n "$nets" --arg id "$id" --arg l "$l" --arg sb "$SUPERBATCHES" --arg v "$VAL_FRACTION" --arg h "$HIDDEN" \
-              '$d + ["--nets", $n, "--net-id", $id, "--wdl", $l, "--superbatches", $sb, "--val-fraction", $v, "--hidden", $h]')
+            args=$(jq -cn --argjson d "$datasets" --arg n "$nets" --arg id "$id" --arg l "$l" --arg sb "$SUPERBATCHES" --arg v "$VAL_FRACTION" --arg h "$HIDDEN" --arg b "$BUCKETS" \
+              '$d + ["--nets", $n, "--net-id", $id, "--wdl", $l, "--superbatches", $sb, "--val-fraction", $v, "--hidden", $h, "--output-buckets", $b]')
             list=$(jq -c --arg id "$id" --arg l "$l" --arg a "$args" '. + [{net_id: $id, wdl: $l, args: $a}]' <<< "$list")
             echo "net $id: λ $l, $SUPERBATCHES superbatches, from generations $GENERATIONS"
           done

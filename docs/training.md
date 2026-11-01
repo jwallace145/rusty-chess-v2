@@ -35,7 +35,7 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
      written.
      `bullet-utils shuffle` seeds itself from the clock, which is why the
      trainer shuffles itself.
-2. **`rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--checkpoint-every 4] [--val-positions 4000000]`**
+2. **`rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--output-buckets 1] [--checkpoint-every 4] [--val-positions 4000000]`**
    - **Width:** `--hidden` sets the hidden neurons per perspective (a
      multiple of 16, up to 1024; 128 by default). The `Train` workflow's
      `hidden` input passes it on, and `training.json` records it.
@@ -44,9 +44,19 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
      and is uploaded, but the engine-to-trainer check is skipped and recorded
      as not run (`check_passed: null`). Run `nnue-eval --check` on it once
      the engine reads that width.
-   - **Scoring:** the checkpoint scorer and `validate` infer the width from
-     the file's size, so they score nets of any width.
-   - **The network:** (768 → H) × 2 → 1 with SCReLU and `Chess768` inputs,
+   - **Output buckets:** `--output-buckets 8` gives the net 8 output layers,
+     one chosen per position by its piece count, `(pieces − 2) / 4` (bullet's
+     `MaterialCount<8>`, the engine's `nnue::output_bucket`); 1, the default,
+     is a single output. The `Train` workflow's `output-buckets` input passes
+     it on, and `training.json` records it (`output_buckets`). bullet keeps
+     the output layer column-major, so `raw.bin` interleaves the buckets'
+     weights; `net.nnue` is saved transposed, each bucket's 2H weights
+     together, the engine's order ([nnue.md](nnue.md#output-buckets)).
+   - **Scoring:** the checkpoint scorer and `validate` infer the width and the
+     buckets from the file's size, so they score nets of any width, in either
+     order. A quantised file whose size two shapes fit within the padding
+     (880 neurons with 8 buckets and 896 with 1) is refused.
+   - **The network:** (768 → H) × 2 → B with SCReLU and `Chess768` inputs,
      as in bullet's reference example (H = 128 there). The default net is
      512 wide since `v0.36.0`.
    - **Loss:** `sigmoid(output)` against `λ · result + (1 − λ) · sigmoid(score / 400)`.
