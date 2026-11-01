@@ -7,6 +7,12 @@
 
 * **nnue:** record generation 5 and its audit, and net6k4's SPRT and rating ([#177](https://github.com/jwallace145/rusty-chess-v2/issues/177)) ([1d50071](https://github.com/jwallace145/rusty-chess-v2/commit/1d500712f0231699bd4cd274a145ab2d5999e3c8))
 
+### Benchmarks
+
+* bench signature 1,046,838, instructions per node 4143, search 1.42M NPS, perft 202.21M NPS (pass (63)), fail-high first 87.9%, EBF 1.86, TT hit 51.8%
+* since v0.42.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.0%, search NPS −9.6%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.42.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.41.0...v0.42.0) (2026-11-01)
 
 
