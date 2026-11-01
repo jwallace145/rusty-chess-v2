@@ -51,10 +51,12 @@ size.
 |:--|--:|
 | feature weights, feature-major (`[768][HIDDEN]`) | 98,304 |
 | feature bias | 128 |
-| output weights (our perspective, then theirs) | 256 |
-| output bias | 1 |
+| output weights, per bucket (our perspective, then theirs) | 256 × B |
+| output biases | B |
 
-That is 197,378 bytes at `HIDDEN = 128`. It is the layout `bullet`'s simple
+That is 197,378 bytes at `HIDDEN = 128` with one bucket (B = 1). A bucketed
+net (B = 8, *Output buckets* below) stores bucket 0's output weights first,
+then bucket 1's, and so on, then the eight biases. It is the layout `bullet`'s simple
 example saves for this architecture. **Before the first trained net is
 used,** check a handful of positions against the trainer's own evaluation of
 them. A mismatch means the layout or a scale is off, not that the net is
@@ -93,6 +95,32 @@ bytes, plus up to 63 of padding.
   exact at any width: the same as summing in 64 bits. At 128 and 256 there's
   one run a side, as before 512 existed. Tests check the extreme cases: at
   256 the two sides together pass 32 bits, and at 512 one side alone does.
+
+## Output buckets
+
+A net can have **8 output layers** instead of one, chosen per position by
+the number of pieces on the board (kings and pawns included):
+`(pieces − 2) / 4`, so 2–5 pieces is bucket 0 and 30–32 bucket 7. This is
+`bullet`'s `MaterialCount<8>`. The hidden layer is shared; only the final
+weighting changes, so endgames, middlegames and openings each get their own.
+
+- **Read from the size:** `nnue::OUTPUT_BUCKETS` is 1 or 8, told apart by
+  file size like the widths. The six shapes are thousands of bytes apart:
+
+  | Width | 1 bucket | 8 buckets |
+  |--:|--:|--:|
+  | 128 | 197,378 | 200,976 |
+  | 256 | 394,754 | 401,936 |
+  | 512 | 789,506 | 803,856 |
+
+- **Cost:** one evaluation still computes one output: the bucket's weights
+  over the same 2 × H activations, plus a population count of the board.
+  The extra weights are 7 × 2H + 7 values (about 14 KB at 512).
+- **Single-bucket nets are unchanged:** they always use bucket 0, so every
+  embedded net's bench signature is the same as before buckets existed.
+- **Exactness:** each bucket's sum is the same computation as a
+  single-bucket net's, so the bound above holds in every bucket. Tests check
+  the extremes and random accumulators in every bucket of every shape.
 
 ## The embedded nets
 

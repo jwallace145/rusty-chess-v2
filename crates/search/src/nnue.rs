@@ -1,8 +1,9 @@
-//! NNUE evaluation: a (768 → H) × 2 → 1 network with squared clipped ReLU,
+//! NNUE evaluation: a (768 → H) × 2 → B network with squared clipped ReLU,
 //! quantized to `i16`, evaluated from an accumulator that make and unmake
-//! update incrementally. H is 128, 256 or 512 ([`WIDTHS`]), read from the file's
-//! size; each width's code is compiled separately ([`Net`], [`Acc`]) and
-//! chosen once per call ([`Network`], `NnueState`).
+//! update incrementally. H is 128, 256 or 512 ([`WIDTHS`]) and B, the output
+//! buckets, 1 or 8 ([`OUTPUT_BUCKETS`]), both read from the file's size; each
+//! width's code is compiled separately ([`Net`], [`Acc`]) and chosen once per
+//! call ([`Network`], `NnueState`).
 //!
 //! **Inputs.** 768 features per perspective: one for each colour, piece kind
 //! and square. From a perspective, "our" pieces are features 0–383 and the
@@ -14,14 +15,17 @@
 //! perspective: the feature bias plus the weight column of every active
 //! feature. A move only adds and subtracts a few columns.
 //!
-//! **Output.** For the side to move, `screlu(ours) · w[..H] +
-//! screlu(theirs) · w[H..]`, scaled back by `QA`, plus the output bias, times
-//! [`SCALE`] over `QA · QB`, in centipawns. `screlu(x) = clamp(x, 0, QA)²`.
+//! **Output.** For the side to move, `screlu(ours) · w[b][..H] +
+//! screlu(theirs) · w[b][H..]`, scaled back by `QA`, plus the output bias
+//! `bias[b]`, times [`SCALE`] over `QA · QB`, in centipawns.
+//! `screlu(x) = clamp(x, 0, QA)²`. The bucket `b` comes from the number of
+//! pieces on the board ([`output_bucket`]); a single-bucket net always uses
+//! bucket 0.
 //!
 //! **File format** (all `i16`, little-endian, in this order; a trailing pad
 //! to a multiple of 64 bytes is allowed): feature weights `[768][H]`,
-//! feature bias `[H]`, output weights `[2 * H]` (ours, then
-//! theirs), output bias `[1]`. This is what `bullet`'s simple example saves
+//! feature bias `[H]`, output weights `[B][2 * H]` (per bucket: ours, then
+//! theirs), output biases `[B]`. At B = 1 this is what `bullet`'s simple example saves
 //! for this architecture at `QA = 255`, `QB = 64`, `SCALE = 400`; the first
 //! trained net is checked against the trainer's own evaluation of a few
 //! positions before it is used (see `docs/nnue.md`).
@@ -117,6 +121,25 @@ pub const HIDDEN: usize = 128;
 /// The hidden-layer widths the engine reads, told apart by file size.
 pub const WIDTHS: [usize; 3] = [128, 256, 512];
 
+/// The output bucket counts the engine reads, told apart by file size: one
+/// output layer, or one per band of piece counts ([`output_bucket`]).
+pub const OUTPUT_BUCKETS: [usize; 2] = [1, 8];
+
+/// The most output buckets a net may have.
+pub const MAX_OUTPUT_BUCKETS: usize = 8;
+
+/// The output bucket of a position with `pieces` pieces on the board (kings
+/// and pawns included) in a net of `buckets` buckets: the piece counts 2..=32
+/// split into `buckets` bands of `32 / buckets`, fewest pieces first. At 8
+/// buckets, 2–5 pieces are bucket 0 and 30–32 bucket 7. This is `bullet`'s
+/// `MaterialCount<buckets>`. A single-bucket net is always bucket 0.
+#[inline]
+pub const fn output_bucket(pieces: u32, buckets: usize) -> usize {
+    let band = 32usize.div_ceil(buckets);
+    let b = (pieces as usize).saturating_sub(2) / band;
+    if b < buckets { b } else { buckets - 1 }
+}
+
 /// Input features per perspective.
 pub const INPUTS: usize = 768;
 
@@ -134,9 +157,16 @@ pub const SCALE: i32 = 400;
 /// exact in 16- and 32-bit arithmetic (see [`Net::evaluate`]).
 pub const MAX_OUTPUT_WEIGHT: i16 = 127;
 
-/// The size in bytes of a network file of width `hidden`, without padding.
+/// The size in bytes of a single-bucket network file of width `hidden`,
+/// without padding.
 pub const fn file_bytes(hidden: usize) -> usize {
-    2 * (INPUTS * hidden + hidden + 2 * hidden + 1)
+    bucketed_file_bytes(hidden, 1)
+}
+
+/// The size in bytes of a network file of width `hidden` with `buckets`
+/// output buckets, without padding.
+pub const fn bucketed_file_bytes(hidden: usize, buckets: usize) -> usize {
+    2 * (INPUTS * hidden + hidden + buckets * (2 * hidden + 1))
 }
 
 /// The size in bytes of a 128-neuron network file without padding.
@@ -150,11 +180,14 @@ pub struct Net<const H: usize> {
     /// `[INPUTS][H]`, feature-major: one column per feature.
     feature_weights: Box<[[i16; H]; INPUTS]>,
     feature_bias: [i16; H],
-    /// The side to move's half of the output weights.
-    output_us: [i16; H],
+    /// The side to move's half of each bucket's output weights; buckets past
+    /// `buckets` are zero and never read.
+    output_us: [[i16; H]; MAX_OUTPUT_BUCKETS],
     /// The other side's half.
-    output_them: [i16; H],
-    output_bias: i16,
+    output_them: [[i16; H]; MAX_OUTPUT_BUCKETS],
+    output_bias: [i16; MAX_OUTPUT_BUCKETS],
+    /// Output buckets in use, one of [`OUTPUT_BUCKETS`].
+    buckets: usize,
 }
 
 impl<const H: usize> Net<H> {
@@ -162,7 +195,7 @@ impl<const H: usize> Net<H> {
     /// them by summing in chunks of `CHUNK`.
     const VALID: () = assert!(H % 16 == 0 && H > 0);
 
-    fn from_words(next: &mut impl FnMut() -> i16) -> Result<Net<H>, String> {
+    fn from_words(next: &mut impl FnMut() -> i16, buckets: usize) -> Result<Net<H>, String> {
         let () = Self::VALID;
         let mut feature_weights: Box<[[i16; H]; INPUTS]> = vec![[0i16; H]; INPUTS]
             .into_boxed_slice()
@@ -175,14 +208,18 @@ impl<const H: usize> Net<H> {
         }
         let mut feature_bias = [0i16; H];
         feature_bias.iter_mut().for_each(|b| *b = next());
-        let mut output_us = [0i16; H];
-        output_us.iter_mut().for_each(|w| *w = next());
-        let mut output_them = [0i16; H];
-        output_them.iter_mut().for_each(|w| *w = next());
-        let output_bias = next();
+        let mut output_us = [[0i16; H]; MAX_OUTPUT_BUCKETS];
+        let mut output_them = [[0i16; H]; MAX_OUTPUT_BUCKETS];
+        for b in 0..buckets {
+            output_us[b].iter_mut().for_each(|w| *w = next());
+            output_them[b].iter_mut().for_each(|w| *w = next());
+        }
+        let mut output_bias = [0i16; MAX_OUTPUT_BUCKETS];
+        output_bias[..buckets].iter_mut().for_each(|w| *w = next());
         if let Some(w) = output_us
             .iter()
             .chain(&output_them)
+            .flatten()
             .find(|w| w.abs() > MAX_OUTPUT_WEIGHT)
         {
             return Err(format!(
@@ -195,6 +232,7 @@ impl<const H: usize> Net<H> {
             output_us,
             output_them,
             output_bias,
+            buckets,
         })
     }
 
@@ -202,12 +240,16 @@ impl<const H: usize> Net<H> {
         let mut put = |w: i16| out.extend_from_slice(&w.to_le_bytes());
         self.feature_weights.iter().flatten().for_each(|&w| put(w));
         self.feature_bias.iter().for_each(|&w| put(w));
-        self.output_us.iter().for_each(|&w| put(w));
-        self.output_them.iter().for_each(|&w| put(w));
-        put(self.output_bias);
+        for b in 0..self.buckets {
+            self.output_us[b].iter().for_each(|&w| put(w));
+            self.output_them[b].iter().for_each(|&w| put(w));
+        }
+        self.output_bias[..self.buckets]
+            .iter()
+            .for_each(|&w| put(w));
     }
 
-    /// A network from explicit weights (for tests and tools).
+    /// A single-bucket network from explicit weights (for tests and tools).
     pub fn from_parts(
         feature_weights: Box<[[i16; H]; INPUTS]>,
         feature_bias: [i16; H],
@@ -223,19 +265,25 @@ impl<const H: usize> Net<H> {
                 .all(|w| w.abs() <= MAX_OUTPUT_WEIGHT),
             "output weights must be within ±{MAX_OUTPUT_WEIGHT}"
         );
-        Net {
+        let mut net = Net {
             feature_weights,
             feature_bias,
-            output_us,
-            output_them,
-            output_bias,
-        }
+            output_us: [[0; H]; MAX_OUTPUT_BUCKETS],
+            output_them: [[0; H]; MAX_OUTPUT_BUCKETS],
+            output_bias: [0; MAX_OUTPUT_BUCKETS],
+            buckets: 1,
+        };
+        net.output_us[0] = output_us;
+        net.output_them[0] = output_them;
+        net.output_bias[0] = output_bias;
+        net
     }
 
     /// The evaluation in centipawns for the side to move, from the
-    /// accumulators of the side to move (`us`) and its opponent (`them`).
+    /// accumulators of the side to move (`us`) and its opponent (`them`), in
+    /// a position with `pieces` pieces on the board.
     #[inline]
-    pub fn evaluate(&self, us: &Acc<H>, them: &Acc<H>) -> i32 {
+    pub fn evaluate(&self, us: &Acc<H>, them: &Acc<H>, pieces: u32) -> i32 {
         // screlu(x) · w computed as (c · w) · c with c = clamp(x, 0, QA). With
         // every output weight within ±MAX_OUTPUT_WEIGHT (enforced at load),
         // c · w fits an i16 (255 · 127 = 32,385), and a run of CHUNK terms an
@@ -260,8 +308,9 @@ impl<const H: usize> Net<H> {
                 })
                 .sum()
         };
-        let sum = side(&us.0, &self.output_us) + side(&them.0, &self.output_them);
-        let out = (sum / i64::from(QA) + i64::from(self.output_bias)) * i64::from(SCALE)
+        let b = output_bucket(pieces, self.buckets);
+        let sum = side(&us.0, &self.output_us[b]) + side(&them.0, &self.output_them[b]);
+        let out = (sum / i64::from(QA) + i64::from(self.output_bias[b])) * i64::from(SCALE)
             / i64::from(QA * QB);
         out as i32
     }
@@ -294,17 +343,28 @@ pub enum Network {
 
 impl Network {
     /// Read a network from its file bytes (see the module documentation);
-    /// the width is the one whose size the file has (a trailing pad of up to
-    /// 63 bytes is allowed).
+    /// the width and the output buckets are the ones whose size the file has
+    /// (a trailing pad of up to 63 bytes is allowed). Every combination's
+    /// size is thousands of bytes from every other's, so at most one fits.
     pub fn from_bytes(bytes: &[u8]) -> Result<Network, String> {
-        let width = WIDTHS
-            .iter()
-            .copied()
-            .find(|&h| bytes.len() >= file_bytes(h) && bytes.len() - file_bytes(h) < 64)
+        let shapes = || {
+            WIDTHS
+                .iter()
+                .flat_map(|&h| OUTPUT_BUCKETS.iter().map(move |&b| (h, b)))
+        };
+        let (width, buckets) = shapes()
+            .find(|&(h, b)| {
+                let size = bucketed_file_bytes(h, b);
+                bytes.len() >= size && bytes.len() - size < 64
+            })
             .ok_or_else(|| {
-                let sizes: Vec<String> = WIDTHS
-                    .iter()
-                    .map(|&h| format!("{INPUTS} → {h} × 2 → 1 ({} bytes)", file_bytes(h)))
+                let sizes: Vec<String> = shapes()
+                    .map(|(h, b)| {
+                        format!(
+                            "{INPUTS} → {h} × 2 → {b} ({} bytes)",
+                            bucketed_file_bytes(h, b)
+                        )
+                    })
                     .collect();
                 format!(
                     "a network is {}, plus up to 63 bytes of padding; this file is {} bytes",
@@ -317,10 +377,19 @@ impl Network {
             .map(|c| i16::from_le_bytes([c[0], c[1]]));
         let mut next = || words.next().expect("length checked above");
         Ok(match width {
-            128 => Network::H128(Net::from_words(&mut next)?),
-            256 => Network::H256(Net::from_words(&mut next)?),
-            _ => Network::H512(Net::from_words(&mut next)?),
+            128 => Network::H128(Net::from_words(&mut next, buckets)?),
+            256 => Network::H256(Net::from_words(&mut next, buckets)?),
+            _ => Network::H512(Net::from_words(&mut next, buckets)?),
         })
+    }
+
+    /// Output buckets: 1, or one per band of piece counts.
+    pub fn buckets(&self) -> usize {
+        match self {
+            Network::H128(n) => n.buckets,
+            Network::H256(n) => n.buckets,
+            Network::H512(n) => n.buckets,
+        }
     }
 
     /// Hidden neurons per perspective.
@@ -334,7 +403,7 @@ impl Network {
 
     /// The file bytes of this network (for tests and tools).
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(file_bytes(self.hidden()));
+        let mut out = Vec::with_capacity(bucketed_file_bytes(self.hidden(), self.buckets()));
         match self {
             Network::H128(n) => n.put_words(&mut out),
             Network::H256(n) => n.put_words(&mut out),
@@ -361,16 +430,21 @@ impl Network {
         ))
     }
 
-    /// The evaluation from accumulators given as plain values (for tests and
-    /// tools; the search uses [`NnueState`]).
-    pub fn evaluate_values(&self, us: &[i16], them: &[i16]) -> i32 {
-        fn at<const H: usize>(n: &Net<H>, us: &[i16], them: &[i16]) -> i32 {
-            n.evaluate(&Acc(us.try_into().unwrap()), &Acc(them.try_into().unwrap()))
+    /// The evaluation from accumulators given as plain values, in a position
+    /// with `pieces` pieces on the board (for tests and tools; the search
+    /// uses [`NnueState`]).
+    pub fn evaluate_values(&self, us: &[i16], them: &[i16], pieces: u32) -> i32 {
+        fn at<const H: usize>(n: &Net<H>, us: &[i16], them: &[i16], pieces: u32) -> i32 {
+            n.evaluate(
+                &Acc(us.try_into().unwrap()),
+                &Acc(them.try_into().unwrap()),
+                pieces,
+            )
         }
         match self {
-            Network::H128(n) => at(n, us, them),
-            Network::H256(n) => at(n, us, them),
-            Network::H512(n) => at(n, us, them),
+            Network::H128(n) => at(n, us, them, pieces),
+            Network::H256(n) => at(n, us, them, pieces),
+            Network::H512(n) => at(n, us, them, pieces),
         }
     }
 
@@ -570,14 +644,16 @@ impl NnueState {
         NnueState { net, stack, top: 0 }
     }
 
-    /// The evaluation for the side to move.
+    /// The evaluation for the side to move, with `pieces` pieces on the
+    /// board.
     #[inline]
-    pub(crate) fn evaluate(&self, stm: Color) -> i32 {
+    pub(crate) fn evaluate(&self, stm: Color, pieces: u32) -> i32 {
         let w = usize::from(stm != Color::White);
+        let t = self.top;
         match (&*self.net, &self.stack) {
-            (Network::H128(n), Stack::H128(s)) => n.evaluate(&s[self.top][w], &s[self.top][1 - w]),
-            (Network::H256(n), Stack::H256(s)) => n.evaluate(&s[self.top][w], &s[self.top][1 - w]),
-            (Network::H512(n), Stack::H512(s)) => n.evaluate(&s[self.top][w], &s[self.top][1 - w]),
+            (Network::H128(n), Stack::H128(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
+            (Network::H256(n), Stack::H256(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
+            (Network::H512(n), Stack::H512(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
             _ => unreachable!("the stack has the network's width"),
         }
     }

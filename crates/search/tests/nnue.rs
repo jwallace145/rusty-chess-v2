@@ -10,8 +10,8 @@ use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
 use rusty_chess_search::nnue::{
-    DEFAULT_NET_ID, INPUTS, MAX_OUTPUT_WEIGHT, NETS, Network, QA, QB, SCALE, WIDTHS,
-    default_network, file_bytes, network_by_id,
+    DEFAULT_NET_ID, INPUTS, MAX_OUTPUT_WEIGHT, NETS, Network, OUTPUT_BUCKETS, QA, QB, SCALE,
+    WIDTHS, bucketed_file_bytes, default_network, file_bytes, network_by_id, output_bucket,
 };
 use rusty_chess_search::search::{Limits, Searcher};
 
@@ -28,37 +28,49 @@ impl Rng {
     }
 }
 
-/// A network of width `hidden` from its weights in file order: feature
-/// weights, feature bias, output weights (ours, theirs), output bias.
-fn net_from(hidden: usize, mut word: impl FnMut(usize) -> i16) -> Network {
-    let words = file_bytes(hidden) / 2;
+/// Every (width, output buckets) the engine reads.
+fn shapes() -> impl Iterator<Item = (usize, usize)> {
+    WIDTHS
+        .iter()
+        .flat_map(|&h| OUTPUT_BUCKETS.iter().map(move |&b| (h, b)))
+}
+
+/// A network of width `hidden` with `buckets` output buckets from its weights
+/// in file order: feature weights, feature bias, each bucket's output weights
+/// (ours, theirs), the output biases.
+fn net_from(hidden: usize, buckets: usize, mut word: impl FnMut(usize) -> i16) -> Network {
+    let words = bucketed_file_bytes(hidden, buckets) / 2;
     let bytes: Vec<u8> = (0..words).flat_map(|i| word(i).to_le_bytes()).collect();
     Network::from_bytes(&bytes).unwrap()
 }
 
+/// Where a net's sections start, in words: feature bias, output weights,
+/// output biases.
+fn sections(hidden: usize, buckets: usize) -> (usize, usize, usize) {
+    let fb = INPUTS * hidden;
+    let ow = fb + hidden;
+    (fb, ow, ow + buckets * 2 * hidden)
+}
+
 /// A random network with weights of the size a trained net has.
-fn random_net(seed: u64, hidden: usize) -> Network {
+fn random_net(seed: u64, hidden: usize, buckets: usize) -> Network {
     let mut rng = Rng(seed | 1);
-    let (fw, fb, ow) = (
-        INPUTS * hidden,
-        INPUTS * hidden + hidden,
-        INPUTS * hidden + 3 * hidden,
-    );
-    net_from(hidden, |i| match i {
-        _ if i < fw => rng.range(-40, 40),
-        _ if i < fb => rng.range(-40, 120),
-        _ if i < ow => rng.range(-127, 127),
+    let (fb, ow, ob) = sections(hidden, buckets);
+    net_from(hidden, buckets, |i| match i {
+        _ if i < fb => rng.range(-40, 40),
+        _ if i < ow => rng.range(-40, 120),
+        _ if i < ob => rng.range(-127, 127),
         _ => rng.range(-2000, 2000),
     })
 }
 
 /// A network with zero hidden weights and biases, every output weight `w`
-/// and output bias `bias`.
-fn flat_net(hidden: usize, w: i16, bias: i16) -> Network {
-    let (fb, ow) = (INPUTS * hidden + hidden, INPUTS * hidden + 3 * hidden);
-    net_from(hidden, |i| match i {
-        _ if i < fb => 0,
-        _ if i < ow => w,
+/// and every output bias `bias`.
+fn flat_net(hidden: usize, buckets: usize, w: i16, bias: i16) -> Network {
+    let (_, ow, ob) = sections(hidden, buckets);
+    net_from(hidden, buckets, |i| match i {
+        _ if i < ow => 0,
+        _ if i < ob => w,
         _ => bias,
     })
 }
@@ -79,10 +91,10 @@ fn fresh(b: &Board, net: &Network) -> [Vec<i16>; 2] {
 
 #[test]
 fn a_network_file_round_trips_and_wrong_sizes_are_refused() {
-    for &h in &WIDTHS {
-        let size = file_bytes(h);
-        let net = random_net(1, h);
-        assert_eq!(net.hidden(), h);
+    for (h, buckets) in shapes() {
+        let size = bucketed_file_bytes(h, buckets);
+        let net = random_net(1, h, buckets);
+        assert_eq!((net.hidden(), net.buckets()), (h, buckets));
         let bytes = net.to_bytes();
         assert_eq!(bytes.len(), size);
         let back = Network::from_bytes(&bytes).unwrap();
@@ -90,7 +102,8 @@ fn a_network_file_round_trips_and_wrong_sizes_are_refused() {
         // Padding to a multiple of 64 bytes is accepted.
         let mut padded = bytes.clone();
         padded.resize(size.div_ceil(64) * 64, 0);
-        assert_eq!(Network::from_bytes(&padded).unwrap().hidden(), h);
+        let back = Network::from_bytes(&padded).unwrap();
+        assert_eq!((back.hidden(), back.buckets()), (h, buckets));
         assert!(Network::from_bytes(&bytes[..size - 2]).is_err());
         let mut long = bytes;
         long.resize(size + 64, 0);
@@ -105,13 +118,17 @@ fn a_network_file_round_trips_and_wrong_sizes_are_refused() {
 fn the_output_is_the_bias_scaled_when_nothing_activates() {
     // All-zero hidden weights and bias: every activation is 0, so the output
     // is the bias times SCALE over QA · QB.
-    for &h in &WIDTHS {
-        let net = Arc::new(flat_net(h, 7, 6_400));
+    for (h, buckets) in shapes() {
+        let net = Arc::new(flat_net(h, buckets, 7, 6_400));
         let b = board(
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             &net,
         );
-        assert_eq!(b.evaluate(), 6_400 * SCALE / (QA * QB), "width {h}");
+        assert_eq!(
+            b.evaluate(),
+            6_400 * SCALE / (QA * QB),
+            "width {h}, {buckets} buckets"
+        );
     }
 }
 
@@ -125,7 +142,7 @@ fn make_and_unmake_keep_the_accumulators_equal_to_a_fresh_computation() {
 fn walks(hidden: usize) {
     // Random walks from positions that reach castling, en passant,
     // promotion and captures, checked at every ply going down and up.
-    let net = Arc::new(random_net(7, hidden));
+    let net = Arc::new(random_net(7, hidden, 1));
     for (i, fen) in [
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
@@ -171,7 +188,7 @@ fn a_long_game_played_forward_wraps_the_stack_safely() {
     // More plies than the stack holds, played without unmaking, as the UCI
     // `position ... moves` and self-play do.
     for &h in &WIDTHS {
-        let net = Arc::new(random_net(11, h));
+        let net = Arc::new(random_net(11, h, 1));
         let mut b = board(
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             &net,
@@ -190,13 +207,13 @@ fn a_long_game_played_forward_wraps_the_stack_safely() {
 #[test]
 fn the_evaluation_is_the_same_for_a_mirrored_position() {
     // Perspective features make a net colour-symmetric by construction.
-    for &h in &WIDTHS {
-        mirrored_at(h);
+    for (h, buckets) in shapes() {
+        mirrored_at(h, buckets);
     }
 }
 
-fn mirrored_at(hidden: usize) {
-    let net = Arc::new(random_net(3, hidden));
+fn mirrored_at(hidden: usize, buckets: usize) {
+    let net = Arc::new(random_net(3, hidden, buckets));
     for (fen, mirrored) in [
         (
             "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w - - 4 4",
@@ -231,7 +248,7 @@ fn a_search_with_a_network_runs_and_without_one_is_unchanged() {
     let plain = run(None);
     let again = run(None);
     assert_eq!((plain.best, plain.nodes), (again.best, again.nodes));
-    let with_net = run(Some(Arc::new(random_net(5, 256))));
+    let with_net = run(Some(Arc::new(random_net(5, 256, 1))));
     let mut list = MoveList::new();
     Position::from_fen(fen).unwrap().legal_moves(&mut list);
     assert!(list.as_slice().contains(&with_net.best));
@@ -296,17 +313,19 @@ struct Output {
     bias: i16,
 }
 
-/// A net's output layer, read back from its file bytes.
-fn output_layer(net: &Network) -> Output {
+/// Bucket `bucket` of a net's output layer, read back from its file bytes.
+fn output_layer(net: &Network, bucket: usize) -> Output {
     let h = net.hidden();
+    let (_, ow, ob) = sections(h, net.buckets());
     let words: Vec<i16> = net
         .to_bytes()
         .chunks_exact(2)
         .map(|c| i16::from_le_bytes([c[0], c[1]]))
         .collect();
+    let start = ow + bucket * 2 * h;
     Output {
-        weights: words[INPUTS * h + h..INPUTS * h + 3 * h].to_vec(),
-        bias: words[INPUTS * h + 3 * h],
+        weights: words[start..start + 2 * h].to_vec(),
+        bias: words[ob + bucket],
     }
 }
 
@@ -331,18 +350,38 @@ fn the_output_is_exact_at_the_extremes_and_on_random_accumulators() {
     // alone does. These are the cases that need the sum in i32 chunks of 256
     // and the chunks added in i64.
     let mut nets = Vec::new();
-    for &h in &WIDTHS {
-        nets.push(flat_net(h, MAX_OUTPUT_WEIGHT, 0));
-        nets.push(flat_net(h, -MAX_OUTPUT_WEIGHT, 0));
-        nets.push(random_net(5, h));
+    for (h, buckets) in shapes() {
+        nets.push(flat_net(h, buckets, MAX_OUTPUT_WEIGHT, 0));
+        nets.push(flat_net(h, buckets, -MAX_OUTPUT_WEIGHT, 0));
+        nets.push(random_net(5, h, buckets));
     }
     nets.push(Network::from_bytes(&default_network().to_bytes()).unwrap());
     for net in &nets {
+        for bucket in 0..net.buckets() {
+            exact_in_bucket(net, bucket, &mut rng);
+        }
+    }
+}
+
+/// A piece count that selects `bucket` in `net`.
+fn pieces_for(net: &Network, bucket: usize) -> u32 {
+    (2..=32)
+        .find(|&p| output_bucket(p, net.buckets()) == bucket)
+        .expect("every bucket has a piece count")
+}
+
+fn exact_in_bucket(net: &Network, bucket: usize, rng: &mut Rng) {
+    {
         let h = net.hidden();
-        let out = output_layer(net);
+        let out = output_layer(net, bucket);
+        let pieces = pieces_for(net, bucket);
         let full = vec![i16::MAX; h];
         let expected = reference_output(&out, &full, &full);
-        assert_eq!(net.evaluate_values(&full, &full), expected, "width {h}");
+        assert_eq!(
+            net.evaluate_values(&full, &full, pieces),
+            expected,
+            "width {h}, bucket {bucket}"
+        );
         let side = 255i64 * 255 * i64::from(MAX_OUTPUT_WEIGHT) * h as i64;
         if h >= 256 {
             assert!(2 * side > i64::from(i32::MAX), "both sides are beyond i32");
@@ -350,11 +389,12 @@ fn the_output_is_exact_at_the_extremes_and_on_random_accumulators() {
         if h >= 512 {
             assert!(side > i64::from(i32::MAX), "one side alone is beyond i32");
         }
-        for _ in 0..2000 {
+        // 2000 random cases a net, spread over its buckets.
+        for _ in 0..2000 / net.buckets() {
             let us: Vec<i16> = (0..h).map(|_| rng.range(-600, 600)).collect();
             let them: Vec<i16> = (0..h).map(|_| rng.range(-600, 600)).collect();
             assert_eq!(
-                net.evaluate_values(&us, &them),
+                net.evaluate_values(&us, &them, pieces),
                 reference_output(&out, &us, &them)
             );
         }
@@ -363,11 +403,88 @@ fn the_output_is_exact_at_the_extremes_and_on_random_accumulators() {
 
 #[test]
 fn a_net_with_an_output_weight_beyond_the_bound_is_refused() {
-    for &h in &WIDTHS {
-        let mut bytes = random_net(7, h).to_bytes();
-        let first_output = 2 * (INPUTS * h + h);
-        bytes[first_output..first_output + 2].copy_from_slice(&128i16.to_le_bytes());
-        let err = Network::from_bytes(&bytes).err().expect("refused");
-        assert!(err.contains("beyond ±127"), "{err}");
+    for (h, buckets) in shapes() {
+        let (_, ow, ob) = sections(h, buckets);
+        // The first output weight, and the last bucket's last one.
+        for word in [ow, ob - 1] {
+            let mut bytes = random_net(7, h, buckets).to_bytes();
+            bytes[2 * word..2 * word + 2].copy_from_slice(&128i16.to_le_bytes());
+            let err = Network::from_bytes(&bytes).err().expect("refused");
+            assert!(err.contains("beyond ±127"), "{err}");
+        }
     }
+}
+
+#[test]
+fn output_buckets_split_the_piece_counts_into_equal_bands() {
+    // bullet's MaterialCount<8>: (pieces − 2) / 4.
+    let eight: Vec<usize> = (2..=32).map(|p| output_bucket(p, 8)).collect();
+    let expected: Vec<usize> = (2..=32usize).map(|p| ((p - 2) / 4).min(7)).collect();
+    assert_eq!(eight, expected);
+    assert_eq!(
+        (
+            output_bucket(2, 8),
+            output_bucket(5, 8),
+            output_bucket(6, 8)
+        ),
+        (0, 0, 1)
+    );
+    assert_eq!((output_bucket(29, 8), output_bucket(30, 8)), (6, 7));
+    assert_eq!(output_bucket(32, 8), 7);
+    assert!((2..=32).all(|p| output_bucket(p, 1) == 0));
+}
+
+#[test]
+fn a_bucketed_net_uses_the_bucket_of_the_piece_count_on_the_board() {
+    // Zero hidden weights and a different output bias per bucket: the
+    // evaluation is the bias of the bucket the position falls in.
+    for &h in &WIDTHS {
+        let (_, _, ob) = sections(h, 8);
+        let net = Arc::new(net_from(h, 8, |i| {
+            if i < ob {
+                0
+            } else {
+                1_000 * (i - ob + 1) as i16
+            }
+        }));
+        for (fen, pieces) in [
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                32,
+            ),
+            (
+                "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+                32,
+            ),
+            ("8/5k2/3p4/1p1Pp2p/pP2Pp1P/P4P1K/8/8 b - - 0 1", 14),
+            ("8/2P5/8/3pP3/8/8/5p2/4K2k w - d6 0 1", 6),
+            ("8/8/8/8/8/8/5k2/4K3 w - - 0 1", 2),
+        ] {
+            let b = board(fen, &net);
+            assert_eq!(b.position().occupied().count(), pieces, "{fen}");
+            let bias = 1_000 * (output_bucket(pieces, 8) as i32 + 1);
+            assert_eq!(b.evaluate(), bias * SCALE / (QA * QB), "width {h}: {fen}");
+        }
+    }
+}
+
+#[test]
+fn single_bucket_files_keep_their_size_and_buckets_are_thousands_of_bytes_apart() {
+    for &h in &WIDTHS {
+        assert_eq!(file_bytes(h), bucketed_file_bytes(h, 1));
+        assert_eq!(file_bytes(h), 2 * (INPUTS * h + h + 2 * h + 1));
+    }
+    let sizes: Vec<usize> = shapes().map(|(h, b)| bucketed_file_bytes(h, b)).collect();
+    for (i, a) in sizes.iter().enumerate() {
+        for b in &sizes[i + 1..] {
+            assert!(
+                a.abs_diff(*b) >= 64,
+                "{a} and {b} could be confused with padding"
+            );
+        }
+    }
+    assert!(
+        NETS.iter()
+            .all(|n| network_by_id(n.id).unwrap().buckets() == 1)
+    );
 }

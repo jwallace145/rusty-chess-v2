@@ -87,7 +87,7 @@ impl Board {
     #[inline]
     pub fn evaluate(&self) -> i32 {
         if let Some(n) = &self.nnue {
-            return n.evaluate(self.pos.side_to_move());
+            return n.evaluate(self.pos.side_to_move(), self.pos.occupied().count());
         }
         let white = self.eval.taper();
         if self.pos.side_to_move() == Color::White {
