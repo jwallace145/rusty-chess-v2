@@ -139,7 +139,8 @@ curve, SPRT and ladder results) is in [nets.md](nets.md).
 | `net1-l050-r41022503872` | 1 | generation 0 (231M positions) | 1201313 |
 | `net2x80-l050-r41131366975` | 2 | generations 0 and 1 (600M positions), 80 superbatches | 1146589 |
 | `net4w512-l050-r41170687764` (**512 hidden**) | 3 | generations 0–2 (906M positions), 80 superbatches | 1203006 |
-| `net5-l050-r41229287546` (default, 512 hidden) | 4 | generations 0–3 (1.53B positions), 80 superbatches | 1101129 |
+| `net5-l050-r41229287546` (512 hidden) | 4 | generations 0–3 (1.53B positions), 80 superbatches | 1101129 |
+| `net5b8-l050-r41265636815` (default, 512 hidden, **8 output buckets**) | 5 | generations 0–3 (1.53B positions), 80 superbatches | 1048958 |
 
 Each file is `crates/search/nets/<net id>.nnue`, listed in `nnue::NETS` with
 its generation and read with `include_bytes!`. Its record (`training.json`,
