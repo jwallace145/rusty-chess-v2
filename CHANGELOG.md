@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.43.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.42.1...v0.43.0) (2026-11-02)
+
+
+### Features
+
+* **nnue:** embed net7, net6k4's recipe on generations 0-5, as the default and generation 6's net ([#180](https://github.com/jwallace145/rusty-chess-v2/issues/180)) ([4e2878e](https://github.com/jwallace145/rusty-chess-v2/commit/4e2878e9b81e4cea8d9ed2679c441fbfb871f8fe))
+
+### Benchmarks
+
+* bench signature 1,031,896, instructions per node 4106, search 1.55M NPS, perft 202.21M NPS (pass (63)), fail-high first 87.5%, EBF 1.81, TT hit 53.0%
+* since v0.42.1: fail-high first -0.4 pt, EBF -0.05, instructions per node −0.9%, search NPS +9.4%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.42.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.42.0...v0.42.1) (2026-11-01)
 
 
