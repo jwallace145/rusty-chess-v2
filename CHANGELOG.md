@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.0...v0.44.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **tools:** relabel shards whose manifests have no checksums ([#187](https://github.com/jwallace145/rusty-chess-v2/issues/187)) ([b3104fb](https://github.com/jwallace145/rusty-chess-v2/commit/b3104fbbf0f95139b68da61f1a23f82e02a119dc))
+
 ## [0.44.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.43.0...v0.44.0) (2026-11-02)
 
 
