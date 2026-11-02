@@ -82,6 +82,42 @@ components:
         gpu: true                   # setup waits for nvidia-smi; env block records GPU/driver/CUDA
         datasets:
           nnue: { read: [selfplay/], write: [nets/] }  # data/selfplay/* in, data/nets/* out
+      # One profile per workflow, so each kind of work has its own market, budget
+      # and dataset access here rather than in the workflow. Registered in
+      # jwall-engineering-infra's foundation/bots.tf, which bounds what this
+      # file can start. Contract: its docs/remote-tasks.md, "Workflow profiles".
+      sprt:
+        instance_types: [c8a.xlarge, c8a.8xlarge, c8a.16xlarge]
+        default_instance_type: c8a.16xlarge
+        market: on-demand           # both legs gate; a reclamation leaves no verdict
+        max_hours: 6
+        max_vcpus: 128              # both legs at once
+      match:
+        instance_types: [c8a.xlarge, c8a.8xlarge, c8a.16xlarge]
+        default_instance_type: c8a.16xlarge
+        market: on-demand
+        max_hours: 6
+        max_vcpus: 64
+      datagen:
+        instance_types: [c8a.xlarge, c8a.8xlarge, c8a.16xlarge]
+        default_instance_type: c8a.16xlarge
+        market: spot                # an interruption only loses the shards in progress
+        max_price_fraction: 0.58
+        on_demand_fallback: true
+        max_hours: 6
+        max_vcpus: 192              # three tasks at once
+        datasets:
+          nnue: { write: [selfplay/] }
+      relabel:
+        instance_types: [c8a.16xlarge]
+        default_instance_type: c8a.16xlarge
+        market: spot
+        max_price_fraction: 0.58
+        on_demand_fallback: true
+        max_hours: 6
+        max_vcpus: 192
+        datasets:
+          nnue: { read: [selfplay/], write: [selfplay/relabel/] }
 
   # NNUE training data: a kept-forever, append-only S3 bucket. Task instances
   # (ci/datagen-task.sh) may add objects under the prefix, never read or
