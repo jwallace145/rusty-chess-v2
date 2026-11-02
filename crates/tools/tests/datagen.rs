@@ -402,9 +402,10 @@ fn manifests_name_the_net_that_played_and_none_for_pesto() {
             .collect();
         assert_eq!(p.sha256, sha);
     }
-    // net2x80's training.json records this hash for its file.
-    assert_eq!(
-        net_provenance(2).unwrap().sha256,
-        "731b30d205c505ae13e9f7a30772c1b02325a2ce00458bb42f4ab397eb36677e"
-    );
+    // Retired generations are no longer embedded, so they name no net here;
+    // their data was played, and is audited, by a build at its own commit.
+    use rusty_chess_search::nnue::RETIRED_NETS;
+    for retired in &RETIRED_NETS {
+        assert_eq!(net_provenance(retired.generation), None, "{}", retired.id);
+    }
 }

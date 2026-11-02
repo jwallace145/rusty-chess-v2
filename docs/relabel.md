@@ -112,6 +112,11 @@ scores changed, mean and largest change, mate scores clamped). Its
 
 - **The tool:** `relabel` in `crates/tools`, one worker per core, a shard at
   a time, deterministic for a given net, budget and shard.
+- **Which net:** `--net` takes the embedded (default) net's id, or a
+  retired net's id with `--net-file`, its file from the dataset bucket
+  (`data/nets/<id>/net.nnue`), which must match the SHA-256 in
+  `nnue::RETIRED_NETS`. The binary embeds only the default net
+  ([nnue.md](nnue.md#the-embedded-net-and-the-retired-ones)).
 - **In the cloud:** the CPU task instances can only *write* the dataset
   (`writers: [task-runner]`); relabelling must read the stored games. It needs
   a new task **profile**, `relabel` (`c8a.16xlarge`, spot), with `datasets:

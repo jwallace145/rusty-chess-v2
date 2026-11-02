@@ -145,43 +145,49 @@ are in [king-buckets.md](king-buckets.md).
   0.021). A 4-bucket net at 512 × 8 is 3,163,152 bytes, but a position only
   reads its own buckets' columns.
 
-## The embedded nets
+## The embedded net, and the retired ones
 
-The binary carries one net for each generation that has data or is about to
-be played, so the data each one played can still be re-searched and any of
-them can be selected by id. A net that replaces another before playing any
-generation replaces its entry: net 2 (`net2-l050-r41110004652`, `v0.30.0`)
-gave generation 2's place to net2x80 before any generation-2 data existed, and
-net 3 (`net3-l050-r41160495666`, `v0.33.0`) gave generation 3's to net 4, and
-net 4 (`net4-l050-r41165115607`, `v0.35.0`) gave it to net4w512, net5b8
-(`net5b8-l050-r41265636815`, `v0.39.0`) gave generation 5's to net6, and net6
-(`net6-l050-r41273387683`, `v0.40.0`) gave it to net6k4. The
-newest is the default. Each net's full history (data, parameters, validation
-curve, SPRT and ladder results) is in [nets.md](nets.md).
+The binary carries **only the default net**, in `nnue::NETS` (one entry),
+read with `include_bytes!` from `crates/search/nets/<net id>.nnue`. It once
+carried one net per generation; with the king-bucketed nets at 3.2 MB each,
+that was 8.3 MB of a 9.2 MB binary at net7 (#180), and only the default is ever used in play.
 
-| Net | Plays generation | Trained on | Bench signature |
-|:--|--:|:--|--:|
-| `net1-l050-r41022503872` | 1 | generation 0 (231M positions) | 1201313 |
-| `net2x80-l050-r41131366975` | 2 | generations 0 and 1 (600M positions), 80 superbatches | 1146589 |
-| `net4w512-l050-r41170687764` (**512 hidden**) | 3 | generations 0–2 (906M positions), 80 superbatches | 1203006 |
-| `net5-l050-r41229287546` (512 hidden) | 4 | generations 0–3 (1.53B positions), 80 superbatches | 1101129 |
-| `net6k4-l050-r41282883885` (512 hidden, 8 output buckets, **4 king buckets**) | 5 | generations 0–4 (2.03B positions), 80 superbatches | 1046838 |
-| `net7-l050-r41363264869` (default, 512 hidden, 8 output buckets, 4 king buckets) | 6 | generations 0–5 (2.35B positions), 80 superbatches | 1031896 |
+Every earlier generation's net is **retired**: listed in `nnue::RETIRED_NETS`
+with its id, generation and the SHA-256 of its file, and kept forever in the
+dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
+(`nnue::NET_STORE`).
 
-Each file is `crates/search/nets/<net id>.nnue`, listed in `nnue::NETS` with
-its generation and read with `include_bytes!`. Its record (`training.json`,
-the losses, the split, the validation curve) is in the dataset bucket under
-`data/nets/<net id>/`, and its SHA-256 there matches the embedded file.
+| Net | Played generation | Trained on | Bench signature | |
+|:--|--:|:--|--:|:--|
+| `net1-l050-r41022503872` | 1 | generation 0 (231M positions) | 1201313 | retired |
+| `net2x80-l050-r41131366975` | 2 | generations 0 and 1 (600M positions), 80 superbatches | 1146589 | retired |
+| `net4w512-l050-r41170687764` (**512 hidden**) | 3 | generations 0–2 (906M positions), 80 superbatches | 1203006 | retired |
+| `net5-l050-r41229287546` (512 hidden) | 4 | generations 0–3 (1.53B positions), 80 superbatches | 1101129 | retired |
+| `net6k4-l050-r41282883885` (512 hidden, 8 output buckets, **4 king buckets**) | 5 | generations 0–4 (2.03B positions), 80 superbatches | 1046838 | retired |
+| `net7-l050-r41363264869` (512 hidden, 8 output buckets, 4 king buckets) | 6 | generations 0–5 (2.35B positions), 80 superbatches | 1031896 | **embedded, the default** |
 
-A new default net is appended to `NETS`, which changes the default, its
-generation and the bench signature, and is kept only on a timed SPRT win
-over the net it replaces.
+- **Using a retired net:** download its file and pass the path
+  (`setoption name EvalFile value <file>`, `bench --eval-file <file>`), and
+  check its SHA-256 against the table. Asking for a retired net by id says
+  exactly that, with the URL and the hash.
+- **Re-searching a generation's data** (the audit's determinism step) needs
+  the net that played it, and gets it by building the tool at the data's
+  engine commit ([datagen-runbook.md](datagen-runbook.md)): that build embeds
+  the net of its time.
+- **A new default** replaces the `NETS` entry, and the net it replaces moves
+  to `RETIRED_NETS` if it played a generation. A net replaced before playing
+  any generation (net 2, net 3, net 4, net5b8, net6) is in neither: it never
+  played data, and its file stays in the bucket. The swap changes the bench
+  signature, and is kept only on a timed SPRT win over the net it replaces.
+- Each net's full history (data, parameters, validation curve, SPRT and
+  ladder results) is in [nets.md](nets.md).
 
 ## Choosing the evaluation
 
 - **UCI:** `setoption name EvalFile value` takes:
   - `/path/to/net.nnue` to load a net file;
-  - an embedded net's id (`net1-l050-r41022503872`) for that net;
+  - the embedded net's id (`net7-l050-r41363264869`) for the default; a
+    retired net's id names its file in the bucket instead;
   - `pesto` for PeSTO;
   - `<default>`, or an empty value, to return to the default net.
 

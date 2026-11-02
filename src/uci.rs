@@ -22,7 +22,9 @@ use std::time::Duration;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{Network, default_network, network_by_id};
+use rusty_chess_search::nnue::{
+    Network, default_network, network_by_id, retired_net, retired_net_message,
+};
 use rusty_chess_search::search::{DEFAULT_HASH_MB, Limits, Searcher, mate_in};
 use rusty_chess_search::telemetry::IterRecord;
 
@@ -212,6 +214,12 @@ impl<W: Write + Send + 'static> Engine<W> {
                 } else if path.eq_ignore_ascii_case("pesto") {
                     self.net = None;
                     self.board.set_network(None);
+                } else if let Some(retired) = retired_net(path) {
+                    writeln!(
+                        self.out.lock().unwrap(),
+                        "info string EvalFile {}",
+                        retired_net_message(retired)
+                    )?;
                 } else if let Some(net) = network_by_id(path) {
                     self.net = Some(net);
                     self.board.set_network(self.net.clone());
@@ -530,6 +538,18 @@ mod tests {
             "{out}"
         );
         assert_eq!(bestmoves(&out).len(), 2, "{out}");
+    }
+
+    #[test]
+    fn eval_file_names_where_a_retired_net_is() {
+        use rusty_chess_search::nnue::RETIRED_NETS;
+        let id = RETIRED_NETS[0].id;
+        let out = drive(&format!("setoption name EvalFile value {id}\nisready\n"));
+        assert!(
+            out.contains("is no longer embedded; download s3://"),
+            "{out}"
+        );
+        assert!(out.contains(RETIRED_NETS[0].sha256), "{out}");
     }
 
     #[test]

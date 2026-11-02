@@ -2,7 +2,7 @@
 //! keeping every original label (`docs/relabel.md`).
 //!
 //! ```text
-//! relabel --in DIR --out DIR --net ID [--nodes 5000] [--threads N]
+//! relabel --in DIR --out DIR --net ID [--net-file FILE] [--nodes 5000] [--threads N]
 //!         [--label-id ID] [--engine-sha SHA]
 //! ```
 //!
@@ -10,8 +10,10 @@
 //! found by their `manifests/`). Each shard's relabelled records go to
 //! `--out` under the same `gen=/run=/task=` partition, `positions/` and
 //! `manifests/` (the games are unchanged and not copied). A shard whose
-//! relabelled manifest exists is skipped, so a run can resume. `--net` is an
-//! embedded net's id, or `pesto`.
+//! relabelled manifest exists is skipped, so a run can resume. `--net` is the
+//! embedded net's id, `pesto`, or a retired net's id with `--net-file`: its
+//! file from the dataset bucket (`nnue::NET_STORE`), checked against the
+//! SHA-256 in `nnue::RETIRED_NETS`.
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -22,7 +24,7 @@ use std::time::Instant;
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use rusty_chess_search::nnue::{Network, network_by_id};
+use rusty_chess_search::nnue::{NETS, Network, network_by_id, retired_net, retired_net_message};
 use rusty_chess_search::search::Searcher;
 use rusty_chess_tools::relabel::{RelabelStats, relabel_shard};
 use sha2::{Digest, Sha256};
@@ -166,7 +168,7 @@ fn main() {
             .and_then(|i| args.get(i + 1))
             .cloned()
     };
-    let usage = "usage: relabel --in DIR --out DIR --net ID [--nodes 5000] [--threads N] [--label-id ID] [--engine-sha SHA]";
+    let usage = "usage: relabel --in DIR --out DIR --net ID [--net-file FILE] [--nodes 5000] [--threads N] [--label-id ID] [--engine-sha SHA]";
     let (Some(input), Some(output), Some(net_id)) = (get("--in"), get("--out"), get("--net"))
     else {
         eprintln!("{usage}");
@@ -179,19 +181,47 @@ fn main() {
     );
     let engine_sha = get("--engine-sha").unwrap_or_else(|| "unknown".to_string());
     let label_id = get("--label-id").unwrap_or_else(|| format!("{net_id}-n{nodes}"));
-    let (net, net_sha) = if net_id == "pesto" {
-        (None, String::new())
-    } else {
-        let net = network_by_id(&net_id).unwrap_or_else(|| {
-            eprintln!("relabel: no embedded net {net_id}");
-            std::process::exit(2);
-        });
-        let sha = rusty_chess_search::nnue::NETS
-            .iter()
-            .find(|n| n.id == net_id)
-            .map(|n| hex(n.file_bytes()))
-            .unwrap_or_default();
-        (Some(net), sha)
+    let fail = |why: String| -> ! {
+        eprintln!("relabel: {why}");
+        std::process::exit(2);
+    };
+    let (net, net_sha) = match (net_id.as_str(), get("--net-file")) {
+        ("pesto", None) => (None, String::new()),
+        (_, Some(file)) => {
+            // A retired net: its file, verified against the recorded hash.
+            let Some(retired) = retired_net(&net_id) else {
+                fail(format!(
+                    "--net-file is for a retired net, and {net_id} is not one (nnue::RETIRED_NETS)"
+                ))
+            };
+            let bytes = std::fs::read(&file).unwrap_or_else(|e| fail(format!("{file}: {e}")));
+            let sha = hex(&bytes);
+            if sha != retired.sha256 {
+                fail(format!(
+                    "{file} has SHA-256 {sha}, not {net_id}'s {}",
+                    retired.sha256
+                ));
+            }
+            let net = Network::from_bytes(&bytes).unwrap_or_else(|e| fail(format!("{file}: {e}")));
+            (Some(Arc::new(net)), sha)
+        }
+        (_, None) => match network_by_id(&net_id) {
+            Some(net) => {
+                let sha = NETS
+                    .iter()
+                    .find(|n| n.id == net_id)
+                    .map(|n| hex(n.file_bytes()))
+                    .unwrap_or_default();
+                (Some(net), sha)
+            }
+            None => match retired_net(&net_id) {
+                Some(retired) => fail(format!(
+                    "{}; then pass it with --net-file",
+                    retired_net_message(retired)
+                )),
+                None => fail(format!("no embedded or retired net {net_id}")),
+            },
+        },
     };
     rusty_chess_core::attacks::init();
     let (input, output) = (PathBuf::from(input), PathBuf::from(output));
