@@ -10,6 +10,7 @@ pub mod matchup;
 pub mod openings;
 pub mod perft;
 pub mod rating;
+pub mod relabel;
 pub mod report;
 pub mod speed;
 pub mod sprt;
