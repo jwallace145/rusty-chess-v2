@@ -26,7 +26,8 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net5x120-l050-r41237487627` | Dropped (#159): schedule experiment, inconclusive at the cap | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | **0.019399** (same held-out set as net 5: 0.019432) | 6.68 / 23.20 | +4.9 ± 3.9 vs net 5 (inconclusive) | — |
 | `net5b8-l050-r41265636815` | Default `v0.39.0`–`v0.39.2`; replaced by net6 (never played a generation) | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → **8** (output buckets) | 0.5 | 80 | **0.019349** (same held-out set as net 5: 0.019432) | 6.14 / 21.71 | **+6.5 ± 4.4** vs net 5 | 3127 ± 31 (`v0.39.0`), 3125 ± 29 (`v0.39.1`), 3120 ± 32 (`v0.39.2`) |
 | `net6-l050-r41273387683` | Default `v0.40.0`–`v0.41.0`; replaced by net6k4 (never played a generation) | 0 + 1 + 2 + 3 + **4** · 1,932.3M | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | **+14.5 ± 7.1** vs net5b8 | 3156 ± 30 (`v0.40.0`), 3119 ± 29 (`v0.41.0`) |
-| `net6k4-l050-r41282883885` | Default `v0.42.0`–; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | 3166 ± 31 (`v0.42.0`) |
+| `net6k4-l050-r41282883885` | Default `v0.42.0`–`v0.42.1`; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | 3166 ± 31 (`v0.42.0`), 3144 ± 29 (`v0.42.1`) |
+| `net7-l050-r41363264869` | Candidate (net7's PR): timed SPRT against net6k4; would play generation 6 | 0–5 · 2,238.2M | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | pending | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -109,6 +110,42 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
+## net7-l050-r41363264869
+
+net6k4's recipe (512 hidden, 8 output buckets, 4 king buckets, λ 0.5, 80
+superbatches) with **generation 5 added**: the only change is the data, and
+the first net trained on data a king-bucketed net played.
+
+| | |
+|:--|:--|
+| Data | Generations 0–5: 2,238,186,465 training / 110,741,698 held-out records (94,149 shards); workers 1,336 / 72 at `val_fraction` 0.05, split seed 1, shuffle seed 1. Generations 0–4's held-out workers are net6k4's; generation 5 adds 13,062,136 held-out records. 16% more training data than net6k4 |
+| Network | (768 × 4 → 512) × 2 → 8, as net6k4; 3,163,200 bytes; sha256 `0866bde1…1b6f` |
+| Schedule | As net6k4: 80 superbatches (8.0B positions, about 3.6 passes), LR 0.001, ×0.1 after 36 and 72 |
+| Training | `Train` run [41363264869](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41363264869), from `v0.42.1`: prepare 1,129 s, 4,027 s to trained (net6k4: 3,891), about $0.95 |
+| Validation | 0.019514 on generations 0–5's held-out set, 1.58% above the training sample (net6k4: 1.67%). Not comparable with net6k4's 0.019422: the set adds generation 5. Scorer against bullet: 0.0027 cp. Best at superbatch 80 |
+| Engine check | 256 held-out positions: mean **7.29 cp**, max 27.31 |
+| Bench | Signature 1031896 (net6k4: 1046838), identical run to run; fail-high-first 0.875 (net6k4: 0.879), **EBF 1.805** (net6k4: 1.855). Paired locally against net6k4 over 6 runs: speed per node +1.3%, **time to depth −2.6% ± 2.1%** |
+| SPRT vs net6k4 | Pending (net7's PR) |
+
+**Against net6k4 on identical held-out positions** (each generation prepared
+alone with split seed 1, which rebuilds the held-out workers both nets
+excluded; both quantised nets scored on the first 8M with `rusty-chess-trainer
+validate`):
+
+| Held-out set | net6k4 | net7 | Change |
+|:--|--:|--:|--:|
+| Generation 3 | 0.018981 | **0.018875** | **−0.56%** |
+| Generation 4 | 0.019770 | **0.019636** | **−0.68%** |
+| Generation 5 (net6k4 never saw it) | 0.020131 | **0.020042** | **−0.44%** |
+
+**Reading it:**
+- **Better everywhere, by about half of net6's data gain** (−1.11% / −1.63%
+  over net5b8). Generation 5 added 16% more data where generation 4 added 32%,
+  so a smaller step is what more of the same data predicts.
+- **No slower:** the search needs fewer nodes (EBF 1.855 → 1.805) at the
+  same speed per node.
+- **The SPRT decides.**
+
 ## net6k4-l050-r41282883885
 
 net6's recipe with **4 king buckets**: each side's inputs are indexed by its
@@ -128,7 +165,7 @@ positions** as net6.
 | Engine check | 256 held-out positions: mean **7.30 cp**, max 30.03, none beyond max(50 cp, 5%). The first full-size king-bucketed net through the engine |
 | Bench | Signature 1046838 (net6: 1099777), identical run to run; **fail-high-first 0.879** (net6: 0.873), **EBF 1.855** (net6: 1.937). Paired locally against net6 over 8 runs: **11% slower per node, 7.4% ± 3.7% longer to depth**: rebuilds on king moves and a 4× weight table. 1.88M nodes/s locally (local bar 2M, informational; CI's bar is 1M) |
 | SPRT vs net6 (#175) | Timed 5+0.05: **+21.7 ± 9.0**, LOS 100%, H1 in 2,210 games (584 / 446 / 1,180). Fixed 200k nodes: **+40.0 ± 12.4**, H1 in 1,220 (368 / 228 / 624). Runner: **−10.8% ± 2.3% speed per node, +6.8% ± 2.9% time to depth**; EBF 1.94 → 1.86, fail-high-first 87.3% → 87.9%; 4,143 instructions a node (net6: 3,799, +9%) |
-| Ladder | `v0.42.0`: **3166 ± 31**, the highest yet (net6: 3156 and 3119) |
+| Ladder | `v0.42.0`: **3166 ± 31**, the highest yet; `v0.42.1` (the same net): 3144 ± 29 (net6: 3156 and 3119) |
 
 | Superbatch | 4 | 20 | 36 | 40 | 60 | 72 | 80 |
 |:--|--:|--:|--:|--:|--:|--:|--:|
@@ -519,7 +556,11 @@ default.
      finer layout (bucket 3 holds 31% of kings over 24 squares;
      [king-buckets.md](king-buckets.md#measured)).
    - **net7:** net6k4's recipe on generations 0–5 (generation 5: 319M
-     positions played by net6k4).
+     positions played by net6k4): held-out −0.44% to −0.68% against net6k4,
+     SPRT in its PR.
+   - **Relabelling** the oldest generations with a stronger net: the tool is
+     built and verified locally ([relabel.md](relabel.md)); the cloud run
+     needs a task profile with read access.
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
