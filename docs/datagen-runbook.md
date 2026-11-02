@@ -162,6 +162,10 @@ It runs four steps and stops on any P0 problem:
    from its seed, start position and every move, in parallel.
    - **Build the tool at the data's `engine_sha`.** Identical games then prove
      that engine, its net and the recorded settings played the data.
+     It is also how the audit gets an old generation's net: the binary
+     embeds only the default net, and a build at the data's commit embeds
+     the net of its time (`nnue::RETIRED_NETS` lists them all, with their
+     SHA-256s and their files in the bucket).
    - **Why it's conclusive:** a different net or a meaningfully different
      setting changes the moves within a few games. On generation 2's seeds,
      net 1 instead of net2x80, or 2,500 nodes instead of 5,000, regenerated

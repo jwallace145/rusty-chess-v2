@@ -10,9 +10,10 @@ use rusty_chess_core::position::Position;
 use rusty_chess_core::types::Color;
 use rusty_chess_search::board::Board;
 use rusty_chess_search::nnue::{
-    DEFAULT_NET_ID, INPUTS, KING_BUCKET_LAYOUT, KING_BUCKETS, MAX_OUTPUT_WEIGHT, NETS, Network,
-    OUTPUT_BUCKETS, QA, QB, SCALE, WIDTHS, bucketed_file_bytes, default_network, file_bytes,
-    king_view, net_file_bytes, network_by_id, output_bucket,
+    DEFAULT_NET_ID, INPUTS, KING_BUCKET_LAYOUT, KING_BUCKETS, MAX_OUTPUT_WEIGHT, NET_STORE, NETS,
+    Network, OUTPUT_BUCKETS, QA, QB, RETIRED_NETS, SCALE, WIDTHS, bucketed_file_bytes,
+    default_network, file_bytes, king_view, net_file_bytes, network_by_id, output_bucket,
+    retired_net, retired_net_message,
 };
 use rusty_chess_search::search::{Limits, Searcher};
 
@@ -304,6 +305,27 @@ fn the_embedded_nets_are_ordered_and_the_last_is_the_default() {
         network_by_id(DEFAULT_NET_ID).unwrap().to_bytes()
     );
     assert!(network_by_id("no-such-net").is_none());
+}
+
+#[test]
+fn the_binary_carries_only_the_default_net_and_names_the_retired_ones() {
+    assert_eq!(NETS.len(), 1, "only the default net is embedded");
+    let default = &NETS[0];
+    let mut generations: Vec<u32> = RETIRED_NETS.iter().map(|n| n.generation).collect();
+    generations.push(default.generation);
+    assert!(
+        generations.windows(2).all(|w| w[0] < w[1]),
+        "one net per generation, oldest first, the default last: {generations:?}"
+    );
+    for retired in &RETIRED_NETS {
+        assert!(network_by_id(retired.id).is_none(), "{}", retired.id);
+        assert_eq!(retired_net(retired.id).map(|n| n.id), Some(retired.id));
+        assert_eq!(retired.sha256.len(), 64);
+        assert!(
+            retired_net_message(retired).contains(&format!("{NET_STORE}/{}/net.nnue", retired.id))
+        );
+    }
+    assert!(retired_net(default.id).is_none());
 }
 
 #[test]

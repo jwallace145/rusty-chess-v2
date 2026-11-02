@@ -63,43 +63,75 @@ impl EmbeddedNet {
     }
 }
 
-/// Every net the binary carries, oldest first; the last is the default.
-/// Older nets stay so the data they played can still be re-searched
-/// (`datagen-audit`) and so they can be selected by id for comparisons. A net
-/// is about 200 KB at 128 hidden neurons, 400 KB at 256 and 790 KB at 512
-/// (800 KB with 8 output buckets, 3.2 MB with 4 king buckets as well).
-pub const NETS: [EmbeddedNet; 6] = [
-    EmbeddedNet {
+/// The nets the binary carries: only the default, the last entry. A net is
+/// about 200 KB at 128 hidden neurons, 400 KB at 256 and 790 KB at 512 (800
+/// KB with 8 output buckets, 3.2 MB with 4 king buckets as well), so
+/// carrying every generation's net grew the binary with each one. A new
+/// default replaces the entry; the one it replaces moves to [`RETIRED_NETS`].
+pub const NETS: [EmbeddedNet; 1] = [EmbeddedNet {
+    id: "net7-l050-r41363264869",
+    generation: 6,
+    bytes: include_bytes!("../nets/net7-l050-r41363264869.nnue"),
+}];
+
+/// Where every trained net is kept, forever: `<NET_STORE>/<id>/net.nnue`,
+/// beside its `training.json`.
+pub const NET_STORE: &str = "s3://jwall-engineering-rusty-chess-nnue/data/nets";
+
+/// A net that played an earlier generation and is no longer embedded. Its
+/// file is in [`NET_STORE`], byte for byte the file with this SHA-256, and
+/// the engine of the commit that generated its data embeds it (the audit
+/// re-searches a generation with a build at that commit).
+pub struct RetiredNet {
+    /// Its id (`docs/nets.md`).
+    pub id: &'static str,
+    /// The self-play generation it played.
+    pub generation: u32,
+    /// The SHA-256 of its `net.nnue`.
+    pub sha256: &'static str,
+}
+
+/// Every generation's net before the default's, oldest first.
+pub const RETIRED_NETS: [RetiredNet; 5] = [
+    RetiredNet {
         id: "net1-l050-r41022503872",
         generation: 1,
-        bytes: include_bytes!("../nets/net1-l050-r41022503872.nnue"),
+        sha256: "dffdc62a25fdd7f0a638db07f24bb726f08921979e09298ddff2b5fe1f3df57b",
     },
-    EmbeddedNet {
+    RetiredNet {
         id: "net2x80-l050-r41131366975",
         generation: 2,
-        bytes: include_bytes!("../nets/net2x80-l050-r41131366975.nnue"),
+        sha256: "731b30d205c505ae13e9f7a30772c1b02325a2ce00458bb42f4ab397eb36677e",
     },
-    EmbeddedNet {
+    RetiredNet {
         id: "net4w512-l050-r41170687764",
         generation: 3,
-        bytes: include_bytes!("../nets/net4w512-l050-r41170687764.nnue"),
+        sha256: "5d24472c5dcc3671f42ee86b88af6973d35234aa490d4c7eec04ca6aa71b5768",
     },
-    EmbeddedNet {
+    RetiredNet {
         id: "net5-l050-r41229287546",
         generation: 4,
-        bytes: include_bytes!("../nets/net5-l050-r41229287546.nnue"),
+        sha256: "acd8e0496be9737132bbe8260d4e89b3104b54da1f1e60b4a0f4c7f8abbd906b",
     },
-    EmbeddedNet {
+    RetiredNet {
         id: "net6k4-l050-r41282883885",
         generation: 5,
-        bytes: include_bytes!("../nets/net6k4-l050-r41282883885.nnue"),
-    },
-    EmbeddedNet {
-        id: "net7-l050-r41363264869",
-        generation: 6,
-        bytes: include_bytes!("../nets/net7-l050-r41363264869.nnue"),
+        sha256: "82a7f9869e6c2104c0858ab4f6d5a8e57ca943449254aad3ee384dfedd20df33",
     },
 ];
+
+/// The retired net with this id, if any.
+pub fn retired_net(id: &str) -> Option<&'static RetiredNet> {
+    RETIRED_NETS.iter().find(|n| n.id == id)
+}
+
+/// Why `id` can't be loaded by id: a retired net, and where its file is.
+pub fn retired_net_message(net: &RetiredNet) -> String {
+    format!(
+        "{} played generation {} and is no longer embedded; download {NET_STORE}/{}/net.nnue (sha256 {}) and pass the file",
+        net.id, net.generation, net.id, net.sha256
+    )
+}
 
 /// The net the engine evaluates with unless told otherwise.
 pub const DEFAULT_NET_ID: &str = NETS[NETS.len() - 1].id;
