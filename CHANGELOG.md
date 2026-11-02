@@ -7,6 +7,12 @@
 
 * **tools:** relabel shards whose manifests have no checksums ([#187](https://github.com/jwallace145/rusty-chess-v2/issues/187)) ([b3104fb](https://github.com/jwallace145/rusty-chess-v2/commit/b3104fbbf0f95139b68da61f1a23f82e02a119dc))
 
+### Benchmarks
+
+* bench signature 1,031,896, instructions per node 4106, search 1.99M NPS, perft 289.89M NPS (pass (63)), fail-high first 87.5%, EBF 1.81, TT hit 53.0%
+* since v0.44.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.0%, search NPS +33.2%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.44.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.43.0...v0.44.0) (2026-11-02)
 
 
