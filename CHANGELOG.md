@@ -8,6 +8,12 @@
 * **nnue:** embed only the default net and list the retired ones with their checksums ([#181](https://github.com/jwallace145/rusty-chess-v2/issues/181)) ([b1f0493](https://github.com/jwallace145/rusty-chess-v2/commit/b1f0493ff62279a957352a4f3a0281d83dca5f59))
 * **tools:** add relabel, re-scoring stored self-play shards with any embedded net ([#179](https://github.com/jwallace145/rusty-chess-v2/issues/179)) ([8c2bbcf](https://github.com/jwallace145/rusty-chess-v2/commit/8c2bbcfc42a60549e58e38ff124952d5787077b5))
 
+### Benchmarks
+
+* bench signature 1,031,896, instructions per node 4106, search 1.50M NPS, perft 225.99M NPS (pass (63)), fail-high first 87.5%, EBF 1.81, TT hit 53.0%
+* since v0.43.0: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.0%, search NPS −3.6%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.43.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.42.1...v0.43.0) (2026-11-02)
 
 
