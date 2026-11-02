@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.44.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.43.0...v0.44.0) (2026-11-02)
+
+
+### Features
+
+* **nnue:** embed only the default net and list the retired ones with their checksums ([#181](https://github.com/jwallace145/rusty-chess-v2/issues/181)) ([b1f0493](https://github.com/jwallace145/rusty-chess-v2/commit/b1f0493ff62279a957352a4f3a0281d83dca5f59))
+* **tools:** add relabel, re-scoring stored self-play shards with any embedded net ([#179](https://github.com/jwallace145/rusty-chess-v2/issues/179)) ([8c2bbcf](https://github.com/jwallace145/rusty-chess-v2/commit/8c2bbcfc42a60549e58e38ff124952d5787077b5))
+
 ## [0.43.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.42.1...v0.43.0) (2026-11-02)
 
 
