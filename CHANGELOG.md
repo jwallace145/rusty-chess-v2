@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.42.1...v0.43.0) (2026-11-02)
+
+
+### Features
+
+* **nnue:** embed net7, net6k4's recipe on generations 0-5, as the default and generation 6's net ([#180](https://github.com/jwallace145/rusty-chess-v2/issues/180)) ([4e2878e](https://github.com/jwallace145/rusty-chess-v2/commit/4e2878e9b81e4cea8d9ed2679c441fbfb871f8fe))
+
 ## [0.42.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.42.0...v0.42.1) (2026-11-01)
 
 
