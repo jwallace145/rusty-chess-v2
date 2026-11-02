@@ -117,27 +117,36 @@ scores changed, mean and largest change, mate scores clamped). Its
   (`data/nets/<id>/net.nnue`), which must match the SHA-256 in
   `nnue::RETIRED_NETS`. The binary embeds only the default net
   ([nnue.md](nnue.md#the-embedded-net-and-the-retired-ones)).
-- **In the cloud:** the CPU task instances can only *write* the dataset
-  (`writers: [task-runner]`); relabelling must read the stored games. It needs
-  a new task **profile**, `relabel` (`c8a.16xlarge`, spot), with `datasets:
-  nnue: { read: [selfplay/], write: [selfplay/] }`. Registering a profile is a
-  jwall-engineering-infra change (its types and name in `foundation/bots.tf`,
-  a release, then **Bot apply** for rusty-chess): owner work. Until then the
-  tool runs locally only.
+- **In the cloud:** the `Relabel` workflow runs `ci/relabel-task.sh` on up to
+  three instances of the `relabel` task profile (`c8a.16xlarge`, spot): it may
+  read `selfplay/` and write only `selfplay/relabel/`, so it can never change
+  an original. It always uses the commit's default net, since the profile
+  can't read `nets/`.
+
+  ```sh
+  gh workflow run Relabel --ref main -f generations=0,1,2 -f instances=3 -f minutes=280
+  ```
 - **Cost:** about datagen's speed, since it searches every ply: about 19,500
   records a second an instance with net6k4. Generations 0–2 (906M records)
   are about 13 instance-hours, roughly $15 on spot; all six generations (1.85B)
   about 26, roughly $30. Estimates from generation 5's measured rate.
+- **The unit of work** is one self-play worker's shards in one task. Each of
+  the N tasks takes every Nth worker, relabels it, and uploads each shard's
+  positions and then its manifest, so a manifest in S3 means a whole shard.
 - **Resumable:** a task skips shards whose relabelled manifest already
-  exists, so a spot interruption only costs the shards in progress.
+  exists, so a spot interruption only costs the shards in progress. Running
+  the workflow again with the same `instances` finishes what is left.
 
 ## Plan
 
 1. **The tool and this note** (`feat(tools)`): `relabel`, its tests, and the
    local verification above.
-2. **The cloud run** (needs the owner): the `relabel` profile in
-   jwall-engineering-infra and `jwall-engineering-sites.yaml`, then
-   `ci/relabel-task.sh` and a `Relabel` workflow, and the `Train` workflow's
-   choice of label set per generation.
-3. **The experiment:** relabel generations 0–2 (the three weakest labellers)
-   or all six with net6k4, train net7's recipe on them, SPRT against net7.
+2. **The cloud run:** the `relabel` profile (jwall-engineering-infra
+   `v0.18.0`), `ci/relabel-task.sh` and the `Relabel` workflow.
+3. **Training on it:** the `Train` workflow's choice of label set per
+   generation, a follow-up: a relabelled generation is the same download from
+   `selfplay/relabel/<label id>/gen=N/`, which the GPU profile can already
+   read.
+4. **The experiment:** relabel generations 0–2 (the three weakest labellers)
+   or all six with the default net, train the default net's recipe on them,
+   SPRT against it.

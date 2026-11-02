@@ -64,7 +64,7 @@ components:
     results_days: 7                 # task outputs expire from S3 after this
     log_retention_days: 14
     # GPU tasks (NNUE training, ci/train-task.sh): their own instance types,
-    # image, budget and dataset grants; CPU tasks (SPRT, Match, Datagen) keep
+    # image, budget and dataset grants; a caller that names no profile gets
     # the fields above as the default `cpu` profile. Exactly these values: the
     # tool's foundation registers this profile, and the launch role allows
     # nothing else. Contract: jwall-engineering-infra's docs/remote-tasks.md,
