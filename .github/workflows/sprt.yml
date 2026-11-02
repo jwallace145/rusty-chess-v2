@@ -19,11 +19,12 @@ name: SPRT
 # crates/tools/src/sprt.rs and the comment it writes.
 #
 # Where: by default each leg runs on its own dedicated 64-core c8a.16xlarge
-# spot instance, launched for the job and terminated after it, through
+# instance, launched for the job and terminated after it, through
 # jwall-engineering-infra's remote-task workflow (its docs/remote-tasks.md).
 # The leg's work is ci/strength-task.sh, at the PR's head commit; it plays
-# 60 games at once; both legs on demand, since both gate and a spot
-# reclamation leaves no verdict. Setting the repository variable SPRT_RUNNER to `github`
+# 60 games at once. The `sprt` profile in jwall-engineering-sites.yaml says what
+# the instances are: on demand, since both legs gate and a spot reclamation
+# leaves no verdict. Setting the repository variable SPRT_RUNNER to `github`
 # switches back to the GitHub-hosted runners (4 games at once), the fallback
 # until the remote path has a track record. A spot interruption or a launch
 # with no capacity is reported in the comment as that, with no verdict, and
@@ -62,11 +63,7 @@ jobs:
       script: ci/strength-task.sh
       args: '["--mode", "timed", "--pr", "${{ github.event.pull_request.head.sha }}", "--base", "${{ github.event.pull_request.base.sha }}", "--quick", "${{ contains(github.event.pull_request.labels.*.name, ''sprt-quick'') && !contains(github.event.pull_request.labels.*.name, ''sprt'') }}"]'
       artifact: sprt-timed
-      # Both legs gate, so both run on demand: a spot reclamation leaves a PR
-      # with no verdict (two timed legs on 2026-10-30, #95 and #101; net7's
-      # fixed-node leg on 2026-11-02, #180). About $3.45 an hour instead of
-      # $1.27. Until the project file's `sprt` task profile replaces this.
-      market: on-demand
+      profile: sprt
     permissions:
       contents: read
       id-token: write # the task role, through OIDC
@@ -80,8 +77,7 @@ jobs:
       script: ci/strength-task.sh
       args: '["--mode", "nodes", "--pr", "${{ github.event.pull_request.head.sha }}", "--base", "${{ github.event.pull_request.base.sha }}", "--quick", "${{ contains(github.event.pull_request.labels.*.name, ''sprt-quick'') && !contains(github.event.pull_request.labels.*.name, ''sprt'') }}"]'
       artifact: sprt-nodes
-      # On demand, as the timed leg: it gates too.
-      market: on-demand
+      profile: sprt
     permissions:
       contents: read
       id-token: write # the task role, through OIDC

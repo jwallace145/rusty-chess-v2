@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       instances:
-        description: Instances in parallel (each 64 cores; the task budget is 3 at once, shared with SPRT and Match)
+        description: Instances in parallel (each 64 cores; the `datagen` profile's budget is 3 at once)
         type: choice
         options: ["1", "2", "3"]
         default: "1"
@@ -119,6 +119,7 @@ jobs:
       script: ci/datagen-task.sh
       args: ${{ matrix.args }}
       artifact: datagen-${{ matrix.task }}
+      profile: datagen
       max-hours: ${{ fromJSON(needs.plan.outputs.hours) }}
     permissions:
       contents: read

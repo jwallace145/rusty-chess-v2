@@ -131,6 +131,7 @@ jobs:
       script: ci/match-task.sh
       args: ${{ needs.resolve.outputs.args }}
       artifact: match
+      profile: match
     permissions:
       contents: read
       id-token: write # the task role, through OIDC
