@@ -136,7 +136,9 @@ s3://<dataset bucket>/selfplay/v1/                    schema version 1
   and runs, filtered by manifest (engine commit, settings) where it matters.
 - **Re-labelling:** read `games/`, replay each game from `start_fen`, and score
   the positions with a newer engine; write the result as a new `v` or a new
-  partition, never over the original.
+  partition, never over the original. The `relabel` tool does this into
+  `selfplay/relabel/<label id>/`, keeping every record: see
+  [relabel.md](relabel.md).
 
 A `task.json` is absent when spot interrupted the instance; its completed
 shards are still valid, and nothing needs cleaning up. Data is never
