@@ -1,0 +1,135 @@
+name: Relabel
+
+# Re-score stored self-play positions with this commit's default net, keeping
+# every original label (docs/relabel.md). Each task runs ci/relabel-task.sh on
+# a dedicated instance through jwall-engineering-infra's remote-task workflow
+# (the `relabel` profile in jwall-engineering-sites.yaml: spot, read selfplay/,
+# write selfplay/relabel/). The labels go to
+# selfplay/relabel/<net id>-n<nodes>/gen=N/..., beside and never over the
+# originals.
+#
+# Tasks split the generations by self-play worker and skip shards already
+# relabelled, so an interrupted or cancelled run loses only what was in
+# progress: run it again with the same `instances` to finish what is left.
+# Run it from `main` or a release tag: the commit decides the net.
+
+on:
+  workflow_dispatch:
+    inputs:
+      generations:
+        description: Generations to relabel, e.g. 0,1,2
+        required: true
+        default: "0,1,2"
+      instances:
+        description: Instances in parallel (each 64 cores; the `relabel` profile's budget is 3 at once)
+        type: choice
+        options: ["1", "2", "3"]
+        default: "3"
+      minutes:
+        description: Minutes per instance before it stops starting work (at most 300; about 19,000 records a second an instance with a 512-neuron king-bucketed net)
+        required: true
+        default: "280"
+      nodes:
+        description: Nodes per move for the new scores (5000 is datagen's budget; it names the label set)
+        required: true
+        default: "5000"
+      note:
+        description: Why this run is being made (shown in the summary)
+        required: false
+        default: ""
+
+run-name: "Relabel: gen ${{ inputs.generations }}, ${{ inputs.instances }} × ${{ inputs.minutes }} min, ${{ inputs.nodes }} nodes${{ inputs.note != '' && format(' — {0}', inputs.note) || '' }}"
+
+permissions: {}
+
+jobs:
+  plan:
+    name: Plan the run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tasks: ${{ steps.plan.outputs.tasks }}
+      hours: ${{ steps.plan.outputs.hours }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate and build one task per instance
+        id: plan
+        env:
+          GENERATIONS: ${{ inputs.generations }}
+          INSTANCES: ${{ inputs.instances }}
+          MINUTES: ${{ inputs.minutes }}
+          NODES: ${{ inputs.nodes }}
+        run: |
+          [[ "$GENERATIONS" =~ ^[0-9]+(,[0-9]+)*$ ]] || { echo "::error::generations must be whole numbers separated by commas, e.g. 0,1,2"; exit 1; }
+          [[ "$MINUTES" =~ ^[0-9]+$ ]] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 300 ] \
+            || { echo "::error::minutes must be a whole number from 1 to 300 (the task runner's 6-hour limit covers boot, build and upload too), got $MINUTES"; exit 1; }
+          [[ "$NODES" =~ ^[0-9]+$ ]] && [ "$NODES" -ge 1 ] || { echo "::error::nodes must be a positive whole number"; exit 1; }
+          bucket=$(yq -r '[.components[] | select(.kind == "dataset")][0].bucket // ""' jwall-engineering-sites.yaml)
+          prefix=$(yq -r '[.components[] | select(.kind == "dataset")][0].prefix // ""' jwall-engineering-sites.yaml)
+          [ -n "$bucket" ] && [ -n "$prefix" ] || { echo "::error::no dataset component in jwall-engineering-sites.yaml"; exit 1; }
+          root="s3://$bucket/${prefix%/}/selfplay"
+          tasks=$(jq -cn --arg d "$root/v1" --arg l "$root/relabel" --arg g "$GENERATIONS" --argjson n "$INSTANCES" --arg m "$MINUTES" --arg nodes "$NODES" \
+            '[range($n) | {task: "t\(.)", args: (["--dataset", $d, "--labels", $l, "--generations", $g,
+              "--index", (. | tostring), "--tasks", ($n | tostring), "--minutes", $m, "--nodes", $nodes] | tojson)}]')
+          # The instance's hard limit: the work, plus an hour for boot, build
+          # and the last worker; clamped to the runner's limit, 6.
+          hours=$(( (MINUTES + 59) / 60 + 1 ))
+          if [ "$hours" -gt 6 ]; then hours=6; fi
+          {
+            echo "tasks=$tasks"
+            echo "hours=$hours"
+          } >> "$GITHUB_OUTPUT"
+          echo "Generations $GENERATIONS, $INSTANCES × $MINUTES minutes at $NODES nodes, into $root/relabel/"
+
+  relabel:
+    name: Relabel (${{ matrix.task }})
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.tasks) }}
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.18.0
+    with:
+      project: rusty-chess
+      profile: relabel
+      script: ci/relabel-task.sh
+      args: ${{ matrix.args }}
+      artifact: relabel-${{ matrix.task }}
+      max-hours: ${{ fromJSON(needs.plan.outputs.hours) }}
+    permissions:
+      contents: read
+      id-token: write # the task role, through OIDC
+
+  summary:
+    name: Summary
+    needs: [plan, relabel]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          pattern: relabel-*
+          path: tasks
+      - name: Write the run summary
+        env:
+          NOTE: ${{ inputs.note }}
+        run: |
+          {
+            echo "### 🏷️ Relabel"
+            echo
+            [ -n "$NOTE" ] && { echo "> $NOTE"; echo; }
+            echo "| Task | Label set | Shards | Records | Changed | Mean \|change\| (cp) | Mates clamped | Records/s | Status |"
+            echo "|:--|:--|--:|--:|--:|--:|--:|--:|:--|"
+            found=0
+            while IFS= read -r f; do
+              found=1
+              jq -r '"| \(.index + 1) of \(.tasks) | `\(.label_id)` | \(.shards) | \(.records) | \(.changed) | \(if .records > 0 then (.sum_abs_change / .records * 10 | round / 10) else 0 end) | \(.mates_clamped) | \(if .seconds > 0 then (.records / .seconds | round) else 0 end) | \(if .interrupted then "⚠️ interrupted" elif .out_of_time then "out of time: run again for the rest" else "complete" end) |"' "$f"
+            done < <(find tasks -name task.json 2>/dev/null | sort)
+            [ "$found" = 1 ] || echo "| (no task finished; see the relabel jobs) | | | | | | | | |"
+            echo
+            echo "Run it again with the same \`instances\` to finish anything left: done shards are skipped."
+          } >> "$GITHUB_STEP_SUMMARY"

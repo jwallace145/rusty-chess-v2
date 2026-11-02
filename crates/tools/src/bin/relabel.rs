@@ -10,8 +10,9 @@
 //! found by their `manifests/`). Each shard's relabelled records go to
 //! `--out` under the same `gen=/run=/task=` partition, `positions/` and
 //! `manifests/` (the games are unchanged and not copied). A shard whose
-//! relabelled manifest exists is skipped, so a run can resume. `--net` is the
-//! embedded net's id, `pesto`, or a retired net's id with `--net-file`: its
+//! relabelled manifest exists is skipped, so a run can resume. `relabel --net
+//! default [--nodes N] --print-label-id` prints the label id and exits. `--net`
+//! is the embedded net's id, `default` for the same, `pesto`, or a retired net's id with `--net-file`: its
 //! file from the dataset bucket (`nnue::NET_STORE`), checked against the
 //! SHA-256 in `nnue::RETIRED_NETS`.
 
@@ -24,7 +25,9 @@ use std::time::Instant;
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use rusty_chess_search::nnue::{NETS, Network, network_by_id, retired_net, retired_net_message};
+use rusty_chess_search::nnue::{
+    DEFAULT_NET_ID, NETS, Network, network_by_id, retired_net, retired_net_message,
+};
 use rusty_chess_search::search::Searcher;
 use rusty_chess_tools::relabel::{RelabelStats, relabel_shard};
 use sha2::{Digest, Sha256};
@@ -168,13 +171,28 @@ fn main() {
             .and_then(|i| args.get(i + 1))
             .cloned()
     };
-    let usage = "usage: relabel --in DIR --out DIR --net ID [--net-file FILE] [--nodes 5000] [--threads N] [--label-id ID] [--engine-sha SHA]";
-    let (Some(input), Some(output), Some(net_id)) = (get("--in"), get("--out"), get("--net"))
-    else {
+    let usage = "usage: relabel --in DIR --out DIR --net ID|default [--net-file FILE] [--nodes 5000] [--threads N] [--label-id ID] [--engine-sha SHA]\n       relabel --net ID|default [--nodes 5000] --print-label-id";
+    // `default` is the embedded net, whichever this release carries.
+    let net_id = get("--net").map(|n| {
+        if n == "default" {
+            DEFAULT_NET_ID.to_string()
+        } else {
+            n
+        }
+    });
+    let nodes: u64 = get("--nodes").map_or(5000, |n| n.parse().expect("--nodes"));
+    if args.iter().any(|a| a == "--print-label-id") {
+        let Some(net_id) = net_id else {
+            eprintln!("{usage}");
+            std::process::exit(2);
+        };
+        println!("{net_id}-n{nodes}");
+        return;
+    }
+    let (Some(input), Some(output), Some(net_id)) = (get("--in"), get("--out"), net_id) else {
         eprintln!("{usage}");
         std::process::exit(2);
     };
-    let nodes: u64 = get("--nodes").map_or(5000, |n| n.parse().expect("--nodes"));
     let threads: usize = get("--threads").map_or_else(
         || std::thread::available_parallelism().map_or(1, |n| n.get()),
         |n| n.parse().expect("--threads"),
