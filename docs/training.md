@@ -149,6 +149,14 @@ gh workflow run Train --ref main -f net-id=net2 -f wdl=0.5 -f superbatches=40 -f
   generation's workers land on the same side of the split whatever else is
   trained with it (the same split seed puts net 1's validation workers in
   validation again).
+- `labels` trains a generation on a relabelled copy of its positions
+  ([relabel.md](relabel.md)), for example
+  `-f labels=0=net7-l050-r41363264869-n5000`; the other generations keep their
+  original labels. The records are the same and in the same order, so the split
+  and the shuffle match a net trained on the originals, and only the scores
+  differ. The task stops before building anything unless the label set has
+  every shard of the original, and `training.json` records the label sets in
+  `labels`.
 
 - `wdl` also takes a list (`0.25,0.5,0.75`): one net per λ, one at a time,
   since the account's G and VT quota fits one GPU instance.
