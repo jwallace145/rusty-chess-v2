@@ -145,7 +145,8 @@ fn relabel_one(
         &out_task.join("positions").join(format!("{stem}.txt.gz")),
         &gz.finish().map_err(|e| e.to_string())?,
     )?;
-    m["sha256"][0] = serde_json::Value::String(hex(records.as_bytes()));
+    // Whole, not by index: generation 0's manifests have no `sha256`.
+    m["sha256"] = serde_json::json!([hex(records.as_bytes()), hex(games.as_bytes())]);
     m["relabel"] = serde_json::json!({
         "label_id": job.label_id,
         "net": {"id": job.net_id, "sha256": job.net_sha},

@@ -121,3 +121,82 @@ fn labels_are_from_whites_view_and_mate_scores_are_clamped() {
     assert_eq!(white_label(MATE - 5, Color::Black), (-MATE_CLAMP, true));
     assert_eq!(white_label(-(MATE - 9), Color::White), (-MATE_CLAMP, true));
 }
+
+fn sha256(text: &str) -> String {
+    use sha2::Digest;
+    sha2::Sha256::digest(text)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// Generation 0's manifests predate `sha256`: a relabelled shard's manifest
+/// has both checksums either way, in `files` order, for the audit to check.
+#[test]
+fn a_relabelled_manifest_has_both_checksums_even_if_the_original_had_none() {
+    use std::io::Read;
+    let dir = std::env::temp_dir().join(format!("relabel-sha-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let task = std::path::Path::new("gen=0/run=r/task=t0");
+    let source = dir.join("in").join(task);
+    for sub in ["manifests", "positions", "games"] {
+        std::fs::create_dir_all(source.join(sub)).unwrap();
+    }
+    let (positions, games) = shard(1, 5);
+    let count = positions.lines().count();
+    let without = serde_json::json!({"positions": count});
+    let with =
+        serde_json::json!({"positions": count, "sha256": [sha256(&positions), sha256(&games)]});
+    for (stem, manifest) in [("t0-w000-s00000", without), ("t0-w000-s00001", with)] {
+        std::fs::write(
+            source.join("manifests").join(format!("{stem}.json")),
+            manifest.to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            source.join("positions").join(format!("{stem}.txt")),
+            &positions,
+        )
+        .unwrap();
+        std::fs::write(source.join("games").join(format!("{stem}.jsonl")), &games).unwrap();
+    }
+
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_relabel"))
+        .args(["--net", "default", "--nodes", "300", "--threads", "1"])
+        .arg("--in")
+        .arg(dir.join("in"))
+        .arg("--out")
+        .arg(dir.join("out"))
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let out = dir.join("out").join(task);
+    for stem in ["t0-w000-s00000", "t0-w000-s00001"] {
+        let m: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(out.join("manifests").join(format!("{stem}.json"))).unwrap(),
+        )
+        .unwrap();
+        let mut records = String::new();
+        flate2::read::GzDecoder::new(
+            std::fs::File::open(out.join("positions").join(format!("{stem}.txt.gz"))).unwrap(),
+        )
+        .read_to_string(&mut records)
+        .unwrap();
+        assert_eq!(
+            m["sha256"],
+            serde_json::json!([sha256(&records), sha256(&games)]),
+            "{stem}"
+        );
+        assert_eq!(
+            m["relabel"]["source_positions_sha256"],
+            sha256(&positions),
+            "{stem}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

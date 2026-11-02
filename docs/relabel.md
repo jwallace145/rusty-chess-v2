@@ -106,7 +106,9 @@ The manifest is the original's with a `relabel` block added: the label id,
 the net's id and SHA-256, nodes, the engine version and commit, the source
 positions file's SHA-256, the new file's SHA-256, and statistics (records,
 scores changed, mean and largest change, mate scores clamped). Its
-`positions` count and provenance are unchanged.
+`positions` count and provenance are unchanged. Its `sha256` holds the new
+positions file and the unchanged games file, including for generation 0, whose
+original manifests predate checksums.
 
 ## Running it
 
