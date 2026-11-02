@@ -4,11 +4,13 @@ name: SPRT
 # standardized runners, posted as one comment.
 #
 #   SPRT (timed)        fastchess games at the `[sprt] tc` time control. What
-#                       the engine does at a clock. This is the gate: only an
-#                       accepted H1 passes it.
+#                       the engine does at a clock.
 #   SPRT (fixed nodes)  games at `[sprt] nodes_per_move`. Whether the search got
-#                       smarter per node, whatever a node costs. Informational:
-#                       it explains the timed result and never fails the PR.
+#                       smarter per node, whatever a node costs.
+#
+# **Both gate** (the owner's rule from 2026-11-02): only an accepted H1 in
+# both passes the check. A speed gain that is no smarter per node fails it,
+# and the owner may merge over the failed check for a stated reason.
 #
 # Why both: a fixed-node test gives a change that makes nodes dearer extra work
 # for free. Between v0.13.0 and v0.18.0 the fixed-node SPRTs summed to about
@@ -20,8 +22,8 @@ name: SPRT
 # spot instance, launched for the job and terminated after it, through
 # jwall-engineering-infra's remote-task workflow (its docs/remote-tasks.md).
 # The leg's work is ci/strength-task.sh, at the PR's head commit; it plays
-# 60 games at once; the timed leg (the gate) on demand, the fixed-node leg on
-# spot. Setting the repository variable SPRT_RUNNER to `github`
+# 60 games at once; both legs on demand, since both gate and a spot
+# reclamation leaves no verdict. Setting the repository variable SPRT_RUNNER to `github`
 # switches back to the GitHub-hosted runners (4 games at once), the fallback
 # until the remote path has a track record. A spot interruption or a launch
 # with no capacity is reported in the comment as that, with no verdict, and
@@ -60,10 +62,10 @@ jobs:
       script: ci/strength-task.sh
       args: '["--mode", "timed", "--pr", "${{ github.event.pull_request.head.sha }}", "--base", "${{ github.event.pull_request.base.sha }}", "--quick", "${{ contains(github.event.pull_request.labels.*.name, ''sprt-quick'') && !contains(github.event.pull_request.labels.*.name, ''sprt'') }}"]'
       artifact: sprt-timed
-      # The gate runs on demand: a spot reclamation leaves a PR with no
-      # verdict, which happened to two timed legs on 2026-10-30 (#95, #101).
-      # About $3.45 an hour instead of $1.27, roughly $1-3 more per PR. The
-      # fixed-node leg, informational, stays on spot.
+      # Both legs gate, so both run on demand: a spot reclamation leaves a PR
+      # with no verdict (two timed legs on 2026-10-30, #95 and #101; net7's
+      # fixed-node leg on 2026-11-02, #180). About $3.45 an hour instead of
+      # $1.27. Until the project file's `sprt` task profile replaces this.
       market: on-demand
     permissions:
       contents: read
@@ -78,6 +80,8 @@ jobs:
       script: ci/strength-task.sh
       args: '["--mode", "nodes", "--pr", "${{ github.event.pull_request.head.sha }}", "--base", "${{ github.event.pull_request.base.sha }}", "--quick", "${{ contains(github.event.pull_request.labels.*.name, ''sprt-quick'') && !contains(github.event.pull_request.labels.*.name, ''sprt'') }}"]'
       artifact: sprt-nodes
+      # On demand, as the timed leg: it gates too.
+      market: on-demand
     permissions:
       contents: read
       id-token: write # the task role, through OIDC
@@ -159,8 +163,8 @@ jobs:
             sprt.pgn
           if-no-files-found: warn
       - name: Verdict (${{ matrix.title }})
-        # The timed job is the gate and fails unless H1 was accepted (a smoke
-        # test may be inconclusive). The fixed-node job reports and passes.
+        # Both jobs gate: each fails unless its H1 was accepted (a smoke test
+        # may be inconclusive).
         run: |
           smoke=""; if [ "$QUICK" = "true" ]; then smoke="--smoke --max-rounds 50"; fi
           target/release/sprt-report render --config perf-targets.toml ${{ matrix.flag }} $smoke --log sprt.log \
@@ -168,8 +172,8 @@ jobs:
             --openings "$(grep -c . tests/openings/openings.epd)" > sprt.md; status=$?
           cat sprt.md >> "$GITHUB_STEP_SUMMARY"
           grep -m1 -E "H1 accepted|H0 accepted|inconclusive" sprt.md
-          if [ "${{ matrix.mode }}" = "timed" ] && [ "$status" != "0" ]; then
-            echo "::error::The timed SPRT did not accept H1: only an accepted H1 passes the gate. The owner may merge over this for a reason stated in the PR."
+          if [ "$status" != "0" ]; then
+            echo "::error::The ${{ matrix.title }} SPRT did not accept H1: both SPRTs gate, and only an accepted H1 in each passes. The owner may merge over this for a reason stated in the PR."
             exit 1
           fi
 
@@ -211,6 +215,9 @@ jobs:
           nodes_note=$(note "$NODES_OUTCOME" "$NODES_AT")
           if [ -n "$timed_note" ]; then
             echo "::error::The timed SPRT was stopped by the infrastructure ($TIMED_OUTCOME), not the engine: re-run it."
+          fi
+          if [ -n "$nodes_note" ]; then
+            echo "::error::The fixed-node SPRT was stopped by the infrastructure ($NODES_OUTCOME), not the engine: re-run it (both gate)."
           fi
           target/release/sprt-report combine --config perf-targets.toml $smoke \
             --timed-note "$timed_note" --nodes-note "$nodes_note" \
