@@ -33,6 +33,10 @@ name = "datagen"
 path = "src/bin/datagen.rs"
 
 [[bin]]
+name = "relabel"
+path = "src/bin/relabel.rs"
+
+[[bin]]
 name = "datagen-audit"
 path = "src/bin/datagen_audit.rs"
 
