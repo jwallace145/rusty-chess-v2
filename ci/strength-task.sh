@@ -10,9 +10,8 @@
 # Builds the PR and its merge base, plays them with fastchess at as many games
 # at once as the box has physical cores less four, and writes sprt.log,
 # sprt.pgn, sprt.md and timing.txt to OUT_DIR. Exits like the old Verdict
-# step: the timed leg fails unless H1 was accepted (a smoke test may also be
-# inconclusive); the fixed-node leg passes once its games are played. Never
-# exits 75, which the runner reserves for spot interruptions.
+# step: each leg (both gate) fails unless H1 was accepted (a smoke test may
+# also be inconclusive). Never exits 75, which the runner reserves for spot interruptions.
 
 set -euo pipefail
 
@@ -137,8 +136,8 @@ target/release/sprt-report render --config perf-targets.toml $flag $smoke --log 
 status=$?
 set -e
 grep -m1 -E "H1 accepted|H0 accepted|inconclusive" "$OUT_DIR/sprt.md" || true
-if [ "$mode" = "timed" ] && [ "$status" != 0 ]; then
-  echo "The timed SPRT did not accept H1: only an accepted H1 passes the gate. The owner may merge over this for a reason stated in the PR."
+if [ "$status" != 0 ]; then
+  echo "The $mode SPRT did not accept H1: both SPRTs gate, and only an accepted H1 in each passes. The owner may merge over this for a reason stated in the PR."
   exit 1
 fi
 exit 0

@@ -240,25 +240,32 @@ pub fn render(result: &SprtResult, settings: &Sprt, meta: &Meta) -> String {
     format!("### ⚔️ SPRT\n\n{}", render_body(result, settings, meta))
 }
 
-/// What the pair of verdicts means, and whether it is a merge. The timed test
-/// is the gate: it is what the engine does at a clock. The fixed-node test
-/// says whether the search got smarter per node, which explains a timed
-/// result: a fixed-node gain that does not survive the clock is a change
-/// worth making cheaper, not one worth abandoning.
+/// What the pair of verdicts means, and whether it is a merge. **Both tests
+/// gate**: the timed one is what the engine does at a clock, the fixed-node
+/// one whether the search got smarter per node; only an accepted H1 in both
+/// passes. A fixed-node gain that does not survive the clock is a change
+/// worth making cheaper, not one worth abandoning; a clock gain that is no
+/// smarter per node is a speed gain, which fails the gate and is the owner's
+/// to merge over.
 pub fn interpret(nodes: Option<Verdict>, timed: Option<Verdict>) -> &'static str {
     use Verdict::H1;
     match (nodes, timed) {
         (_, None) => "the timed test did not finish, so there is no verdict",
+        (None, Some(_)) => "the fixed-node test did not finish, so there is no verdict",
         (Some(H1), Some(H1)) => "smarter per node, and worth its cost at a clock: **merge**",
         (Some(H1), Some(_)) => {
             "smarter per node, but the extra cost per node eats the gain at a clock: **do not merge**; worth a `perf` pass to make it cheaper and a re-test"
         }
         (Some(_), Some(H1)) => {
-            "no smarter per node, but faster: a speed gain that wins at a clock: **merge**"
+            "no smarter per node, but faster: a speed gain at a clock, which **fails the gate** (both tests must pass); the owner may merge over it for a speed change"
         }
-        (None, Some(H1)) => "wins at a clock (the fixed-node test did not finish): **merge**",
         (_, Some(_)) => "no gain at a clock: **do not merge**",
     }
+}
+
+/// Whether the pair passes the gate: an accepted H1 in both tests.
+pub fn gate_passes(nodes: Option<Verdict>, timed: Option<Verdict>) -> bool {
+    nodes == Some(Verdict::H1) && timed == Some(Verdict::H1)
 }
 
 /// Why a leg of a dual run has no result, when the infrastructure knows: a
@@ -273,9 +280,9 @@ pub struct Notes {
     pub nodes: Option<String>,
 }
 
-/// The combined comment for a dual run: the timed result (the gate) and the
-/// fixed-node result (informational), with the reading of the pair. Either
-/// result may be missing when its job failed.
+/// The combined comment for a dual run: the timed and the fixed-node results
+/// (both gate), with the reading of the pair. Either result may be missing
+/// when its job failed.
 pub fn render_dual(
     timed: Option<&SprtResult>,
     nodes: Option<&SprtResult>,
@@ -300,15 +307,23 @@ pub fn render_dual_with_notes(
     let mut out = String::new();
     let _ = writeln!(out, "### ⚔️ SPRT");
     let _ = writeln!(out);
-    let gate = match timed.map(|r| r.verdict) {
-        Some(Verdict::H1) => "🟢 **Gate: pass**",
-        Some(_) => "🔴 **Gate: fail**",
-        None => "⚪ **Gate: no result**",
-    };
-    let reading = if notes.timed.is_some() {
-        "the infrastructure stopped the timed test, not the engine; re-run the SPRT"
+    let (tv, nv) = (timed.map(|r| r.verdict), nodes.map(|r| r.verdict));
+    let failed = |v: Option<Verdict>| v.is_some_and(|v| v != Verdict::H1);
+    let gate = if gate_passes(nv, tv) {
+        "🟢 **Gate: pass**"
+    } else if failed(tv) || failed(nv) {
+        "🔴 **Gate: fail**"
     } else {
-        interpret(nodes.map(|r| r.verdict), timed.map(|r| r.verdict))
+        "⚪ **Gate: no result**"
+    };
+    let reading = match (&notes.timed, &notes.nodes) {
+        (Some(_), _) => {
+            "the infrastructure stopped the timed test, not the engine; re-run the SPRT"
+        }
+        (None, Some(_)) => {
+            "the infrastructure stopped the fixed-node test, not the engine; re-run the SPRT"
+        }
+        (None, None) => interpret(nv, tv),
     };
     let _ = writeln!(out, "{gate}: {reading}");
     let _ = writeln!(out);
@@ -318,14 +333,14 @@ pub fn render_dual_with_notes(
     nodes_settings.timed = false;
     let sections = [
         (
-            format!("#### Timed, {} (the gate)", settings.tc),
+            format!("#### Timed, {} (gate)", settings.tc),
             timed,
             &notes.timed,
             &timed_settings,
         ),
         (
             format!(
-                "#### Fixed nodes, {} per move (informational)",
+                "#### Fixed nodes, {} per move (gate)",
                 fmt_int(settings.nodes_per_move)
             ),
             nodes,

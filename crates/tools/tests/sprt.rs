@@ -2,8 +2,8 @@
 
 use rusty_chess_tools::gate::{Sprt, Targets};
 use rusty_chess_tools::sprt::{
-    Meta, Notes, Verdict, fastchess_args, interpret, parse, passes, render, render_dual,
-    render_dual_with_notes,
+    Meta, Notes, Verdict, fastchess_args, gate_passes, interpret, parse, passes, render,
+    render_dual, render_dual_with_notes,
 };
 
 const LOG: &str = "\
@@ -170,9 +170,19 @@ fn the_pair_of_verdicts_is_read_with_the_timed_one_as_the_gate() {
     assert!(interpret(Some(H1), Some(H1)).contains("**merge**"));
     assert!(interpret(Some(H1), Some(Inconclusive)).contains("`perf` pass"));
     assert!(interpret(Some(H1), Some(H0)).contains("do not merge"));
-    assert!(interpret(Some(Inconclusive), Some(H1)).contains("speed gain"));
+    assert!(interpret(Some(Inconclusive), Some(H1)).contains("**fails the gate**"));
     assert!(interpret(Some(H0), Some(H0)).contains("no gain at a clock"));
-    assert!(interpret(None, Some(H1)).contains("**merge**"));
+    assert!(interpret(None, Some(H1)).contains("did not finish"));
+    assert!(gate_passes(Some(H1), Some(H1)));
+    for (n, t) in [
+        (Some(H1), Some(Inconclusive)),
+        (Some(Inconclusive), Some(H1)),
+        (None, Some(H1)),
+        (Some(H1), None),
+        (Some(H0), Some(H1)),
+    ] {
+        assert!(!gate_passes(n, t), "{n:?} {t:?}");
+    }
     assert!(interpret(Some(H1), None).contains("did not finish"));
 }
 
@@ -191,9 +201,9 @@ fn a_dual_comment_shows_the_gate_and_both_runs() {
     let md = render_dual(Some(&inconclusive), Some(&h1), &t.sprt, &meta);
     assert!(md.starts_with("### ⚔️ SPRT\n\n🔴 **Gate: fail**"), "{md}");
     assert!(md.contains("`perf` pass"), "{md}");
-    assert!(md.contains("#### Timed, 5+0.05 (the gate)"), "{md}");
+    assert!(md.contains("#### Timed, 5+0.05 (gate)"), "{md}");
     assert!(
-        md.contains("#### Fixed nodes, 200,000 per move (informational)"),
+        md.contains("#### Fixed nodes, 200,000 per move (gate)"),
         "{md}"
     );
     assert!(md.contains("Timed games at 5+0.05"), "{md}");
@@ -201,9 +211,18 @@ fn a_dual_comment_shows_the_gate_and_both_runs() {
         md.contains("200,000 nodes per move: whether the search"),
         "{md}"
     );
+    // Both legs gate: a timed H1 without a fixed-node result is no result.
     let md = render_dual(Some(&h1), None, &t.sprt, &meta);
     assert!(
-        md.contains("🟢 **Gate: pass**") && md.contains("Did not finish"),
+        md.contains("⚪ **Gate: no result**") && md.contains("Did not finish"),
+        "{md}"
+    );
+    let md = render_dual(Some(&h1), Some(&h1), &t.sprt, &meta);
+    assert!(md.contains("🟢 **Gate: pass**"), "{md}");
+    // A timed H1 that is no smarter per node fails the gate.
+    let md = render_dual(Some(&h1), Some(&inconclusive), &t.sprt, &meta);
+    assert!(
+        md.contains("🔴 **Gate: fail**") && md.contains("speed gain"),
         "{md}"
     );
     // The single-run comment keeps its heading.
@@ -233,6 +252,17 @@ fn an_interrupted_leg_shows_its_note_and_never_a_verdict() {
     );
     assert!(md.contains("Interrupted by spot reclamation"), "{md}");
     assert!(!md.contains("🟢 **Gate: pass**"), "{md}");
+    // An interrupted fixed-node leg also leaves no result, since it gates too.
+    let notes = Notes {
+        timed: None,
+        nodes: Some("⚠️ **Interrupted by spot reclamation** at 12:00.".into()),
+    };
+    let md = render_dual_with_notes(Some(&h1), Some(&h1), &notes, &t.sprt, &meta);
+    assert!(md.contains("⚪ **Gate: no result**"), "{md}");
+    assert!(
+        md.contains("the infrastructure stopped the fixed-node test"),
+        "{md}"
+    );
     // Without notes it is the plain dual comment.
     assert_eq!(
         render_dual_with_notes(Some(&h1), None, &Notes::default(), &t.sprt, &meta),
