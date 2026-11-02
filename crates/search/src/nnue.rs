@@ -68,7 +68,7 @@ impl EmbeddedNet {
 /// (`datagen-audit`) and so they can be selected by id for comparisons. A net
 /// is about 200 KB at 128 hidden neurons, 400 KB at 256 and 790 KB at 512
 /// (800 KB with 8 output buckets, 3.2 MB with 4 king buckets as well).
-pub const NETS: [EmbeddedNet; 5] = [
+pub const NETS: [EmbeddedNet; 6] = [
     EmbeddedNet {
         id: "net1-l050-r41022503872",
         generation: 1,
@@ -93,6 +93,11 @@ pub const NETS: [EmbeddedNet; 5] = [
         id: "net6k4-l050-r41282883885",
         generation: 5,
         bytes: include_bytes!("../nets/net6k4-l050-r41282883885.nnue"),
+    },
+    EmbeddedNet {
+        id: "net7-l050-r41363264869",
+        generation: 6,
+        bytes: include_bytes!("../nets/net7-l050-r41363264869.nnue"),
     },
 ];
 
