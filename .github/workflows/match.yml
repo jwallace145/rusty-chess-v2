@@ -171,7 +171,7 @@ jobs:
       contents: read
     steps:
       # A missing artifact (an interrupted or failed run) is handled below.
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: match
