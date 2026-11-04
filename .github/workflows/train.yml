@@ -31,6 +31,10 @@ on:
         description: Self-play generations to train on together (data/selfplay/v1/gen=N/), e.g. 0,1
         required: true
         default: "0,1"
+      labels:
+        description: Relabelled generations, as generation=label set separated by commas, e.g. 0=net7-l050-r41363264869-n5000 (the rest keep their original labels; docs/relabel.md)
+        required: false
+        default: ""
       hidden:
         description: Hidden neurons per perspective (a multiple of 16). The engine reads 128, 256 and 512; another width trains, but skips the engine check until the engine reads it
         required: true
@@ -50,7 +54,7 @@ on:
         required: false
         default: "0.05"
 
-run-name: "Train: ${{ inputs.net-id }} ${{ inputs.hidden }} hidden${{ inputs.output-buckets != '1' && format(' × {0} buckets', inputs.output-buckets) || '' }}${{ inputs.king-buckets != '1' && format(', {0} king buckets', inputs.king-buckets) || '' }}, λ ${{ inputs.wdl }}, ${{ inputs.superbatches }} superbatches, gen ${{ inputs.generations }}"
+run-name: "Train: ${{ inputs.net-id }} ${{ inputs.hidden }} hidden${{ inputs.output-buckets != '1' && format(' × {0} buckets', inputs.output-buckets) || '' }}${{ inputs.king-buckets != '1' && format(', {0} king buckets', inputs.king-buckets) || '' }}, λ ${{ inputs.wdl }}, ${{ inputs.superbatches }} superbatches, gen ${{ inputs.generations }}${{ inputs.labels != '' && format(', labels {0}', inputs.labels) || '' }}"
 
 permissions: {}
 
@@ -71,6 +75,7 @@ jobs:
           WDL: ${{ inputs.wdl }}
           SUPERBATCHES: ${{ inputs.superbatches }}
           GENERATIONS: ${{ inputs.generations }}
+          LABELS: ${{ inputs.labels }}
           VAL_FRACTION: ${{ inputs.val-fraction }}
           HIDDEN: ${{ inputs.hidden }}
           BUCKETS: ${{ inputs.output-buckets }}
@@ -87,6 +92,15 @@ jobs:
           # One --dataset per generation, as a JSON array of arguments.
           datasets=$(echo "$GENERATIONS" | tr ',' '\n' | sort -nu \
             | jq -R --arg base "s3://$bucket/${prefix%/}/selfplay/v1" '["--dataset", "\($base)/gen=\(.)/"]' | jq -sc 'add')
+          # A partial label set is the task's to refuse: only it can read S3.
+          if [ -n "$LABELS" ]; then
+            [[ "$LABELS" =~ ^[0-9]+=[a-z0-9][a-z0-9._-]*(,[0-9]+=[a-z0-9][a-z0-9._-]*)*$ ]] || { echo "::error::labels must be generation=label set separated by commas, e.g. 0=net7-l050-r41363264869-n5000"; exit 1; }
+            for s in $(echo "$LABELS" | tr ',' ' '); do
+              echo ",$GENERATIONS," | grep -q ",${s%%=*}," || { echo "::error::labels names generation ${s%%=*}, which is not in generations ($GENERATIONS)"; exit 1; }
+            done
+            datasets=$(jq -c --arg root "s3://$bucket/${prefix%/}/selfplay/relabel" --arg l "$LABELS" \
+              '. + ["--labels", $root] + ($l | split(",") | map(["--label-set", .]) | add)' <<< "$datasets")
+          fi
           nets="s3://$bucket/${prefix%/}/nets"
           list='[]'
           IFS=',' read -ra lambdas <<< "$WDL"
@@ -98,7 +112,7 @@ jobs:
             args=$(jq -cn --argjson d "$datasets" --arg n "$nets" --arg id "$id" --arg l "$l" --arg sb "$SUPERBATCHES" --arg v "$VAL_FRACTION" --arg h "$HIDDEN" --arg b "$BUCKETS" --arg k "$KINGS" \
               '$d + ["--nets", $n, "--net-id", $id, "--wdl", $l, "--superbatches", $sb, "--val-fraction", $v, "--hidden", $h, "--output-buckets", $b, "--king-buckets", $k]')
             list=$(jq -c --arg id "$id" --arg l "$l" --arg a "$args" '. + [{net_id: $id, wdl: $l, args: $a}]' <<< "$list")
-            echo "net $id: λ $l, $SUPERBATCHES superbatches, from generations $GENERATIONS"
+            echo "net $id: λ $l, $SUPERBATCHES superbatches, from generations $GENERATIONS${LABELS:+, labels $LABELS}"
           done
           echo "nets=$list" >> "$GITHUB_OUTPUT"
 

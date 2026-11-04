@@ -12,6 +12,13 @@
 #                    [--split-seed 1] [--shuffle-seed 1] [--backend cuda|metal]
 #                    [--checkpoint-every 4] [--val-positions 4000000] [--hidden 128]
 #                    [--output-buckets 1] [--king-buckets 1]
+#                    [--labels s3://BUCKET/data/selfplay/relabel --label-set N=LABEL_ID ...]
+#
+# A --label-set trains generation N on a relabelled copy of its --dataset
+# (docs/relabel.md): the same positions, split and results, with new scores.
+# The copy must have every shard of the original, or the task stops before it
+# builds anything: a partial one would train on different positions and spoil
+# the comparison with a net trained on the original labels.
 #
 # 1. downloads every complete shard's positions and manifest under each
 #    --dataset (repeat it to train on several generations at once);
@@ -37,11 +44,13 @@
 
 set -euo pipefail
 
-datasets=() nets="" net_id="" wdl="" superbatches="" batches=6104 val_fraction=0.05 split_seed=1 shuffle_seed=1 backend=cuda
+datasets=() labels="" label_sets=() nets="" net_id="" wdl="" superbatches="" batches=6104 val_fraction=0.05 split_seed=1 shuffle_seed=1 backend=cuda
 checkpoint_every=4 val_positions=4000000 hidden=128 buckets=1 king_buckets=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --dataset) datasets+=("${2%/}"); shift 2 ;;
+    --labels) labels="${2%/}"; shift 2 ;;
+    --label-set) label_sets+=("$2"); shift 2 ;;
     --nets) nets="${2%/}"; shift 2 ;;
     --net-id) net_id="$2"; shift 2 ;;
     --wdl) wdl="$2"; shift 2 ;;
@@ -69,6 +78,53 @@ scratch="${SCRATCH_DIR:-/tmp}/train-$net_id"
 mkdir -p "$scratch"
 t0=$(date +%s)
 since() { echo $(( $(date +%s) - t0 )); }
+
+# The label set chosen for a generation's folder name (gen=N), or nothing.
+label_set_of() {
+  local s
+  for s in ${label_sets[@]+"${label_sets[@]}"}; do
+    if [ "gen=${s%%=*}" = "$1" ]; then echo "${s#*=}"; fi
+  done
+}
+# Every shard manifest under an S3 prefix, relative to it, sorted. `aws s3 ls`
+# fails on an empty prefix too, so the caller refuses an empty list.
+list_manifests() {
+  local key_prefix=${1#s3://*/}
+  { aws s3 ls --recursive "$1/" || true; } | awk '{print $4}' | { grep '/manifests/.*\.json$' || true; } \
+    | sed "s#^$key_prefix/##" | sort
+}
+for s in ${label_sets[@]+"${label_sets[@]}"}; do
+  [[ "$s" =~ ^[0-9]+=[a-z0-9][a-z0-9._-]*$ ]] || { echo "train-task: --label-set must be N=LABEL_ID, got $s" >&2; exit 2; }
+  [ -n "$labels" ] || { echo "train-task: --label-set needs --labels" >&2; exit 2; }
+  found=0
+  for d in "${datasets[@]}"; do
+    if [ "$(basename "$d")" = "gen=${s%%=*}" ]; then found=1; fi
+  done
+  [ "$found" = 1 ] || { echo "train-task: --label-set $s names a generation with no --dataset" >&2; exit 2; }
+  [ "$(label_set_of "gen=${s%%=*}" | wc -l)" -eq 1 ] || { echo "train-task: more than one --label-set for generation ${s%%=*}" >&2; exit 2; }
+done
+sources=()
+for d in "${datasets[@]}"; do
+  g=$(basename "$d")
+  id=$(label_set_of "$g")
+  if [ -z "$id" ]; then
+    sources+=("$d")
+    continue
+  fi
+  copy="$labels/$id/$g"
+  list_manifests "$d" > "$scratch/original.txt"
+  list_manifests "$copy" > "$scratch/relabelled.txt"
+  shards=$(wc -l < "$scratch/original.txt" | tr -d ' ')
+  [ "$shards" -gt 0 ] || { echo "train-task: no shards in $d" >&2; exit 1; }
+  missing=$(comm -23 "$scratch/original.txt" "$scratch/relabelled.txt" | wc -l | tr -d ' ')
+  extra=$(comm -13 "$scratch/original.txt" "$scratch/relabelled.txt" | wc -l | tr -d ' ')
+  if [ "$missing" != 0 ] || [ "$extra" != 0 ]; then
+    echo "train-task: $copy is incomplete: $missing of $shards shards missing, $extra not in $d; finish the Relabel run first" >&2
+    exit 1
+  fi
+  echo "== $g: label set $id, all $shards shards"
+  sources+=("$copy")
+done
 
 # Append-only: a net id is used once. The GPU role may write data/nets/ but
 # not list it, so on a GPU task this finds nothing and uniqueness comes from
@@ -102,10 +158,15 @@ cargo build --release --locked --quiet -p rusty-chess-tools --bin nnue-eval
 # One directory per dataset (its generation's folder name, gen=N), so shards
 # of different generations never share a path; prepare walks them all, and
 # every worker's key includes its run, so the split stays per worker.
-for d in "${datasets[@]}"; do
+for d in "${sources[@]}"; do
   echo "-- downloading positions and manifests from $d ($(since)s)"
   aws s3 sync --only-show-errors "$d/" "$scratch/shards/$(basename "$d")/" \
     --exclude "*" --include "*/manifests/*.json" --include "*/positions/*.txt.gz"
+  id=$(label_set_of "$(basename "$d")")
+  if [ -n "$id" ]; then
+    wrong=$(find "$scratch/shards/$(basename "$d")" -path '*/manifests/*.json' -exec grep -L "\"label_id\": \"$id\"" {} + | wc -l | tr -d ' ')
+    [ "$wrong" = 0 ] || { echo "train-task: $wrong manifests in $d are not label set $id" >&2; exit 1; }
+  fi
 done
 
 echo "-- preparing ($(since)s)"
@@ -143,7 +204,8 @@ echo "$check" | tee "$scratch/check.txt"
 
 net_sha=$(sha256sum "$scratch/out/net.nnue" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$scratch/out/net.nnue" | cut -d' ' -f1)
 bullet_rev=$(sed -n 's/^bullet_lib = .*rev = "\([0-9a-f]*\)".*/\1/p' trainer/Cargo.toml)
-python3 - "$scratch" "$OUT_DIR/training.json" "${datasets[@]}" <<PY
+label_list=$(IFS=,; echo "${label_sets[*]+${label_sets[*]}}")
+python3 - "$scratch" "$OUT_DIR/training.json" "${sources[@]}" <<PY
 import json, sys
 scratch, out, datasets = sys.argv[1], sys.argv[2], [d + "/" for d in sys.argv[3:]]
 check = open(f"{scratch}/check.txt").read().strip().splitlines()
@@ -159,6 +221,7 @@ json.dump({
     "output_buckets": $buckets,
     "king_buckets": $king_buckets,
     "datasets": datasets,
+    "labels": dict(s.split("=", 1) for s in "$label_list".split(",") if s),
     "split": {k: v for k, v in split.items() if k != "val_workers"},
     "val_workers": split["val_workers"],
     "schedule": {"wdl": $wdl, "eval_scale": 400, "superbatches": $superbatches, "batches_per_superbatch": $batches,

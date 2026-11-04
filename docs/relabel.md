@@ -150,10 +150,10 @@ original manifests predate checksums.
    local verification above.
 2. **The cloud run:** the `relabel` profile (jwall-engineering-infra
    `v0.18.0`), `ci/relabel-task.sh` and the `Relabel` workflow.
-3. **Training on it:** the `Train` workflow's choice of label set per
-   generation, a follow-up: a relabelled generation is the same download from
-   `selfplay/relabel/<label id>/gen=N/`, which the GPU profile can already
-   read.
+3. **Training on it:** the `Train` workflow's `labels` input picks a label set
+   per generation ([training.md](training.md)). A relabelled generation is the
+   same download from `selfplay/relabel/<label id>/gen=N/`, which the GPU
+   profile can already read.
 4. **The experiment:** relabel generations 0–2 (the three weakest labellers)
    or all six with the default net, train the default net's recipe on them,
    SPRT against it.
