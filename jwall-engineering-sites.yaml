@@ -111,9 +111,10 @@ components:
       relabel:
         instance_types: [c8a.16xlarge]
         default_instance_type: c8a.16xlarge
-        market: spot
+        market: spot                # no capacity fails the run; rerun it later rather than pay on demand
         max_price_fraction: 0.58
-        on_demand_fallback: true
+        on_demand_fallback: false
+        spot_wait_minutes: 30
         max_hours: 6
         max_vcpus: 192
         datasets:

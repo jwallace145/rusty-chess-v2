@@ -123,7 +123,9 @@ original manifests predate checksums.
   three instances of the `relabel` task profile (`c8a.16xlarge`, spot): it may
   read `selfplay/` and write only `selfplay/relabel/`, so it can never change
   an original. It always uses the commit's default net, since the profile
-  can't read `nets/`.
+  can't read `nets/`. It never falls back to on demand: it retries spot across
+  the zones for 30 minutes, then the task fails with `no-capacity` without
+  starting an instance, and running the workflow again is free.
 
   ```sh
   gh workflow run Relabel --ref main -f generations=0,1,2 -f instances=3 -f minutes=280
@@ -131,7 +133,10 @@ original manifests predate checksums.
 - **Cost:** about datagen's speed, since it searches every ply: about 19,500
   records a second an instance with net6k4. Generations 0–2 (906M records)
   are about 13 instance-hours, roughly $15 on spot; all six generations (1.85B)
-  about 26, roughly $30. Estimates from generation 5's measured rate.
+  about 26, roughly $30. Estimates from generation 5's measured rate. They are
+  low when a worker has fewer shards than the instance has cores, because
+  workers run one at a time: generation 0 (320 workers, at most 53 shards each)
+  is about 7.3 instance-hours rather than 3.3.
 - **The unit of work** is one self-play worker's shards in one task. Each of
   the N tasks takes every Nth worker, relabels it, and uploads each shard's
   positions and then its manifest, so a manifest in S3 means a whole shard.
