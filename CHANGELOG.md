@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.3](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.2...v0.44.3) (2026-11-04)
+
+
+### Documentation
+
+* **nnue:** state that both sprt legs are required to merge ([#195](https://github.com/jwallace145/rusty-chess-v2/issues/195)) ([743faa5](https://github.com/jwallace145/rusty-chess-v2/commit/743faa594e9381e49096624968ed4dfcdfca5367))
+
 ## [0.44.2](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.1...v0.44.2) (2026-11-04)
 
 
