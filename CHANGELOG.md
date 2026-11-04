@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.2](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.1...v0.44.2) (2026-11-04)
+
+
+### Documentation
+
+* bring the nnue ledgers up to date and require experiments to update docs ([#193](https://github.com/jwallace145/rusty-chess-v2/issues/193)) ([fade9d9](https://github.com/jwallace145/rusty-chess-v2/commit/fade9d9b94d40d3805c08b28e626847b655011fe))
+
 ## [0.44.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.0...v0.44.1) (2026-11-02)
 
 
