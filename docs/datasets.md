@@ -14,12 +14,15 @@ manifests or from `datagen-audit`, never from the workflow's progress lines.
 
 | Gen | Played by | Positions | Games | Shards | Runs | Full audit | Trained into |
 |--:|:--|--:|--:|--:|--:|:--|:--|
-| 0 | PeSTO (`v0.24.0`–`v0.25.0`) | 231,240,344 | 2,387,961 | 9,329 | 3 | GO: 0 P0 failures | net 1, net 2, net2x80, net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4 |
-| 1 | net 1 (`v0.29.0`) | 368,354,466 | 3,703,015 | 14,716 | 3 | GO: 0 P0 failures, 0 P1 warnings | net 2, net2x80, net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4 |
-| 2 | net2x80 (`v0.31.1`) | 307,037,810 | 3,265,807 | 12,353 | 1 | GO: 0 P0 problems; 2,304/2,304 games regenerated from their seeds | net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4 |
-| 3 | net4w512 (`v0.36.0`) | 628,213,254 | 6,562,925 | 25,158 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | net 5, net5x120, net5b8, net6, net6k4 |
-| 4 | net 5 (`v0.37.1`) | 495,147,759 | 5,252,191 | 19,838 | 2 | GO: 0 P0 problems, 0 P1 warnings; 3,072/3,072 games regenerated from their seeds | net6, net6k4 |
-| 5 | net6k4 (`v0.42.0`) | 318,934,530 | 3,409,848 | 12,755 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | (next) |
+| 0 | PeSTO (`v0.24.0`–`v0.25.0`) | 231,240,344 | 2,387,961 | 9,329 | 3 | GO: 0 P0 failures | net 1, net 2, net2x80 (and its λ sweep), net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4, net7 |
+| 1 | net 1 (`v0.29.0`) | 368,354,466 | 3,703,015 | 14,716 | 3 | GO: 0 P0 failures, 0 P1 warnings | net 2, net2x80 (and its λ sweep), net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4, net7 |
+| 2 | net2x80 (`v0.31.1`) | 307,037,810 | 3,265,807 | 12,353 | 1 | GO: 0 P0 problems; 2,304/2,304 games regenerated from their seeds | net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4, net7 |
+| 3 | net4w512 (`v0.36.0`) | 628,213,254 | 6,562,925 | 25,158 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | net 5, net5x120, net5b8, net6, net6k4, net7 |
+| 4 | net 5 (`v0.37.1`) | 495,147,759 | 5,252,191 | 19,838 | 2 | GO: 0 P0 problems, 0 P1 warnings; 3,072/3,072 games regenerated from their seeds | net6, net6k4, net7 |
+| 5 | net6k4 (`v0.42.0`) | 318,934,530 | 3,409,848 | 12,755 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | net7 |
+
+**Generation 6** will be played by net7 (`datagen.toml` is at `generation = 6`).
+No run has started.
 
 ## Generation 0: PeSTO
 
@@ -110,8 +113,26 @@ datagen built for the instance's own CPU (`native`, #136).
 |:--|:--|:--|:--|:--|--:|--:|:--|
 | `20261031-41153094884-1` | 2026-10-31 | `v0.31.1` `75017a5` | 3 × 70 | spot | 307,037,810 | 3,265,807 | t0 98.1M, t1 104.2M, t2 104.7M. No interruptions. The first run with the native build, about 25,150 positions/s an instance |
 
-The two benchmark runs for #136 (`upload: false`) wrote nothing to the
-generation.
+**The two benchmark runs for #136** (`upload: false`) measured the native
+build against `x86-64-v3` before this generation, with the same seed (7), net
+and settings, at `v0.31.0` (`bf27704`), on spot. Neither is part of the
+generation:
+
+| Run | Target | Minutes | Positions | Games | Shards | Positions/s at 150 s |
+|:--|:--|:--|--:|--:|--:|--:|
+| `20261030-41144384553-1` | `native` | 5 asked; **reclaimed by spot** at 23:29:26 UTC after 188 s | 4,062,796 | 43,130 | 192 | 25,235 |
+| `20261030-41144392189-1` | `x86-64-v3` | 5 | 6,920,847 | 73,583 | 320 | 23,037 |
+
+- **The native build is about 9.5% faster.**
+- **The games are the same, as far as the interrupted run can show.** All 128
+  shards the native run finished normally are byte-identical to the other run's
+  (3,207,361 positions, 33,979 games), by the SHA-256s in their manifests.
+- **The other 64 can't be compared.** They're the shards the interruption
+  flushed early (10,947–14,896 positions, against 25,001–25,265), and the
+  artifacts hold only checksums, so a prefix match can't be checked.
+- **Nothing was uploaded:** both `task.json` files say `"uploaded": false`. The
+  native run's log line "192 complete shards are in S3" is the interrupted
+  path's fixed wording. S3 itself wasn't listed.
 
 **Full audit** (`ci/datagen-full-audit.sh`, 7 minutes on 16 cores): **GO**.
 1. **Inventory:**
@@ -289,9 +310,20 @@ native build. One engine commit throughout.
 **Cost:** about $5–6 on spot (about 4.7 instance-hours), an estimate, not
 billed figures.
 
+## Relabelled label sets
+
+A label set re-scores a generation's stored positions with a stronger net and
+keeps the originals untouched ([relabel.md](relabel.md)). **No label set exists
+yet.** Every net so far trained on the original labels.
+
+| Run | Date | Commit | Asked | Market | Generation | Records | Notes |
+|:--|:--|:--|:--|:--|:--|--:|:--|
+| [41533675760](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41533675760) | 2026-11-02 | `b7f12f7` | 1 × 10 minutes, 5,000 nodes, net7 | on demand, $3.4486/h, after 5 minutes without spot capacity | 0 | 0 | Smoke test. **Failed:** `relabel` panicked on the first worker, about 2 minutes after launch, on manifests that predate checksums (exit 134, fixed in #187). The log shows 0 shards and 0 records before the failure, so nothing should have been uploaded; S3 wasn't listed. Under $0.20, an estimate. Fixed binary run locally on 6 generation 0 shards (#187); no cloud run since |
+
 ## Adding a run or a generation
 
-After every Datagen run, including smoke tests and failed or cancelled runs:
+After every Datagen or Relabel run, including smoke tests, benchmarks and
+failed or cancelled runs:
 
 1. Add a row to the generation's table, with the run id, date, engine
    version and commit, instances × minutes asked and run, market, positions
@@ -302,3 +334,24 @@ After every Datagen run, including smoke tests and failed or cancelled runs:
    determinism result and the quality numbers, including how they moved from
    the previous generation.
 3. Update the Generations table, including which nets trained on it.
+4. Take numbers from the manifests, `task.json` or `datagen-audit`, and label
+   anything else, such as costs, as an estimate. The full rule is in
+   [AGENTS.md](../AGENTS.md#experiments-and-the-research-record).
+
+## Audit log
+
+Checks of this ledger against its primary sources.
+
+**2026-11-03,** at `v0.44.1`:
+
+| Check | Result |
+|:--|:--|
+| Every `Datagen` run listed by GitHub (13) has an entry here | Two were missing, the #136 benchmark runs, now under generation 2 with the comparison #136 promised |
+| Each generation's runs sum to its positions and games | Exact for all six |
+| Shards of generations 0–5 against net7's `split.json` (94,149) and net6's (81,394 for generations 0–4) | Exact |
+| Positions of each net's generations against its training + held-out records | Exact for nets 1, 2, 3, 5, 6 and 7 |
+| Records a game in the quality tables, generations 1–5 | Match positions ÷ games |
+
+**Not checked:** the shard manifests themselves. S3 needed AWS credentials this
+audit didn't have, so the totals are checked against each other and against
+`training.json`, not recounted. No audit verdict was re-run.
