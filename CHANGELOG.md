@@ -7,6 +7,12 @@
 
 * bring the nnue ledgers up to date and require experiments to update docs ([#193](https://github.com/jwallace145/rusty-chess-v2/issues/193)) ([fade9d9](https://github.com/jwallace145/rusty-chess-v2/commit/fade9d9b94d40d3805c08b28e626847b655011fe))
 
+### Benchmarks
+
+* bench signature 1,031,896, instructions per node 4106, search 1.91M NPS, perft 342.85M NPS (pass (63)), fail-high first 87.5%, EBF 1.81, TT hit 53.0%
+* since v0.44.1: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.0%, search NPS −3.9%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.44.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.0...v0.44.1) (2026-11-02)
 
 
