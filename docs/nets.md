@@ -27,19 +27,19 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
 | `net5b8-l050-r41265636815` | Default `v0.39.0`–`v0.39.2`; replaced by net6 (never played a generation) | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → **8** (output buckets) | 0.5 | 80 | **0.019349** (same held-out set as net 5: 0.019432) | 6.14 / 21.71 | **+6.5 ± 4.4** vs net 5 | +12.4 ± 6.6 | 3127 ± 31 (`v0.39.0`), 3125 ± 29 (`v0.39.1`), 3120 ± 32 (`v0.39.2`) |
 | `net6-l050-r41273387683` | Default `v0.40.0`–`v0.41.0`; replaced by net6k4 (never played a generation) | 0 + 1 + 2 + 3 + **4** · 1,932.3M | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | **+14.5 ± 7.1** vs net5b8 | +11.4 ± 6.3 | 3156 ± 30 (`v0.40.0`), 3119 ± 29 (`v0.41.0`) |
 | `net6k4-l050-r41282883885` | Default `v0.42.0`–`v0.42.1`; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | +40.0 ± 12.4 | 3166 ± 31 (`v0.42.0`), 3144 ± 29 (`v0.42.1`) |
-| `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.1`; **will play generation 6** (not generated yet) | 0–5 · 2,238.2M | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`) |
+| `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.2`; **will play generation 6** (not generated yet) | 0–5 · 2,238.2M | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`) |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
   includes generation 1, which has more draws and different labels, so its
   0.019273 is not worse than net 1's 0.018925. Score two nets on one set
   with `rusty-chess-trainer validate` to compare them.
-- **The timed SPRT is the main verdict.** It's self-play against the previous
-  net, so it overstates gains against other engines. The ladder is the
-  external scale.
-- **The fixed-node SPRT isolates the net's knowledge from its speed.** It was
-  informational through #180, the gate in force for every net above. Since
-  #184 the check asks for H1 in both legs.
+- **Both SPRTs are required to merge, since #184.** The timed leg shows what
+  the engine does at a clock, and the fixed-node leg isolates the net's
+  knowledge from its speed. Through #180, every net above, only the timed leg
+  gated. Only the owner can bypass the check, manually.
+- **The SPRT is self-play against the previous net,** so it overstates gains
+  against other engines. The ladder is the external scale.
 
 ## net1-l050-r41022503872
 
@@ -567,9 +567,8 @@ differ.
 
 ## Next experiments
 
-One change at a time, each decided by an SPRT against the current default:
-the timed leg is the main gate, and since #184 the check asks for H1 in both
-legs.
+One change at a time, each kept only on an accepted H1 in both the timed and
+the fixed-node SPRT against the current default.
 
 1. ~~**Longer schedule**~~: done, net2x80 (+21.0 ± 8.9).
 2. ~~**λ sweep**~~: done, λ 0.5 stays (0.25: −38.1; 0.75: −3.2).
@@ -598,8 +597,8 @@ legs.
      profile and the workflow exist (#179, #185, #186). The first run failed on
      old manifests, fixed in #187, and no label set exists yet
      ([datasets.md](datasets.md#relabelled-label-sets)). #189 (stay on spot) and
-     #190 (`Train` chooses a label set) are open. Then net7's recipe on the
-     relabelled data, SPRT against net7.
+     #190 (`Train` chooses a label set) have merged, but neither has had a real
+     run yet. Then net7's recipe on the relabelled data, SPRT against net7.
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
