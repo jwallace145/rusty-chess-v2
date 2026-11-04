@@ -34,12 +34,12 @@ Net ids are `<name>-l<λ×100>-r<Train run id>`.
   includes generation 1, which has more draws and different labels, so its
   0.019273 is not worse than net 1's 0.018925. Score two nets on one set
   with `rusty-chess-trainer validate` to compare them.
-- **The timed SPRT is the main verdict.** It's self-play against the previous
-  net, so it overstates gains against other engines. The ladder is the
-  external scale.
-- **The fixed-node SPRT isolates the net's knowledge from its speed.** It was
-  informational through #180, the gate in force for every net above. Since
-  #184 the check asks for H1 in both legs.
+- **Both SPRTs are required to merge, since #184.** The timed leg shows what
+  the engine does at a clock, and the fixed-node leg isolates the net's
+  knowledge from its speed. Through #180, every net above, only the timed leg
+  gated. Only the owner can bypass the check, manually.
+- **The SPRT is self-play against the previous net,** so it overstates gains
+  against other engines. The ladder is the external scale.
 
 ## net1-l050-r41022503872
 
@@ -567,9 +567,8 @@ differ.
 
 ## Next experiments
 
-One change at a time, each decided by an SPRT against the current default:
-the timed leg is the main gate, and since #184 the check asks for H1 in both
-legs.
+One change at a time, each kept only on an accepted H1 in both the timed and
+the fixed-node SPRT against the current default.
 
 1. ~~**Longer schedule**~~: done, net2x80 (+21.0 ± 8.9).
 2. ~~**λ sweep**~~: done, λ 0.5 stays (0.25: −38.1; 0.75: −3.2).
