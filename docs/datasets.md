@@ -1,28 +1,164 @@
 # Self-play datasets
 
-The ledger of every self-play generation and every run that made it. Each
-net in [nets.md](nets.md) names the generations it trained on; this page says
-what is in them. How the data is made and laid out is in
+The ledger of every self-play generation, every label set and every run that
+made them. Each net in [nets.md](nets.md) names the generations and labels it
+trained on; this page says what is in them. How the data is made and laid out is in
 [datagen.md](datagen.md), and how it is checked in
 [datagen-runbook.md](datagen-runbook.md).
 
-All data is in `s3://jwall-engineering-rusty-chess-nnue/data/selfplay/v1/gen=N/run=RUN/`,
-append-only and kept forever. Every number here comes from the shard
-manifests or from `datagen-audit`, never from the workflow's progress lines.
+Original data is in `s3://jwall-engineering-rusty-chess-nnue/data/selfplay/v1/gen=N/run=RUN/`,
+and [other label sets](#label-sets) are under `data/selfplay/relabel/`. Both are
+append-only and kept forever. Every number here comes from the shard manifests
+or from `datagen-audit`, never from the workflow's progress lines.
 
 ## Generations
 
-| Gen | Played by | Positions | Games | Shards | Runs | Full audit | Trained into |
-|--:|:--|--:|--:|--:|--:|:--|:--|
-| 0 | PeSTO (`v0.24.0`–`v0.25.0`) | 231,240,344 | 2,387,961 | 9,329 | 3 | GO: 0 P0 failures | net 1, net 2, net2x80 (and its λ sweep), net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4, net7 |
-| 1 | net 1 (`v0.29.0`) | 368,354,466 | 3,703,015 | 14,716 | 3 | GO: 0 P0 failures, 0 P1 warnings | net 2, net2x80 (and its λ sweep), net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4, net7 |
-| 2 | net2x80 (`v0.31.1`) | 307,037,810 | 3,265,807 | 12,353 | 1 | GO: 0 P0 problems; 2,304/2,304 games regenerated from their seeds | net 3, net 4, net4w512, net 5, net5x120, net5b8, net6, net6k4, net7 |
-| 3 | net4w512 (`v0.36.0`) | 628,213,254 | 6,562,925 | 25,158 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | net 5, net5x120, net5b8, net6, net6k4, net7 |
-| 4 | net 5 (`v0.37.1`) | 495,147,759 | 5,252,191 | 19,838 | 2 | GO: 0 P0 problems, 0 P1 warnings; 3,072/3,072 games regenerated from their seeds | net6, net6k4, net7 |
-| 5 | net6k4 (`v0.42.0`) | 318,934,530 | 3,409,848 | 12,755 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds | net7 |
+| Gen | Played by | Positions | Games | Shards | Runs | Full audit |
+|--:|:--|--:|--:|--:|--:|:--|
+| 0 | PeSTO (`v0.24.0`–`v0.25.0`) | 231,240,344 | 2,387,961 | 9,329 | 3 | GO: 0 P0 failures |
+| 1 | net 1 (`v0.29.0`) | 368,354,466 | 3,703,015 | 14,716 | 3 | GO: 0 P0 failures, 0 P1 warnings |
+| 2 | net2x80 (`v0.31.1`) | 307,037,810 | 3,265,807 | 12,353 | 1 | GO: 0 P0 problems; 2,304/2,304 games regenerated from their seeds |
+| 3 | net4w512 (`v0.36.0`) | 628,213,254 | 6,562,925 | 25,158 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds |
+| 4 | net 5 (`v0.37.1`) | 495,147,759 | 5,252,191 | 19,838 | 2 | GO: 0 P0 problems, 0 P1 warnings; 3,072/3,072 games regenerated from their seeds |
+| 5 | net6k4 (`v0.42.0`) | 318,934,530 | 3,409,848 | 12,755 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds |
 
 **Generation 6** will be played by net7 (`datagen.toml` is at `generation = 6`).
 No run has started.
+
+What labels each generation has, and which nets trained on them, is under
+[Labels](#labels).
+
+## Labels
+
+Every record is `FEN | score | result`. So what a net trained on takes two
+choices, and naming a generation alone doesn't identify it:
+
+- **Positions:** a generation's FENs and game results. These never change.
+- **Labels:** each record's `score`, supplied by a **label set**. A generation
+  can have several, and its original labels are never changed.
+
+The training target is `λ × result + (1 − λ) × sigmoid(score / 400)`, so a label
+set changes only the second term. Always name the generations and the label set
+of each.
+
+### Label sets
+
+| Key | Label set id | Scores from | Nodes | Location | Status |
+|:--|:--|:--|--:|:--|:--|
+| `O` | `original` | The net that played each generation, so a mix (below) | 5,000 | `data/selfplay/v1/gen=N/` | Complete, kept forever |
+| `N7` | `net7-l050-r41363264869-n5000` | net7, sha256 `0866bde1…1b6f`, for every generation | 5,000 | `data/selfplay/relabel/net7-l050-r41363264869-n5000/gen=N/` | In progress (below) |
+
+- **`original`** is the name used here for the labels made during play. Those
+  prefixes aren't called that in S3, and `Train`'s `labels` input doesn't take
+  it: a generation left out of `labels` uses its originals.
+- **Any other id** is `<net id>-n<nodes>` and means one labelling, forever. A
+  change of net, nodes or method is a new id.
+
+### Which label sets exist
+
+| Gen | Positions | `O`, labelled by | `N7` |
+|--:|--:|:--|:--|
+| 0 | 231,240,344 | PeSTO | In progress |
+| 1 | 368,354,466 | net 1 | In progress |
+| 2 | 307,037,810 | net2x80 | In progress |
+| 3 | 628,213,254 | net4w512 | Not started |
+| 4 | 495,147,759 | net 5 | Not started |
+| 5 | 318,934,530 | net6k4 | Not started |
+
+| Status | Meaning |
+|:--|:--|
+| Not started | No run has been asked for |
+| In progress | A run is going, or has stopped with shards missing. `Train` refuses it |
+| Complete | Every source shard has a relabelled shard. `Train` accepts it |
+| Audited | Complete, and the checks in [Auditing a label set](#auditing-a-label-set) are recorded |
+
+### Which labels each net trained on
+
+Each cell is the label set a net used for that generation, and `—` means the
+generation wasn't used. Confirmed from each net's `training.json`: its
+`datasets` prefixes, and its `labels` map for nets trained after #190.
+
+| Net | Gen 0 | Gen 1 | Gen 2 | Gen 3 | Gen 4 | Gen 5 | Prepared set |
+|:--|:-:|:-:|:-:|:-:|:-:|:-:|:--|
+| `net1-l050-r41022503872` | `O` | — | — | — | — | — | `g0·O` |
+| `net2-l050-r41110004652` | `O` | `O` | — | — | — | — | `g0-1·O` |
+| `net2x80-l050-r41131366975` | `O` | `O` | — | — | — | — | `g0-1·O` |
+| `net2x80-l025-r41141703294` | `O` | `O` | — | — | — | — | `g0-1·O` |
+| `net2x80-l075-r41145466004` | `O` | `O` | — | — | — | — | `g0-1·O` |
+| `net3-l050-r41160495666` | `O` | `O` | `O` | — | — | — | `g0-2·O` |
+| `net4-l050-r41165115607` | `O` | `O` | `O` | — | — | — | `g0-2·O` |
+| `net4w512-l050-r41170687764` | `O` | `O` | `O` | — | — | — | `g0-2·O` |
+| `net5-l050-r41229287546` | `O` | `O` | `O` | `O` | — | — | `g0-3·O` |
+| `net5x120-l050-r41237487627` | `O` | `O` | `O` | `O` | — | — | `g0-3·O` |
+| `net5b8-l050-r41265636815` | `O` | `O` | `O` | `O` | — | — | `g0-3·O` |
+| `net6-l050-r41273387683` | `O` | `O` | `O` | `O` | `O` | — | `g0-4·O` |
+| `net6k4-l050-r41282883885` | `O` | `O` | `O` | `O` | `O` | — | `g0-4·O` |
+| `net7-l050-r41363264869` | `O` | `O` | `O` | `O` | `O` | `O` | `g0-5·O` |
+| net7rl012 (**planned, not trained**: [nets.md](nets.md#planned-net7rl012-net7s-recipe-on-relabelled-generations-02)) | `N7` | `N7` | `N7` | `O` | `O` | `O` | `g0-5·N7(0-2)` |
+
+### Prepared training sets
+
+`prepare` turns a choice of generations and labels into one `train.data` and one
+`val.data`. A record holds its score, so their SHA-256s fingerprint both the
+positions and the labels: **two nets with the same `val.data` SHA-256 were
+scored on identical data.** All used split seed 1, shuffle seed 1 and
+`val_fraction` 0.05.
+
+| Prepared set | Training / held-out records | Workers | Shards | `train.data` | `val.data` |
+|:--|--:|--:|--:|:--|:--|
+| `g0·O` | 214,568,489 / 16,671,855 | 297 / 23 | 9,329 | `9c438ce0…808f` | `342adf6d…28d7` |
+| `g0-1·O` | 561,653,589 / 37,941,221 | 537 / 39 | 24,045 | `4819161f…df65` | `7f9e5c0e…91a6` |
+| `g0-2·O` | 857,263,237 / 49,369,383 | 722 / 46 | 36,398 | `0774b021…f2a7` | `93379839…a71d` |
+| `g0-3·O` | 1,465,509,939 / 69,335,935 | 908 / 52 | 61,556 | `4d3e3337…c07c` | `e2e88636…0ab1` |
+| `g0-4·O` | 1,932,314,071 / 97,679,562 | 1,152 / 64 | 81,394 | `cc0c5054…53ef` | `07b94289…5c6e` |
+| `g0-5·O` | 2,238,186,465 / 110,741,698 | 1,336 / 72 | 94,149 | `f551e37e…d5f2` | `4dc5921e…b99e` |
+| `g0-5·N7(0-2)` (**planned**) | Must equal `g0-5·O` | Must equal `g0-5·O` | Must equal `g0-5·O` | Not prepared yet | Not prepared yet |
+
+- **Naming:** `g<generations>·<label set>`. A mix names the relabelled
+  generations in brackets: `g0-5·N7(0-2)` is generations 0–5, with `N7` on
+  generations 0–2 and `O` on the rest.
+- **A relabelled set must keep the same positions.** Its records, workers,
+  shards and held-out workers must match the same generations under `O`, and
+  its SHA-256s must differ, because the scores do.
+
+### `net7-l050-r41363264869-n5000`
+
+**Status: in progress.** net7's scores at 5,000 nodes, the same budget that made
+the originals. Design and method: [relabel.md](relabel.md).
+
+| Run | Date | Commit | Generations | Instances × minutes | Market | Shards | Records | Records/s an instance | Status and notes |
+|:--|:--|:--|:--|:--|:--|--:|--:|--:|:--|
+| [41533675760](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41533675760) | 2026-11-02 | `b7f12f7` | 0 | 1 × 10 | On demand, $3.4486/h, after 5 minutes without spot capacity | 0 | 0 | — | **Failed.** Smoke test: `relabel` panicked on the first worker, about 2 minutes after launch, on manifests that predate checksums (exit 134, fixed in #187). The log shows 0 shards and 0 records before the failure, so nothing should have been uploaded; S3 wasn't listed. Under $0.20, an estimate. Fixed binary run locally on 6 generation 0 shards (#187); no cloud run since |
+| [41788545675](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41788545675) | 2026-11-04 | `cb9e55b` (`v0.44.3`) | 0, 1, 2 | 3 × 300 | Spot only | Pending | Pending | Pending | **Running.** The first run with batches (#196). Results to be added from its summary and manifests |
+
+| Gen | Source shards | Source records | Relabelled shards | Relabelled records | Changed | Mean \|change\| (cp) | Mates clamped | Sign agreement | Correlation | Audit |
+|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|:--|
+| 0 | 9,329 | 231,240,344 | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
+| 1 | 14,716 | 368,354,466 | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
+| 2 | 12,353 | 307,037,810 | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
+
+**Reading these:** the same net re-scoring its own generation at the same budget
+changes a label by a median of 17 cp and a mean of 30 cp, with 97.7% sign
+agreement and correlation 0.990 ([relabel.md](relabel.md)). That's the noise
+floor, and only disagreement beyond it is net7's opinion. It was measured on 16
+shards of one generation, so it's a guide, not a bar.
+
+### Auditing a label set
+
+Before marking a generation's label set audited, check and record each of these,
+how it was checked, and anything that couldn't be:
+
+1. **Inventory:** every source shard has a relabelled positions file and
+   manifest, and there are no extras.
+2. **Records:** each shard's count matches its source, and its FENs and results
+   are identical and in order.
+3. **Provenance:** every manifest names the label set, the net's SHA-256, the
+   nodes and the commit, and its checksums match its files.
+4. **Plausibility:** sign agreement and correlation with the originals, against
+   the noise floor above. A wrong point of view couldn't produce high values.
+5. **Determinism:** a sample of shards re-run gives byte-identical positions.
+6. **Originals:** the `relabel` profile can't write to the source prefix. Record
+   that its shard count and a sample of its checksums still match this ledger.
 
 ## Generation 0: PeSTO
 
@@ -310,17 +446,7 @@ native build. One engine commit throughout.
 **Cost:** about $5–6 on spot (about 4.7 instance-hours), an estimate, not
 billed figures.
 
-## Relabelled label sets
-
-A label set re-scores a generation's stored positions with a stronger net and
-keeps the originals untouched ([relabel.md](relabel.md)). **No label set exists
-yet.** Every net so far trained on the original labels.
-
-| Run | Date | Commit | Asked | Market | Generation | Records | Notes |
-|:--|:--|:--|:--|:--|:--|--:|:--|
-| [41533675760](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41533675760) | 2026-11-02 | `b7f12f7` | 1 × 10 minutes, 5,000 nodes, net7 | on demand, $3.4486/h, after 5 minutes without spot capacity | 0 | 0 | Smoke test. **Failed:** `relabel` panicked on the first worker, about 2 minutes after launch, on manifests that predate checksums (exit 134, fixed in #187). The log shows 0 shards and 0 records before the failure, so nothing should have been uploaded; S3 wasn't listed. Under $0.20, an estimate. Fixed binary run locally on 6 generation 0 shards (#187); no cloud run since |
-
-## Adding a run or a generation
+## Adding a run, a generation or a label set
 
 After every Datagen or Relabel run, including smoke tests, benchmarks and
 failed or cancelled runs:
@@ -333,8 +459,19 @@ failed or cancelled runs:
    ([datagen-runbook.md](datagen-runbook.md)) and record its verdict, the
    determinism result and the quality numbers, including how they moved from
    the previous generation.
-3. Update the Generations table, including which nets trained on it.
-4. Take numbers from the manifests, `task.json` or `datagen-audit`, and label
+3. Update the Generations table.
+4. **For a Relabel run:** add a row to its label set's run table. Update the
+   per-generation results and [Which label sets exist](#which-label-sets-exist),
+   and run [the audit](#auditing-a-label-set).
+5. **For a new label set:** give it a key and a row in
+   [Label sets](#label-sets), a column in
+   [Which label sets exist](#which-label-sets-exist) and its own section. Never
+   reuse an id.
+6. **For a new net:** add a row to
+   [Which labels each net trained on](#which-labels-each-net-trained-on), from
+   its `training.json`. Add its prepared set if it's new, or check that its
+   SHA-256s match the existing one.
+7. Take numbers from the manifests, `task.json` or `datagen-audit`, and label
    anything else, such as costs, as an estimate. The full rule is in
    [AGENTS.md](../AGENTS.md#experiments-and-the-research-record).
 
@@ -355,3 +492,16 @@ Checks of this ledger against its primary sources.
 **Not checked:** the shard manifests themselves. S3 needed AWS credentials this
 audit didn't have, so the totals are checked against each other and against
 `training.json`, not recounted. No audit verdict was re-run.
+
+**2026-11-04,** at `v0.44.3`, adding the label tables:
+
+| Check | Result |
+|:--|:--|
+| Which labels each of the 14 trained nets used, from each `training.json` | All 14 list only `data/selfplay/v1/` prefixes, and none has a `labels` map, so all used `O` |
+| Prepared sets and their SHA-256s | 6 distinct sets. Nets given the same recipe's data share `train.data` and `val.data` SHA-256s, including the whole λ sweep |
+| Held-out workers from each prepared set to the next | Each contains the previous set's, so "the same held-out workers" holds |
+| Split settings | Split seed 1, shuffle seed 1 and `val_fraction` 0.05 for all 14 |
+| Label set id the run will write | `relabel --net default --nodes 5000 --print-label-id` prints `{N7}` at this commit's net; the manifests will confirm it |
+
+**Not checked:** the manifests and S3, still without AWS credentials. The `N7`
+results are pending its run.

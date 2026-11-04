@@ -2,38 +2,47 @@
 
 The ledger of every net trained, kept or not: what it was trained on and
 how, what it measured, and how it played. It's the record for deciding what
-to try next, so it keeps the failures too. The data each net names is in
-[datasets.md](datasets.md); the architecture and file format in
+to try next, so it keeps the failures too. The positions and labels each net
+names are in [datasets.md](datasets.md); the architecture and file format in
 [nnue.md](nnue.md); the training pipeline in [training.md](training.md).
 
 Each net's own record (`training.json`, the losses, the validation curve, the
 split, the log) is in `s3://jwall-engineering-rusty-chess-nnue/data/nets/<net id>/`.
 Net ids are `<name>-l<λ×100>-r<Train run id>`.
 
+The **Labels** column is the label set a net used for its generations. `O` means
+every generation's original labels; a mix names each part, such as `N7` on
+generations 0–2 and `O` on the rest. The keys, and a per-generation table for
+every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
+
 ## Summary
 
-| Net | Status | Data (generations, training positions) | Architecture | λ | Superbatches | Held-out loss | Engine check (mean / max cp) | Timed SPRT vs previous | Fixed-node SPRT vs previous | Ladder (Stockfish 19) |
-|:--|:--|:--|:--|--:|--:|--:|:--|:--|:--|:--|
-| `net1-l050-r41022503872` | Default `v0.28.0`–`v0.29.0`; **plays generation 1** | 0 · 214.6M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.018925 (gen-0 held-out) | 8.72 / 29.82 | **+587.3 ± 82.7** vs PeSTO | +563.4 ± 93.8 | 2977 ± 32 (`v0.28.0`) |
-| `net2-l050-r41110004652` | Default in `v0.30.0`; replaced by net2x80 (never played a generation) | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.019273 (gen-0 + gen-1 held-out) | 5.52 / 20.32 | **+112.8 ± 21.1** vs net 1 | +134.4 ± 22.7 | 3044 ± 28 (`v0.30.0`) |
-| `net2x80-l050-r41131366975` | Default `v0.31.0`–`v0.32.0`; **plays generation 2** | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | 0.5 | **80** | **0.019204** (same held-out set as net 2: 0.019273) | 5.67 / 22.38 | **+21.0 ± 8.9** vs net 2 | +23.5 ± 9.4 | 3025 ± 29 (`v0.31.0`), 3011 ± 32 (`v0.31.1`), 3034 ± 30 (`v0.32.0`) |
-| `net2x80-l025-r41141703294` | Dropped (#137): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.25** | 80 | not comparable (other target) | 4.68 / 20.10 | **−38.1 ± 12.8** vs net2x80 (H0) | −60.9 ± 16.7 (H0) | — |
-| `net2x80-l075-r41145466004` | Dropped (#140): λ sweep | 0 + 1 · 561.7M | (768 → 128) × 2 → 1 | **0.75** | 80 | not comparable (other target) | 6.74 / 23.93 | **−3.2 ± 4.5** vs net2x80 (H0) | −4.1 ± 4.8 (H0) | — |
-| `net3-l050-r41160495666` | Default `v0.33.0`–`v0.34.0`; replaced by net 4 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | **+21.8 ± 9.2** vs net2x80 | +32.3 ± 11.3 | 3051 ± 26 (`v0.33.0`), 3040 ± 32 (`v0.34.0`) |
-| `net4-l050-r41165115607` | Default `v0.35.0`; replaced by net4w512 (never played a generation) | 0 + 1 + 2 · 857.3M | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | **+74.2 ± 16.4** vs net 3 | +88.1 ± 16.4 | 3086 ± 33 (`v0.35.0`) |
-| `net4w512-l050-r41170687764` | Default `v0.36.0`; **plays generation 3** | 0 + 1 + 2 · 857.3M | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | **+44.3 ± 13.1** vs net 4 | +73.6 ± 15.9 | 3076 ± 30 (`v0.36.0`) |
-| `net5-l050-r41229287546` | Default `v0.37.0`–`v0.38.0`; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | +35.4 ± 11.7 | 3129 ± 32 (`v0.37.0`), 3114 ± 30 (`v0.37.1`), 3132 ± 29 (`v0.38.0`) |
-| `net5x120-l050-r41237487627` | Dropped (#159): schedule experiment, inconclusive at the cap | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → 1 | 0.5 | **120** | **0.019399** (same held-out set as net 5: 0.019432) | 6.68 / 23.20 | +4.9 ± 3.9 vs net 5 (inconclusive) | −1.2 ± 4.2 (inconclusive) | — |
-| `net5b8-l050-r41265636815` | Default `v0.39.0`–`v0.39.2`; replaced by net6 (never played a generation) | 0 + 1 + 2 + 3 · 1,465.5M | (768 → 512) × 2 → **8** (output buckets) | 0.5 | 80 | **0.019349** (same held-out set as net 5: 0.019432) | 6.14 / 21.71 | **+6.5 ± 4.4** vs net 5 | +12.4 ± 6.6 | 3127 ± 31 (`v0.39.0`), 3125 ± 29 (`v0.39.1`), 3120 ± 32 (`v0.39.2`) |
-| `net6-l050-r41273387683` | Default `v0.40.0`–`v0.41.0`; replaced by net6k4 (never played a generation) | 0 + 1 + 2 + 3 + **4** · 1,932.3M | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | **+14.5 ± 7.1** vs net5b8 | +11.4 ± 6.3 | 3156 ± 30 (`v0.40.0`), 3119 ± 29 (`v0.41.0`) |
-| `net6k4-l050-r41282883885` | Default `v0.42.0`–`v0.42.1`; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | +40.0 ± 12.4 | 3166 ± 31 (`v0.42.0`), 3144 ± 29 (`v0.42.1`) |
-| `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.2`; **will play generation 6** (not generated yet) | 0–5 · 2,238.2M | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`) |
+| Net | Status | Data (generations, training positions) | Labels | Architecture | λ | Superbatches | Held-out loss | Engine check (mean / max cp) | Timed SPRT vs previous | Fixed-node SPRT vs previous | Ladder (Stockfish 19) |
+|:--|:--|:--|:--|:--|--:|--:|--:|:--|:--|:--|:--|
+| `net1-l050-r41022503872` | Default `v0.28.0`–`v0.29.0`; **plays generation 1** | 0 · 214.6M | `O` | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.018925 (gen-0 held-out) | 8.72 / 29.82 | **+587.3 ± 82.7** vs PeSTO | +563.4 ± 93.8 | 2977 ± 32 (`v0.28.0`) |
+| `net2-l050-r41110004652` | Default in `v0.30.0`; replaced by net2x80 (never played a generation) | 0 + 1 · 561.7M | `O` | (768 → 128) × 2 → 1 | 0.5 | 40 | 0.019273 (gen-0 + gen-1 held-out) | 5.52 / 20.32 | **+112.8 ± 21.1** vs net 1 | +134.4 ± 22.7 | 3044 ± 28 (`v0.30.0`) |
+| `net2x80-l050-r41131366975` | Default `v0.31.0`–`v0.32.0`; **plays generation 2** | 0 + 1 · 561.7M | `O` | (768 → 128) × 2 → 1 | 0.5 | **80** | **0.019204** (same held-out set as net 2: 0.019273) | 5.67 / 22.38 | **+21.0 ± 8.9** vs net 2 | +23.5 ± 9.4 | 3025 ± 29 (`v0.31.0`), 3011 ± 32 (`v0.31.1`), 3034 ± 30 (`v0.32.0`) |
+| `net2x80-l025-r41141703294` | Dropped (#137): λ sweep | 0 + 1 · 561.7M | `O` | (768 → 128) × 2 → 1 | **0.25** | 80 | not comparable (other target) | 4.68 / 20.10 | **−38.1 ± 12.8** vs net2x80 (H0) | −60.9 ± 16.7 (H0) | — |
+| `net2x80-l075-r41145466004` | Dropped (#140): λ sweep | 0 + 1 · 561.7M | `O` | (768 → 128) × 2 → 1 | **0.75** | 80 | not comparable (other target) | 6.74 / 23.93 | **−3.2 ± 4.5** vs net2x80 (H0) | −4.1 ± 4.8 (H0) | — |
+| `net3-l050-r41160495666` | Default `v0.33.0`–`v0.34.0`; replaced by net 4 (never played a generation) | 0 + 1 + 2 · 857.3M | `O` | (768 → 128) × 2 → 1 | 0.5 | 80 | 0.019862 (gen-0–2 held-out; cross-scored below) | 5.23 / 18.47 | **+21.8 ± 9.2** vs net2x80 | +32.3 ± 11.3 | 3051 ± 26 (`v0.33.0`), 3040 ± 32 (`v0.34.0`) |
+| `net4-l050-r41165115607` | Default `v0.35.0`; replaced by net4w512 (never played a generation) | 0 + 1 + 2 · 857.3M | `O` | (768 → **256**) × 2 → 1 | 0.5 | 80 | **0.019443** (same held-out set as net 3: 0.019862) | 5.80 / 23.94 | **+74.2 ± 16.4** vs net 3 | +88.1 ± 16.4 | 3086 ± 33 (`v0.35.0`) |
+| `net4w512-l050-r41170687764` | Default `v0.36.0`; **plays generation 3** | 0 + 1 + 2 · 857.3M | `O` | (768 → **512**) × 2 → 1 | 0.5 | 80 | **0.019146** (same held-out set: net 4 0.019443) | 11.72 / 34.10 | **+44.3 ± 13.1** vs net 4 | +73.6 ± 15.9 | 3076 ± 30 (`v0.36.0`) |
+| `net5-l050-r41229287546` | Default `v0.37.0`–`v0.38.0`; **plays generation 4** | 0 + 1 + 2 + **3** · 1,465.5M | `O` | (768 → 512) × 2 → 1 | 0.5 | 80 | 0.019432 (gen-0–3 held-out; not comparable with net4w512's) | 7.77 / 26.67 | **+21.9 ± 9.2** vs net4w512 | +35.4 ± 11.7 | 3129 ± 32 (`v0.37.0`), 3114 ± 30 (`v0.37.1`), 3132 ± 29 (`v0.38.0`) |
+| `net5x120-l050-r41237487627` | Dropped (#159): schedule experiment, inconclusive at the cap | 0 + 1 + 2 + 3 · 1,465.5M | `O` | (768 → 512) × 2 → 1 | 0.5 | **120** | **0.019399** (same held-out set as net 5: 0.019432) | 6.68 / 23.20 | +4.9 ± 3.9 vs net 5 (inconclusive) | −1.2 ± 4.2 (inconclusive) | — |
+| `net5b8-l050-r41265636815` | Default `v0.39.0`–`v0.39.2`; replaced by net6 (never played a generation) | 0 + 1 + 2 + 3 · 1,465.5M | `O` | (768 → 512) × 2 → **8** (output buckets) | 0.5 | 80 | **0.019349** (same held-out set as net 5: 0.019432) | 6.14 / 21.71 | **+6.5 ± 4.4** vs net 5 | +12.4 ± 6.6 | 3127 ± 31 (`v0.39.0`), 3125 ± 29 (`v0.39.1`), 3120 ± 32 (`v0.39.2`) |
+| `net6-l050-r41273387683` | Default `v0.40.0`–`v0.41.0`; replaced by net6k4 (never played a generation) | 0 + 1 + 2 + 3 + **4** · 1,932.3M | `O` | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | **+14.5 ± 7.1** vs net5b8 | +11.4 ± 6.3 | 3156 ± 30 (`v0.40.0`), 3119 ± 29 (`v0.41.0`) |
+| `net6k4-l050-r41282883885` | Default `v0.42.0`–`v0.42.1`; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | `O` | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | +40.0 ± 12.4 | 3166 ± 31 (`v0.42.0`), 3144 ± 29 (`v0.42.1`) |
+| `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.3`; **will play generation 6** (not generated yet) | 0–5 · 2,238.2M | `O` | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`), 3166 ± 30 (`v0.44.2`) |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
   includes generation 1, which has more draws and different labels, so its
   0.019273 is not worse than net 1's 0.018925. Score two nets on one set
   with `rusty-chess-trainer validate` to compare them.
+- **The same positions aren't the same held-out data if the labels differ.**
+  The `val.data` SHA-256 tells you: losses compare only when it matches
+  ([datasets.md](datasets.md#prepared-training-sets)). All 14 nets so far use
+  `O`, so this first matters for net7rl012.
 - **Both SPRTs are required to merge, since #184.** The timed leg shows what
   the engine does at a clock, and the fixed-node leg isolates the net's
   knowledge from its speed. Through #180, every net above, only the timed leg
@@ -113,6 +122,51 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
+## Planned: net7rl012, net7's recipe on relabelled generations 0–2
+
+**Not trained yet.** This section records the plan before any result exists, and
+becomes the net's section once it does.
+
+| | |
+|:--|:--|
+| Question | With the same positions and results, do better scores make a stronger net? |
+| The one change | Generations 0–2 use label set `N7`, net7's scores at 5,000 nodes, in place of their originals from PeSTO, net 1 and net2x80. That's 906.6M of 2,348.9M records (38.6%) |
+| Held the same | Positions, results, split, seeds, generations 3–5's labels, architecture, λ 0.5 and the schedule |
+| Prepared set | `g0-5·N7(0-2)` ([datasets.md](datasets.md#prepared-training-sets)). Its records, workers, shards and held-out workers must match net7's `g0-5·O` |
+| Prerequisite | `N7` is complete for generations 0–2 and its audit is recorded |
+| Gate | H1 in both the timed and the fixed-node SPRT against net7. Anything else drops the net, unless the owner merges over the check with a stated reason |
+
+```sh
+gh workflow run Train --ref main -f net-id=net7rl012 -f generations=0,1,2,3,4,5 \
+  -f labels=0=net7-l050-r41363264869-n5000,1=net7-l050-r41363264869-n5000,2=net7-l050-r41363264869-n5000 \
+  -f hidden=512 -f output-buckets=8 -f king-buckets=4 -f wdl=0.5 -f superbatches=80
+```
+
+**Before the SPRT, check and record:**
+- `training.json`'s `labels` and `datasets` name the label set for generations
+  0–2 and `selfplay/v1/` for generations 3–5.
+- Its `val_workers` and record counts equal net7's, and its `val.data` SHA-256
+  differs from net7's.
+- Any change to the trainer between net7's commit (`b2497b7`) and the training
+  commit, since that would be a second change.
+
+**Comparing it with net7:** their held-out positions match but their held-out
+labels don't, so each net's own held-out loss **isn't comparable**. Score both
+quantised nets with `rusty-chess-trainer validate` on each of these, on identical
+positions:
+
+| Held-out set, target | net7 | net7rl012 |
+|:--|--:|--:|
+| Generations 0–2, results only (`--wdl 1.0`), the one target the label sets share | Pending | Pending |
+| Generations 3–5, results only (`--wdl 1.0`) | Pending | Pending |
+| Generations 0–2 under `O`, λ 0.5 | Pending | Pending |
+| Generations 0–2 under `N7`, λ 0.5 | Pending | Pending |
+| Generations 3–5 under `O`, λ 0.5 | Pending | Pending |
+
+Expect each net to do better on its own labels for generations 0–2, which says
+little on its own. The results-only rows and generations 3–5 are the fairer
+tests, and the SPRT decides.
+
 ## net7-l050-r41363264869
 
 net6k4's recipe (512 hidden, 8 output buckets, 4 king buckets, λ 0.5, 80
@@ -130,7 +184,7 @@ the first net trained on data a king-bucketed net played.
 | Engine check | 256 held-out positions: mean **7.29 cp**, max 27.31 |
 | Bench | Signature 1031896 (net6k4: 1046838), identical run to run; fail-high-first 0.875 (net6k4: 0.879), **EBF 1.805** (net6k4: 1.855). Paired locally against net6k4 over 6 runs: speed per node +1.3%, **time to depth −2.6% ± 2.1%** |
 | SPRT vs net6k4 (#180) | Run [41369992341](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41369992341). Timed 5+0.05: **+6.8 ± 4.5**, LOS 99.8%, H1 in 8,088 games (1,789 / 1,631 / 4,668; LLR 2.95). Fixed 200k nodes: **+5.1 ± 4.2**, LOS 99.2%, inconclusive at the 10,000-game cap (2,271 / 2,123 / 5,606; LLR 2.42). Runner: +0.1% ± 2.3% speed per node, −1.5% ± 2.3% time to depth; EBF 1.86 → 1.81, fail-high-first 87.9% → 87.5%; 4,106 instructions a node (net6k4: 4,143) |
-| Ladder | `v0.43.0`: **3171 ± 27** ([41374337957](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41374337957)), `v0.44.0`: 3146 ± 32 ([41384790229](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41384790229)), `v0.44.1`: 3163 ± 33 ([41542113707](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41542113707)), the same net and bench signature. net6k4 read 3166 ± 31 and 3144 ± 29: the ladder can't separate them |
+| Ladder | `v0.43.0`: **3171 ± 27** ([41374337957](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41374337957)), `v0.44.0`: 3146 ± 32 ([41384790229](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41384790229)), `v0.44.1`: 3163 ± 33 ([41542113707](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41542113707)), `v0.44.2`: 3166 ± 30 ([41780137077](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41780137077)), the same net and bench signature. net6k4 read 3166 ± 31 and 3144 ± 29: the ladder can't separate them |
 
 | Superbatch | 4 | 20 | 36 | 40 | 60 | 72 | 80 |
 |:--|--:|--:|--:|--:|--:|--:|--:|
@@ -596,9 +650,10 @@ the fixed-node SPRT against the current default.
    - **Relabelling** the oldest generations with net7: the tool, the `relabel`
      profile and the workflow exist (#179, #185, #186). The first run failed on
      old manifests, fixed in #187, and no label set exists yet
-     ([datasets.md](datasets.md#relabelled-label-sets)). #189 (stay on spot) and
-     #190 (`Train` chooses a label set) have merged, but neither has had a real
-     run yet. Then net7's recipe on the relabelled data, SPRT against net7.
+     ([datasets.md](datasets.md#label-sets)). Generations 0–2 are running
+     ([41788545675](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41788545675)), with #189 (stay on spot) and
+     #196 (batches). #190 (`Train` chooses a label set) hasn't had a real run.
+     Then [net7rl012](#planned-net7rl012-net7s-recipe-on-relabelled-generations-02).
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
@@ -610,8 +665,8 @@ the fixed-node SPRT against the current default.
 
 For every net trained on the GPU task, kept or not:
 
-1. Add a row to the summary and a section with the data (generations,
-   record counts, split), the schedule, the `Train` run, the timings and
+1. Add a row to the summary and a section with the data (generations, label
+   sets, record counts, split, prepared-data SHA-256s), the schedule, the `Train` run, the timings and
    cost, the losses, the validation curve and the engine check, all from
    its `training.json`.
 2. If it's tested, add the SPRT (both legs, games, the PR, and every attempt,
@@ -621,7 +676,15 @@ For every net trained on the GPU task, kept or not:
 3. If it's dropped, say why, with the numbers. A dispatch cancelled before
    training gets a line in the net's section.
 4. Update "What we've learned" when a result changes what to try next.
-5. Take numbers from the primary source (`training.json`, the PR's SPRT and
+5. **Add the net to [datasets.md](datasets.md#which-labels-each-net-trained-on):**
+   its label set per generation, from `training.json`'s `datasets` and `labels`,
+   and its prepared set. Records from before #190 have no `labels`; their
+   `selfplay/v1/` prefixes mean `O`.
+6. **Name a labels-only change with an `rl` suffix** giving the relabelled
+   generations, like net7rl012, as a schedule change takes `x`. Compare it with
+   its base as in
+   [net7rl012's plan](#planned-net7rl012-net7s-recipe-on-relabelled-generations-02).
+7. Take numbers from the primary source (`training.json`, the PR's SPRT and
    bench comments, the release notes) and label anything else, such as costs,
    as an estimate. The full rule is in
    [AGENTS.md](../AGENTS.md#experiments-and-the-research-record).
@@ -642,3 +705,15 @@ Checks of this ledger against its primary sources.
 
 **Not checked:** the `training.json` of nets other than net7, and anything in
 S3, which needed AWS credentials this audit didn't have.
+
+**2026-11-04,** at `v0.44.3`, adding the Labels column:
+
+| Check | Result |
+|:--|:--|
+| The summary's training records, λ and superbatches for all 14 nets, against each `training.json` | All match |
+| The label set of all 14 nets | `O`: only `data/selfplay/v1/` prefixes and no `labels` map |
+| Held-out loss against each `training.json`, for the 11 nets whose summary row and record both give one | All match. Net 1 was scored afterwards (#121), and the summary leaves out the λ sweep's as not comparable |
+| Every `Train` artifact downloaded | All 14 |
+
+This closes the first item left open above. **Not checked:** anything in S3, and
+`v0.44.3`'s rating, which is still running.
