@@ -132,14 +132,21 @@ original manifests predate checksums.
   ```
 - **Cost:** about datagen's speed, since it searches every ply: about 19,500
   records a second an instance with net6k4. Generations 0–2 (906M records)
-  are about 13 instance-hours, roughly $15 on spot; all six generations (1.85B)
-  about 26, roughly $30. Estimates from generation 5's measured rate. They are
-  low when a worker has fewer shards than the instance has cores, because
-  workers run one at a time: generation 0 (320 workers, at most 53 shards each)
-  is about 7.3 instance-hours rather than 3.3.
+  are about 14–16 instance-hours, roughly $12–21 on spot at $0.89–$1.33/h,
+  with transfers and each batch's last, partly idle round included. All six
+  generations (2.35B) are about 36–41, roughly $32–55. Estimates from
+  generation 5's measured rate; no full cloud run has measured them yet.
 - **The unit of work** is one self-play worker's shards in one task. Each of
   the N tasks takes every Nth worker, relabels it, and uploads each shard's
   positions and then its manifest, so a manifest in S3 means a whole shard.
+- **Batches keep the cores busy.** A worker alone can have far fewer shards than
+  an instance has cores: generation 0's smoke-test workers have about 5 for 64
+  cores. So a task groups workers until a batch has at least four shards a core
+  and passes the batch to one `relabel`, whose queue keeps every core busy until
+  the batch's last round. A shard's output doesn't depend on which others share
+  its batch: on 99 locally generated shards, batches and single workers gave the
+  same records and manifests, apart from each manifest's `seconds`. `--minutes` is checked between batches, so a task can run about a
+  batch past it (about 6 minutes on 64 cores).
 - **Resumable:** a task skips shards whose relabelled manifest already
   exists, so a spot interruption only costs the shards in progress. Running
   the workflow again with the same `instances` finishes what is left.

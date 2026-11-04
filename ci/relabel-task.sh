@@ -13,12 +13,15 @@
 #
 # The unit of work is one self-play worker's shards in one task: this task
 # takes every Nth worker, starting at I, so N tasks share a generation without
-# talking to each other. For each worker it downloads the shards, relabels them
-# on every core, and uploads each shard's positions and then its manifest, so a
-# manifest's presence in S3 means the shard is complete.
+# talking to each other. It groups its workers into batches of at least four
+# shards a core, because a worker alone can have far fewer shards than the
+# instance has cores, and the rest would sit idle. For each batch it downloads
+# the shards, relabels them on every core, and uploads each shard's positions
+# and then its manifest, so a manifest's presence in S3 means the shard is
+# complete.
 #
 # Resumable: shards whose relabelled manifest is already in S3 are skipped, so
-# a re-run or a top-up only does what is left. It stops starting workers after
+# a re-run or a top-up only does what is left. It stops starting batches after
 # --minutes. On SIGTERM (a spot interruption: about two minutes' notice) it
 # stops the relabelling, uploads every complete shard and exits; a shard in
 # progress is lost, nothing is corrupted. The originals are only ever read.
@@ -95,6 +98,9 @@ echo "   $(wc -l < "$work/source.txt") shards, $(wc -l < "$work/done.txt") alrea
 sed -E 's/-s[0-9]+$//' "$work/source.txt" | sort -u \
   | awk -v i="$index" -v n="$tasks" '(NR - 1) % n == i' > "$work/mine.txt"
 
+# Enough shards that a batch keeps every core busy until its last round.
+batch_target=$(( $(getconf _NPROCESSORS_ONLN) * 4 ))
+
 stop=0
 child=0
 on_term() {
@@ -105,12 +111,12 @@ on_term() {
 trap on_term TERM
 
 uploaded=0 workers=0 records=0 changed=0 mates=0 sum_change=0
-upload_done() { # the worker's task directory, relative to the root; the worker
-  local rel=$1 name=$2
+upload_done() { # a task directory, relative to the root
+  local rel=$1
   local dir="$work/out/$rel" fresh="$work/fresh" m n=0
   [ -d "$dir/manifests" ] || return 0
   rm -rf "$fresh"; mkdir -p "$fresh/positions" "$fresh/manifests"
-  for m in "$dir/manifests/$name"-s*.json; do
+  for m in "$dir"/manifests/*.json; do
     [ -e "$m" ] || break
     local shard
     shard=$(basename "$m" .json)
@@ -132,26 +138,35 @@ upload_done() { # the worker's task directory, relative to the root; the worker
   uploaded=$((uploaded + n))
 }
 
-total=$(( $(wc -l < "$work/mine.txt") ))
-at=0
-while IFS= read -r unit && [ "$stop" = 0 ]; do
-  at=$((at + 1))
+download_batch() { # the batch's workers, one sync per task directory
+  local rel unit name
+  for rel in $(sed 's#/[^/]*$##' "$work/batch.txt" | sort -u); do
+    local done_args=() source_args=()
+    while IFS= read -r unit; do
+      [ "${unit%/*}" = "$rel" ] || continue
+      name=${unit##*/}
+      done_args+=(--include "$name-s*.json")
+      source_args+=(--include "manifests/$name-s*.json" --include "positions/$name-s*" --include "games/$name-s*")
+    done < "$work/batch.txt"
+    mkdir -p "$work/in/$rel" "$work/out/$rel/manifests"
+    # A partly done worker: its finished manifests make the tool skip them.
+    retry aws s3 sync --only-show-errors "$out_root/$rel/manifests/" "$work/out/$rel/manifests/" \
+      --exclude "*" "${done_args[@]}"
+    retry aws s3 sync --only-show-errors "$dataset/$rel/" "$work/in/$rel/" --exclude "*" "${source_args[@]}"
+    [ "$stop" = 0 ] || return 0
+  done
+}
+
+run_batch() {
+  [ -s "$work/batch.txt" ] || return 0
   if [ $(( $(since) / 60 )) -ge "$minutes" ]; then
-    echo "relabel-task: $minutes minutes are up, stopping before worker $at of $total"
+    echo "relabel-task: $minutes minutes are up, stopping before worker $((at - $(wc -l < "$work/batch.txt") + 1)) of $total"
     stop=2
-    break
+    return 0
   fi
-  rel=${unit%/*}
-  name=${unit##*/}
-  # Nothing left of this worker: don't download it.
-  grep -q -F "$unit-s" "$work/todo.txt" || continue
   rm -rf "$work/in" "$work/out"
-  mkdir -p "$work/in/$rel" "$work/out/$rel/manifests"
-  # A partly done worker: its finished manifests make the tool skip them.
-  retry aws s3 sync --only-show-errors "$out_root/$rel/manifests/" "$work/out/$rel/manifests/" \
-    --exclude "*" --include "$name-s*.json"
-  retry aws s3 sync --only-show-errors "$dataset/$rel/" "$work/in/$rel/" --exclude "*" \
-    --include "manifests/$name-s*.json" --include "positions/$name-s*" --include "games/$name-s*"
+  download_batch
+  [ "$stop" = 0 ] || return 0
   # In the background, in its own session, so a SIGTERM reaches only this
   # script and the trap can stop it and upload what is complete.
   if command -v setsid >/dev/null; then
@@ -168,15 +183,35 @@ while IFS= read -r unit && [ "$stop" = 0 ]; do
   [ "$stop" = 0 ] || wait "$child" 2>/dev/null
   set -e
   child=0
-  upload_done "$rel" "$name"
-  workers=$((workers + 1))
-  echo "   worker $at of $total ($unit): $uploaded shards, $records records so far, $(( records / ($(since) + 1) )) records/s ($(since)s)"
+  local rel
+  for rel in $(sed 's#/[^/]*$##' "$work/batch.txt" | sort -u); do
+    upload_done "$rel"
+  done
+  workers=$((workers + $(wc -l < "$work/batch.txt")))
+  echo "   worker $at of $total: $uploaded shards, $records records so far, $(( records / ($(since) + 1) )) records/s ($(since)s)"
   if [ "$stop" = 0 ] && [ "$code" != 0 ]; then
     tail -3 "$OUT_DIR/relabel.log"
-    echo "relabel-task: relabel exited $code on $unit" >&2
+    echo "relabel-task: relabel exited $code on the batch ending at worker $at" >&2
     exit 1
   fi
+  : > "$work/batch.txt"
+  batch_shards=0
+}
+
+total=$(( $(wc -l < "$work/mine.txt") ))
+at=0
+batch_shards=0
+: > "$work/batch.txt"
+while IFS= read -r unit && [ "$stop" = 0 ]; do
+  at=$((at + 1))
+  # Nothing left of this worker: don't download it.
+  left=$(grep -c -F "$unit-s" "$work/todo.txt" || true)
+  [ "$left" -gt 0 ] || continue
+  echo "$unit" >> "$work/batch.txt"
+  batch_shards=$((batch_shards + left))
+  [ "$batch_shards" -lt "$batch_target" ] || run_batch
 done < "$work/mine.txt"
+[ "$stop" != 0 ] || run_batch
 trap - TERM
 
 todo_at_start=$(( $(wc -l < "$work/todo.txt") ))
