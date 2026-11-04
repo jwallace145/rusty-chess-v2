@@ -58,9 +58,9 @@ of each.
 
 | Gen | Positions | `O`, labelled by | `N7` |
 |--:|--:|:--|:--|
-| 0 | 231,240,344 | PeSTO | In progress |
-| 1 | 368,354,466 | net 1 | In progress |
-| 2 | 307,037,810 | net2x80 | In progress |
+| 0 | 231,240,344 | PeSTO | In progress: 7,929 of 9,329 shards |
+| 1 | 368,354,466 | net 1 | In progress: 9,808 of 14,716 shards |
+| 2 | 307,037,810 | net2x80 | In progress: 5,677 of 12,353 shards |
 | 3 | 628,213,254 | net4w512 | Not started |
 | 4 | 495,147,759 | net 5 | Not started |
 | 5 | 318,934,530 | net6k4 | Not started |
@@ -129,13 +129,21 @@ the originals. Design and method: [relabel.md](relabel.md).
 | Run | Date | Commit | Generations | Instances × minutes | Market | Shards | Records | Records/s an instance | Status and notes |
 |:--|:--|:--|:--|:--|:--|--:|--:|--:|:--|
 | [41533675760](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41533675760) | 2026-11-02 | `b7f12f7` | 0 | 1 × 10 | On demand, $3.4486/h, after 5 minutes without spot capacity | 0 | 0 | — | **Failed.** Smoke test: `relabel` panicked on the first worker, about 2 minutes after launch, on manifests that predate checksums (exit 134, fixed in #187). The log shows 0 shards and 0 records before the failure, so nothing should have been uploaded; S3 wasn't listed. Under $0.20, an estimate. Fixed binary run locally on 6 generation 0 shards (#187); no cloud run since |
-| [41788545675](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41788545675) | 2026-11-04 | `cb9e55b` (`v0.44.3`) | 0, 1, 2 | 3 × 300 | Spot only | Pending | Pending | Pending | **Running.** The first run with batches (#196). Results to be added from its summary and manifests |
+| [41788545675](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41788545675) | 2026-11-04 | `cb9e55b` (`v0.44.3`) | 0, 1, 2 | 3 × 300 asked; t1 ran about 40, t0 about 225, t2 about 288 | Spot only, $1.0582/h at launch in us-east-1d | 23,414 | 582,722,671 | t0 17,731, t1 18,080, t2 17,462 | **Partial: 12,984 shards (323,909,949 records) left.** The first run with batches (#196). **t1 was reclaimed by spot at 07:34:19 UTC and t0 at 10:39:53 UTC**; each lost only its batch in progress (307 and 262 shards). t2 finished its 256 workers. The run's `failure` is those two reclaims. About $10, an estimate from instance-hours at the launch price |
+| [41884537437](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41884537437) | 2026-11-04 | `cb9e55b` (`v0.44.3`) | 0, 1, 2 | 2 × 220 | Spot only | Pending | Pending | Pending | **Running.** Top-up of 41788545675, with 2 instances rather than 3 so the work left splits evenly. Done shards are skipped one by one, so the count needn't match. Results to be added from its summary and manifests |
+
+Before the top-up, generation 0 needed t1's last 1,400 shards, generation 1 t1's 4,908, and
+generation 2 t0's 2,554 and t1's 4,122.
 
 | Gen | Source shards | Source records | Relabelled shards | Relabelled records | Changed | Mean \|change\| (cp) | Mates clamped | Sign agreement | Correlation | Audit |
 |--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|:--|
-| 0 | 9,329 | 231,240,344 | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
-| 1 | 14,716 | 368,354,466 | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
-| 2 | 12,353 | 307,037,810 | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
+| 0 | 9,329 | 231,240,344 | 7,929 | 196,158,642 (84.83%) | 99.19% | 492.7 | 674,561 | 93.16% (sample) | 0.9504 (sample) | Partial, [2026-11-04](#audit-log); not complete |
+| 1 | 14,716 | 368,354,466 | 9,808 | 245,495,248 (66.65%) | 98.55% | 179.0 | 495,899 | 95.38% (sample) | 0.9598 (sample) | Partial, [2026-11-04](#audit-log); not complete |
+| 2 | 12,353 | 307,037,810 | 5,677 | 141,068,781 (45.95%) | 98.34% | 120.9 | 57,446 | 95.83% (sample) | 0.9696 (sample) | Partial, [2026-11-04](#audit-log); not complete |
+
+Records, changes and mates are summed from the manifests. Sign agreement and
+correlation come from 20 random shards a generation (about 480,000–500,000
+records each), and a score of zero counts as agreeing.
 
 **Reading these:** the same net re-scoring its own generation at the same budget
 changes a label by a median of 17 cp and a mean of 30 cp, with 97.7% sign
@@ -505,3 +513,31 @@ audit didn't have, so the totals are checked against each other and against
 
 **Not checked:** the manifests and S3, still without AWS credentials. The `N7`
 results are pending its run.
+
+**2026-11-04,** of `N7` after run 41788545675, read-only with
+`AWS_PROFILE=prog-strength-admin`. Local scripts, not a repository tool; sample
+seed 20261104:
+
+| Check | Result |
+|:--|:--|
+| Source manifests of generations 0–2 against this ledger | 36,398 shards and 906,632,620 records: exact for each generation, the first recount from the manifests |
+| Inventory | 23,414 of 36,398 shards have a relabelled manifest and positions file. No extras or orphans, and no worker is partly done |
+| Totals | The manifests' shards, records, changes, change sum and mates equal the three `task.json` files exactly |
+| Provenance, all 23,414 manifests | Label id, net id and SHA-256, 5,000 nodes and commit `cb9e55b` throughout. Positions counts, games, results, seeds, settings and original provenance match the source manifest |
+| Source checksums, generations 1–2 (15,485 shards) | Each manifest's source positions and games SHA-256s match the original manifest. Generation 0's originals have no checksums |
+| Sample, 60 shards (1,481,843 records) | Both files' SHA-256s match, and all FENs and results are identical and in order. Each shard's change sum matches its manifest |
+| Originals | Shard counts match the ledger. The newest object under generations 0–2 dates from 2026-10-31, before the run |
+
+**Not checked:**
+- This isn't the full audit, since the label set isn't complete.
+- FENs, results and checksums of positions files outside the 60-shard sample.
+- Determinism: no shard was re-run.
+- The `relabel` profile's write policy wasn't read; the originals check is by
+  listing.
+
+**Not explained:** net7's scores run larger than the originals in the same
+sample: mean \|score\| 769 against 294 in generation 0, 428 against 285 in
+generation 1 and 385 against 291 in generation 2. So changes sit far above the
+17–30 cp noise floor, and sign agreement and correlation fall below that
+measurement's 97.7% and 0.990. The cause, and what it does to training targets,
+hasn't been measured.
