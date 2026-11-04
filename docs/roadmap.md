@@ -1,8 +1,8 @@
 # Chess Engine Roadmap
 
-A living checklist. Started Oct 26, 2026 · @Jimmy, maintained as the engine is built; last reviewed 2026-10-31 (`v0.37.0`).
+A living checklist. Started Oct 26, 2026 · @Jimmy, maintained as the engine is built; last reviewed 2026-11-03 (`v0.44.1`).
 
-**Status:** Phases 0–4b complete and released (`v0.17.0` closed Phase 4, `v0.25.0` Phase 4b). **Phase 6 (NNUE) is in its iteration loop.** Net 1, trained on PeSTO's self-play, became the default in `v0.28.0`: +587 over PeSTO in the timed SPRT, and 2977 ± 32 on the Stockfish 19 ladder. The vectorized net followed in `v0.29.0`. Since then each step has been one change under a timed SPRT: more data (net 2, +113), a longer schedule (net2x80, +21), generation 2 (net 3, +22), 256 then 512 hidden neurons (net 4, +74; net4w512, +44), generation 3 (net 5, +22) 8 output buckets (net5b8, +6.5), generation 4 (net6, +14.5) and 4 king buckets (net6k4, +21.7, the default in `v0.42.0`). The ladder reads **3166 ± 31** for `v0.42.0` (`v0.40.0` 3156 ± 30, `v0.38.0` 3132 ± 29), each run ±40, `UCI_Elo` 3190: the new anchor below is getting close. Every net and dataset is logged in [nets.md](nets.md) and [datasets.md](datasets.md). Phase 5 (first public release) runs alongside.
+**Status:** Phases 0–4b complete and released (`v0.17.0` closed Phase 4, `v0.25.0` Phase 4b). **Phase 6 (NNUE) is in its iteration loop.** Net 1, trained on PeSTO's self-play, became the default in `v0.28.0`: +587 over PeSTO in the timed SPRT, and 2977 ± 32 on the Stockfish 19 ladder. The vectorized net followed in `v0.29.0`. Since then each step has been one change under a timed SPRT: more data (net 2, +113), a longer schedule (net2x80, +21), generation 2 (net 3, +22), 256 then 512 hidden neurons (net 4, +74; net4w512, +44), generation 3 (net 5, +22) 8 output buckets (net5b8, +6.5), generation 4 (net6, +14.5) 4 king buckets (net6k4, +21.7) and generation 5 (net7, +6.8, the default since `v0.43.0`). The ladder reads **3171 ± 27**, 3146 ± 32 and 3163 ± 33 for net7's three releases (net6k4 3166 ± 31 and 3144 ± 29), each run ±40, `UCI_Elo` 3190: the new anchor below is getting close. Every net and dataset is logged in [nets.md](nets.md) and [datasets.md](datasets.md). Phase 5 (first public release) runs alongside.
 
 ## How to use this document
 
@@ -190,7 +190,7 @@ The destination named in the goals: our own network, trained on our own games. *
 - [x] King-bucketed inputs: design ([king-buckets.md](king-buckets.md)), the engine reads 4 mirrored king buckets with single-view nets unchanged (#172, +0.2% instructions a node) and the trainer trains them with a factoriser (#173)
 - [x] net6k4: net6 with 4 king buckets beat net6 by **+21.7 ± 9.0** timed and +40.0 ± 12.4 at fixed nodes, 10.8% slower per node (#175, v0.42.0; ladder 3166 ± 31)
 - [x] Generation 5, played by net6k4: 318,934,530 positions, fully audited with every worker's games regenerated from their seeds ([datasets.md](datasets.md)); draws 47.7%, within-batch repetition down to 0.98%
-- [ ] net7: net6k4's recipe on generations 0–5, kept on a timed SPRT win over net6k4
+- [x] net7: net6k4's recipe on generations 0–5 beat net6k4 by **+6.8 ± 4.5** timed; +5.1 ± 4.2 at fixed nodes, inconclusive at 10,000 games after spot reclaimed the first attempt (#180, v0.43.0; ladder 3171 ± 27)
 - [x] The binary carries only the default net (4.0 MB, from 9.2 MB); every earlier generation's net is listed with its SHA-256 in `nnue::RETIRED_NETS` and kept in the dataset bucket
 - [x] The ladder moved up when the engine outgrew 2950: v0.28.0 scored 88% on 2650 (about 3000). Rungs 2800/2950/3100/3190 against an official, pinned Stockfish 19, with v0.26.0–v0.28.0 re-rated for the overlap
 - [ ] A new anchor once the engine outgrows 3190, the top of Stockfish's `UCI_Elo` range (past about 3300 limited Stockfish cannot bracket it): full Stockfish at a fixed node budget, calibrated against the last limited ladder
@@ -260,6 +260,7 @@ Ship it as a Homebrew-installable UCI binary first. Release CI builds macOS arm6
 
 ## Learnings
 
+- **2026-11-03** A merged PR can leave its experiment unrecorded: net7's description still says SPRT "pending", its fixed-node leg finished after the merge, and the ledgers missed the result and three ratings. Experiments now update `docs/` as a rule, and each ledger keeps an audit log ([AGENTS.md](../AGENTS.md#experiments-and-the-research-record)).
 - **2026-10-30** A test that only sees part of the data can't vouch for the rest: the 1.8M-record sample audit proved the generator correct, but only the full pass (48 batches, all 231M records, 12 minutes) proved every file intact. Both are cheap; run the full one on every dataset that trains a net.
 - **2026-10-30** The trainer's score scale is also the engine's output scale: a net trained at `eval_scale` K is read as centipawns by multiplying by K, so training at 200 for an engine using 400 would double every evaluation and every pruning margin in effect. The fitted score-to-result scale of PeSTO-era data (K ≈ 200) is a property of the labels, not a training knob; λ is (#115).
 - **2026-10-30** Kill a process group and you kill everything in it: the spot runner's SIGTERM to the task script's group killed `datagen` too, before it could save its shards in progress (about 350k positions lost on the first interruption). `datagen` now runs in its own session and stops through a file (#113). An uploader one shard at a time with three CLI calls kept up with 8 cores and fell five minutes behind 64 (#110); measure throughput at the real scale.

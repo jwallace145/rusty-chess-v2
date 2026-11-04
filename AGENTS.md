@@ -17,6 +17,26 @@ This repository is a single-threaded UCI chess engine in Rust. Read [README.md](
 - **Never change search or eval without a bench run.** Put the `Bench: <nodes>` signature before and after in the PR description. A changed signature on a `perf` PR is a bug; a `perf` PR must leave the signature unchanged. Use `feat` for anything that changes the signature and `fix` for correctness (perft, TT, mate scores).
 - **Every measured layer ships with a coverage suite and a performance bar, and both only grow.** Move generation is covered by `tests/perft.epd` (append positions, never remove or change a line), search by the bench positions, efficiency by the `stats` counters. The bars live in `perf-targets.toml`; raise one when the engine clears it, never lower one. CI's `Bench` job runs `perf-gate`: speed bars are reported on every PR and enforced on release PRs, efficiency bars are always enforced, and a PR that loosens a bar fails. The same job posts the bench comment with deltas against the latest release; read it before claiming a speed or efficiency change, and quote its numbers in the PR description.
 - **Never claim an Elo gain without an SPRT result in the PR.** A `feat` that touches search or eval gets the `sprt` label; the `SPRT` workflow plays the PR against its base twice at once, timed at the `[sprt] tc` control and at fixed nodes per move, and posts both in one comment. **Both results gate** (the owner's rule since 2026-11-02): the timed one is what the engine does at a clock, the fixed-node one whether the search got smarter per node (fixed nodes alone reward a change that makes nodes dearer, and once overstated five releases' gains about sevenfold, so neither is enough alone). Quote both, and the comment's reading of the pair, in the PR description. Only an accepted H1 in **both** passes the check: H0 or an inconclusive result in either fails it, and a feature that does not gain Elo is reverted even if it looks right. A speed gain that is no smarter per node fails too. The owner may merge over a failed check for a reason stated in the PR (a speed change, an inconclusive result at high LOS, a correctness fix); an agent never does. Never run SPRT on a laptop and paste the numbers; the standardized runner is the record.
+- **Every experiment updates `docs/`.** Data generation, relabelling, training, SPRT, ratings and one-off measurements all get recorded, including smoke tests and failed, cancelled, interrupted and dropped runs. See [Experiments and the research record](#experiments-and-the-research-record).
+
+## Experiments and the research record
+
+This project is research: a result counts only when someone else can reproduce it and check it from the record.
+
+| When you run | Record it in |
+|:--|:--|
+| Datagen, a Relabel run, a generation's audit | [docs/datasets.md](docs/datasets.md) |
+| Training, a net's SPRT, a release's rating of a net | [docs/nets.md](docs/nets.md), and its "What we've learned" and "Next experiments" when the result changes what to try next |
+| A design measurement (relabelling, king buckets, datagen settings) | That topic's page in `docs/` |
+| Anything that completes or changes a phase item | [docs/roadmap.md](docs/roadmap.md) |
+
+- **Record it promptly.** Use the same PR when the experiment has one. Otherwise open a docs PR when the run ends, before another experiment builds on the result.
+- **Decide before you run.** Write down the question, the one thing that changes, what stays the same and what result would keep or drop it. Don't move the criterion after seeing the result.
+- **Make it reproducible.** Record the commit or tag, the workflow inputs or exact command, the run id, seeds, the generations and label sets, each net's id and SHA-256, the trainer revision, and the hardware and market.
+- **Use primary sources.** Take numbers from shard manifests, `task.json`, `datagen-audit`, `training.json`, a PR's SPRT and bench comments, or release notes, never from progress lines, memory or another document. Link the source. Label estimates, such as costs, and local measurements as what they are.
+- **Audit before you build on it.** A generation needs a full audit with a GO before anything trains on it. Compare nets' losses only on identical held-out positions. Where a check could pass without testing anything, add a negative control, as the determinism step does.
+- **Say what wasn't verified.** Name any check you skipped or couldn't run, and why. When you check a ledger against its sources, add the result to its audit log, gaps included.
+- **Keep every result and correct in the open.** Never delete or reword a failed or disappointing result. Record every attempt, including reclaimed legs and re-runs, and the gate in force when the decision was made. A later rule doesn't rewrite an earlier decision; note how the two differ.
 
 ## Engine rules
 
