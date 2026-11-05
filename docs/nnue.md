@@ -164,7 +164,7 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
 | `net4w512-l050-r41170687764` (**512 hidden**) | 3 | generations 0–2 (906M positions), 80 superbatches | 1203006 | retired |
 | `net5-l050-r41229287546` (512 hidden) | 4 | generations 0–3 (1.53B positions), 80 superbatches | 1101129 | retired |
 | `net6k4-l050-r41282883885` (512 hidden, 8 output buckets, **4 king buckets**) | 5 | generations 0–4 (2.03B positions), 80 superbatches | 1046838 | retired |
-| `net7-l050-r41363264869` (512 hidden, 8 output buckets, 4 king buckets) | 6 | generations 0–5 (2.35B positions), 80 superbatches | 1031896 | **embedded, the default** |
+| `net7rl012-l050-r42054816508` (512 hidden, 8 output buckets, 4 king buckets) | 6 | generations 0–5 (2.35B positions), generations 0–2 on label set `N7`, 80 superbatches | 976528 | **embedded, the default** |
 
 - **Using a retired net:** download its file and pass the path
   (`setoption name EvalFile value <file>`, `bench --eval-file <file>`), and
@@ -176,7 +176,7 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
   the net of its time.
 - **A new default** replaces the `NETS` entry, and the net it replaces moves
   to `RETIRED_NETS` if it played a generation. A net replaced before playing
-  any generation (net 2, net 3, net 4, net5b8, net6) is in neither: it never
+  any generation (net 2, net 3, net 4, net5b8, net6, net7) is in neither: it never
   played data, and its file stays in the bucket. The swap changes the bench
   signature, and is kept only on a timed SPRT win over the net it replaces.
 - Each net's full history (data, parameters, validation curve, SPRT and
@@ -186,7 +186,7 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
 
 - **UCI:** `setoption name EvalFile value` takes:
   - `/path/to/net.nnue` to load a net file;
-  - the embedded net's id (`net7-l050-r41363264869`) for the default; a
+  - the embedded net's id (`net7rl012-l050-r42054816508`) for the default; a
     retired net's id names its file in the bucket instead;
   - `pesto` for PeSTO;
   - `<default>`, or an empty value, to return to the default net.
