@@ -33,7 +33,7 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
 | `net6-l050-r41273387683` | Default `v0.40.0`–`v0.41.0`; replaced by net6k4 (never played a generation) | 0 + 1 + 2 + 3 + **4** · 1,932.3M | `O` | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | **+14.5 ± 7.1** vs net5b8 | +11.4 ± 6.3 | 3156 ± 30 (`v0.40.0`), 3119 ± 29 (`v0.41.0`) |
 | `net6k4-l050-r41282883885` | Default `v0.42.0`–`v0.42.1`; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | `O` | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | +40.0 ± 12.4 | 3166 ± 31 (`v0.42.0`), 3144 ± 29 (`v0.42.1`) |
 | `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.3`; **will play generation 6** (not generated yet) | 0–5 · 2,238.2M | `O` | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`), 3166 ± 30 (`v0.44.2`) |
-| `net7rl012-l050-r42054816508` | Trained, **SPRT not run** | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019361 (its own labels; not comparable with net7's, cross-scored below) | 7.79 / 52.58 | Not run | Not run | — |
+| `net7rl012-l050-r42054816508` | **Passed its SPRT; merge pending** (#202) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019361 (its own labels; not comparable with net7's, cross-scored below) | 7.79 / 52.58 | **+16.3 ± 7.7** vs net7 | **+18.1 ± 8.1** | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -125,8 +125,9 @@ this asks whether it was under-trained.
 
 ## net7rl012-l050-r42054816508
 
-net7's recipe with generations 0–2 on label set `N7`. **Trained; no SPRT yet, so
-nothing here says it's stronger.** The plan below was recorded before any result
+net7's recipe with generations 0–2 on label set `N7`. **It beat net7 in both SPRT
+legs (+16.3 ± 7.7 timed, +18.1 ± 8.1 at fixed nodes; #202), so better labels on the
+same positions made a stronger net.** The plan below was recorded before any result
 existed, in #198, and is unchanged.
 
 | | |
@@ -217,8 +218,25 @@ comparison wasn't of one file against itself.
 - **Why results-only loss fell:** `N7`'s scores are larger than the originals
   ([datasets.md](datasets.md#net7-l050-r41363264869-n5000)), and a net's
   confidence affects this loss, so it may not all be better judgement.
-- **Bench and speed:** not run on this net yet; that comes with the SPRT PR.
 - **The `Train` artifact's copy of the net:** only the S3 copy was hashed.
+
+**Bench** (#202's CI comment, base `v0.44.4`): signature 976528 (net7: 1031896),
+identical run to run and with `--features stats`; **time to depth −7.0% ± 2.3%**,
+speed per node +1.8% ± 2.5%; fail-high-first 0.878 (net7: 0.875); EBF 1.841 (net7:
+1.805, worse, inside the bar of 2). The performance gate passed.
+
+**SPRT against net7** ([run 42076828557](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42076828557),
+#202, `900d227` against `main` at `d25ce3f`; elo0 0, elo1 5, α = β = 0.05; on demand;
+one attempt):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **+16.3 ± 7.7** | 100.0% | 3058 | 747 / 604 / 1707 | 2.96 | 58, 284, 713, 405, 69 | H1 |
+| Fixed nodes, 200,000 per move | **+18.1 ± 8.1** | 100.0% | 2654 | 651 / 513 / 1490 | 2.96 | 34, 271, 603, 361, 58 | H1 |
+
+**The recorded gate is met:** H1 in both legs. Self-play against the previous net
+overstates gains, and this is one training run of the net. Whether the owner merges
+#202 and what the ladder reads are still open.
 
 ## net7-l050-r41363264869
 
@@ -671,6 +689,7 @@ differ.
 | **King buckets were the best architecture step since 512** | net6k4 against net6 on identical data: held-out −1.04%, SPRT **+21.7 ± 9.0** timed and **+40.0 ± 12.4** at fixed nodes, at 10.8% slower per node | Keep 4 king buckets. A refresh cache is the cheap follow-up; a finer layout and a longer low-LR phase are the experiments |
 | **A new generation's gain shrinks with the share of data it adds** | Added training data and timed SPRT: +71% gave +21.9 (net 5), +32% gave +14.5 (net6), +16% gave +6.8 (net7). Few points, and each net's recipe differs | Expect less from each generation of about this size. Test whether label quality (relabelling) pays more than volume |
 | **Gains near `elo1` cost the most games** | net7 took 8,088 timed games and hit the 10,000 cap at fixed nodes; net5x120 hit the cap on both legs. Both tests use `elo1` = 5 | Budget for the cap on small changes. With both legs in the check, a real gain of about +5 can still end inconclusive |
+| **Better labels on the same positions gained strength** | net7rl012 against net7: only generations 0–2's scores changed (38.6% of the records), +16.3 ± 7.7 timed and +18.1 ± 8.1 at fixed nodes (#202), against +6.8 ± 4.5 for adding generation 5 (net7). One result, one training run | Relabelling can pay as much as new data. Test relabelling more generations as its own experiment |
 
 ## Next experiments
 
@@ -706,7 +725,7 @@ the fixed-node SPRT against the current default.
      audited ([datasets.md](datasets.md#label-sets)), from
      [41788545675](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41788545675) and its top-ups, with #189 (stay on spot) and
      #196 (batches). #190 (`Train` chooses a label set) had its first real run in
-     [net7rl012](#net7rl012-l050-r42054816508), which is trained. Its SPRT against net7 is next.
+     [net7rl012](#net7rl012-l050-r42054816508), which passed both SPRT legs against net7 (#202).
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
