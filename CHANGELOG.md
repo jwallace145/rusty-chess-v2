@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.45.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.4...v0.45.0) (2026-11-05)
+
+
+### Features
+
+* **nnue:** embed net7rl012, net7's recipe on relabelled generations 0-2, as the default ([#202](https://github.com/jwallace145/rusty-chess-v2/issues/202)) ([5e59bbd](https://github.com/jwallace145/rusty-chess-v2/commit/5e59bbdabff209895ef69738cc053eac5c4fd154))
+
+
+### Documentation
+
+* **nnue:** record the training of net7rl012 and its held-out comparison with net7 ([#201](https://github.com/jwallace145/rusty-chess-v2/issues/201)) ([39dffc8](https://github.com/jwallace145/rusty-chess-v2/commit/39dffc87d3de95aaf7f3256d092c6e4c965055b7))
+
 ## [0.44.4](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.3...v0.44.4) (2026-11-05)
 
 
