@@ -46,7 +46,7 @@ of each.
 | Key | Label set id | Scores from | Nodes | Location | Status |
 |:--|:--|:--|--:|:--|:--|
 | `O` | `original` | The net that played each generation, so a mix (below) | 5,000 | `data/selfplay/v1/gen=N/` | Complete, kept forever |
-| `N7` | `net7-l050-r41363264869-n5000` | net7, sha256 `0866bde1…1b6f`, for every generation | 5,000 | `data/selfplay/relabel/net7-l050-r41363264869-n5000/gen=N/` | In progress (below) |
+| `N7` | `net7-l050-r41363264869-n5000` | net7, sha256 `0866bde1…1b6f`, for every generation | 5,000 | `data/selfplay/relabel/net7-l050-r41363264869-n5000/gen=N/` | Generations 0–2 complete, not audited; generations 3–5 not started |
 
 - **`original`** is the name used here for the labels made during play. Those
   prefixes aren't called that in S3, and `Train`'s `labels` input doesn't take
@@ -58,9 +58,9 @@ of each.
 
 | Gen | Positions | `O`, labelled by | `N7` |
 |--:|--:|:--|:--|
-| 0 | 231,240,344 | PeSTO | In progress: 9,329 of 9,329 shards; label set not yet complete |
-| 1 | 368,354,466 | net 1 | In progress: 14,716 of 14,716 shards; label set not yet complete |
-| 2 | 307,037,810 | net2x80 | In progress: 11,426 of 12,353 shards |
+| 0 | 231,240,344 | PeSTO | Complete, not audited |
+| 1 | 368,354,466 | net 1 | Complete, not audited |
+| 2 | 307,037,810 | net2x80 | Complete, not audited |
 | 3 | 628,213,254 | net4w512 | Not started |
 | 4 | 495,147,759 | net 5 | Not started |
 | 5 | 318,934,530 | net6k4 | Not started |
@@ -123,7 +123,7 @@ scored on identical data.** All used split seed 1, shuffle seed 1 and
 
 ### `net7-l050-r41363264869-n5000`
 
-**Status: in progress.** net7's scores at 5,000 nodes, the same budget that made
+**Status: generations 0–2 complete, not audited.** net7's scores at 5,000 nodes, the same budget that made
 the originals. Design and method: [relabel.md](relabel.md).
 
 | Run | Date | Commit | Generations | Instances × minutes | Market | Shards | Records | Records/s an instance | Status and notes |
@@ -139,24 +139,23 @@ the originals. Design and method: [relabel.md](relabel.md).
 | [41967316609](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41967316609) | 2026-11-05 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; t0 ran about 30, t1 about 18 | Spot only, both in us-east-1c | 1,855 | 46,133,744 | t0 16,717, t1 15,456 | **Partial: 3,219 shards (80,058,096 records) left.** Sixth top-up of 41788545675, launched at 04:22 UTC. **t1 was reclaimed by spot at 04:40:38 UTC and t0 at 04:52:43 UTC.** About $0.80, an estimate from instance-hours at about $1.03/h |
 | [41971756087](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41971756087) | 2026-11-05 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; t0 ran about 3, t1 under 1 | Spot only, both in us-east-1c | 65 | 1,608,708 | t0 8,292 | **Partial: 3,154 shards (78,449,388 records) left.** Seventh top-up of 41788545675, launched at about 05:06 UTC. **t1 got its spot notice at 05:06:50 UTC, about 50 seconds after launch, and t0 at 05:10:03 UTC, about 4 minutes after.** t1 uploaded no shards and wrote no `task.json`. Under $0.25, an estimate |
 | [41976502122](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41976502122) | 2026-11-05 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 3 × 220 asked; t0 and t1 ran about 28, t2 under 1 | Spot only, all in us-east-1b | 2,227 | 55,407,265 | t0 16,602, t1 16,605 | **Partial: 927 shards (23,042,123 records) left.** Eighth top-up of 41788545675, launched at about 05:50 UTC. 3 instances, to split the work left evenly between t0 and t1; t2 had no workers and finished normally. **t0 was reclaimed by spot at 06:19:04 UTC and t1 at 06:19:07 UTC.** About $0.90, an estimate from instance-hours |
+| [41980717684](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41980717684) | 2026-11-05 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; t0 ran about 12, t1 about 13 | Spot only, both in us-east-1d | 927 | 23,042,123 | t0 15,731, t1 14,894 | **Complete, no reclaims: 0 shards left.** Ninth top-up of 41788545675, launched at about 06:30 UTC. About $0.40, an estimate from instance-hours |
 
 Before the top-up, generation 0 needed t1's last 1,400 shards, generation 1 t1's 4,908, and
 generation 2 t0's 2,554 and t1's 4,122.
 
-After 41976502122, an S3 listing shows 35,471 of 36,398 shards with no extras:
-9,329 of 9,329 in generation 0, 14,716 of 14,716 in generation 1 and 11,426 of
-12,353 in generation 2. Two workers are partly done, which the per-shard skip
-handles. The table below is as of 41788545675, and gets its final numbers from
-the manifests when the label set is complete.
+The nine runs that launched instances made 36,398 shards and 906,632,620
+records. 20 instances launched and 16 were reclaimed by spot, across about 14.7
+task-hours and, as an estimate, about $15.
 
 | Gen | Source shards | Source records | Relabelled shards | Relabelled records | Changed | Mean \|change\| (cp) | Mates clamped | Sign agreement | Correlation | Audit |
 |--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|:--|
-| 0 | 9,329 | 231,240,344 | 7,929 | 196,158,642 (84.83%) | 99.19% | 492.7 | 674,561 | 93.16% (sample) | 0.9504 (sample) | Partial, [2026-11-04](#audit-log); not complete |
-| 1 | 14,716 | 368,354,466 | 9,808 | 245,495,248 (66.65%) | 98.55% | 179.0 | 495,899 | 95.38% (sample) | 0.9598 (sample) | Partial, [2026-11-04](#audit-log); not complete |
-| 2 | 12,353 | 307,037,810 | 5,677 | 141,068,781 (45.95%) | 98.34% | 120.9 | 57,446 | 95.83% (sample) | 0.9696 (sample) | Partial, [2026-11-04](#audit-log); not complete |
+| 0 | 9,329 | 231,240,344 | 9,329 | 231,240,344 | 99.19% | 492.6 | 794,510 | 93.26% (sample) | 0.9515 (sample) | Partial, [2026-11-05](#audit-log) |
+| 1 | 14,716 | 368,354,466 | 14,716 | 368,354,466 | 98.55% | 178.9 | 741,889 | 95.20% (sample) | 0.9604 (sample) | Partial, [2026-11-05](#audit-log) |
+| 2 | 12,353 | 307,037,810 | 12,353 | 307,037,810 | 98.34% | 120.9 | 125,044 | 95.87% (sample) | 0.9703 (sample) | Partial, [2026-11-05](#audit-log) |
 
 Records, changes and mates are summed from the manifests. Sign agreement and
-correlation come from 20 random shards a generation (about 480,000–500,000
+correlation come from 20 random shards a generation (about 500,000
 records each), and a score of zero counts as agreeing.
 
 **Reading these:** the same net re-scoring its own generation at the same budget
@@ -555,3 +554,22 @@ generation 1 and 385 against 291 in generation 2. So changes sit far above the
 17–30 cp noise floor, and sign agreement and correlation fall below that
 measurement's 97.7% and 0.990. The cause, and what it does to training targets,
 hasn't been measured.
+
+**2026-11-05,** of `N7` after run 41980717684, read-only with
+`AWS_PROFILE=prog-strength-admin`. Local scripts, not a repository tool; same
+sample seed, drawn from all 36,398 shards:
+
+| Check | Result |
+|:--|:--|
+| Inventory | 36,398 of 36,398 shards have a relabelled manifest and positions file. No extras, orphans or empty files |
+| Totals | Every run's `task.json` sums to 36,398 shards, 906,632,620 records, 894,301,324 changed, a change sum of 216,951,612,859 and 1,661,443 mates. All equal the manifests exactly. t1 of 41971756087 wrote no `task.json` and uploaded no shards |
+| Provenance, all 36,398 manifests | Label id, net id and SHA-256, 5,000 nodes and commit `cb9e55b` throughout. Positions counts, games, results, seeds, settings and original provenance match the source manifest |
+| Source checksums, generations 1–2 (27,069 shards) | Each manifest's source positions and games SHA-256s match the original manifest. Generation 0's originals have no checksums |
+| Sample, 60 shards (1,503,924 records) | Both files' SHA-256s match, and all FENs and results are identical and in order. Each shard's change sum matches its manifest |
+| Originals | Shard counts match the ledger. The newest object under generations 0–2 still dates from 2026-10-31 |
+
+**Not checked, so `N7` is complete but not audited:**
+- Records and checksums of positions files outside the 60-shard sample.
+- Determinism: no shard was re-run.
+- The `relabel` profile's write policy.
+- The larger net7 scores noted on 2026-11-04 remain unexplained.
