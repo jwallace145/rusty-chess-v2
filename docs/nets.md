@@ -649,9 +649,9 @@ the fixed-node SPRT against the current default.
      timed; +5.1 ± 4.2 at fixed nodes, inconclusive at the cap; #180).
    - **Relabelling** the oldest generations with net7: the tool, the `relabel`
      profile and the workflow exist (#179, #185, #186). The first run failed on
-     old manifests, fixed in #187, and no label set exists yet
-     ([datasets.md](datasets.md#label-sets)). Generations 0–2 are running
-     ([41788545675](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41788545675)), with #189 (stay on spot) and
+     old manifests, fixed in #187. `N7` on generations 0–2 is complete but not
+     audited ([datasets.md](datasets.md#label-sets)), from
+     [41788545675](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41788545675) and its top-ups, with #189 (stay on spot) and
      #196 (batches). #190 (`Train` chooses a label set) hasn't had a real run.
      Then [net7rl012](#planned-net7rl012-net7s-recipe-on-relabelled-generations-02).
    - **1024 neurons or a second hidden layer:** later, at about 3B
