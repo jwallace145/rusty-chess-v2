@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.4](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.3...v0.44.4) (2026-11-05)
+
+
+### Documentation
+
+* **nnue:** record label sets and which labels each net trained on ([#198](https://github.com/jwallace145/rusty-chess-v2/issues/198)) ([844d473](https://github.com/jwallace145/rusty-chess-v2/commit/844d473dc7023207d16ae73861b0820f6a7b06d1))
+
 ## [0.44.3](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.2...v0.44.3) (2026-11-04)
 
 
