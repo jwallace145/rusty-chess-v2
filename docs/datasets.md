@@ -59,8 +59,8 @@ of each.
 | Gen | Positions | `O`, labelled by | `N7` |
 |--:|--:|:--|:--|
 | 0 | 231,240,344 | PeSTO | In progress: 9,329 of 9,329 shards; label set not yet complete |
-| 1 | 368,354,466 | net 1 | In progress: 14,657 of 14,716 shards |
-| 2 | 307,037,810 | net2x80 | In progress: 7,338 of 12,353 shards |
+| 1 | 368,354,466 | net 1 | In progress: 14,716 of 14,716 shards; label set not yet complete |
+| 2 | 307,037,810 | net2x80 | In progress: 9,134 of 12,353 shards |
 | 3 | 628,213,254 | net4w512 | Not started |
 | 4 | 495,147,759 | net 5 | Not started |
 | 5 | 318,934,530 | net6k4 | Not started |
@@ -136,12 +136,13 @@ the originals. Design and method: [relabel.md](relabel.md).
 | [41942564123](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41942564123) | 2026-11-05 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; t0 ran about 18, t1 about 27 | Spot only, t0 in us-east-1d, t1 in us-east-1c | 1,789 | 44,738,538 | t0 15,915, t1 17,275 | **Partial: 7,728 shards (192,449,790 records) left.** Third top-up of 41788545675, launched at 00:40 UTC. **t0 was reclaimed by spot at 00:58:40 UTC and t1 at 01:07:36 UTC.** About $0.80, an estimate from instance-hours at about $1.03/h |
 | [41947343364](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41947343364) | 2026-11-05 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; t0 ran about 14, t1 about 11 | Spot only, both in us-east-1c | 1,007 | 25,183,123 | t0 17,005, t1 15,699 | **Partial: 6,721 shards (167,266,667 records) left.** Fourth top-up of 41788545675, launched at 01:17 UTC. **t1 was reclaimed by spot at 01:29:01 UTC and t0 at 01:32:11 UTC.** About $0.45, an estimate from instance-hours at about $1.03/h |
 | [41961755175](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41961755175) | 2026-11-05 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; t0 and t1 ran about 20 | Spot only, both in us-east-1d | 1,647 | 41,074,827 | t0 17,877, t1 16,212 | **Partial: 5,074 shards (126,191,840 records) left.** Fifth top-up of 41788545675, launched at 03:29 UTC. **t1 was reclaimed by spot at 03:49:41 UTC and t0 at 03:49:42 UTC.** About $0.70, an estimate from instance-hours at about $1.03/h |
+| [41967316609](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41967316609) | 2026-11-05 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; t0 ran about 30, t1 about 18 | Spot only, both in us-east-1c | 1,855 | 46,133,744 | t0 16,717, t1 15,456 | **Partial: 3,219 shards (80,058,096 records) left.** Sixth top-up of 41788545675, launched at 04:22 UTC. **t1 was reclaimed by spot at 04:40:38 UTC and t0 at 04:52:43 UTC.** About $0.80, an estimate from instance-hours at about $1.03/h |
 
 Before the top-up, generation 0 needed t1's last 1,400 shards, generation 1 t1's 4,908, and
 generation 2 t0's 2,554 and t1's 4,122.
 
-After 41961755175, an S3 listing shows 31,324 of 36,398 shards with no extras:
-9,329 of 9,329 in generation 0, 14,657 of 14,716 in generation 1 and 7,338 of
+After 41967316609, an S3 listing shows 33,179 of 36,398 shards with no extras:
+9,329 of 9,329 in generation 0, 14,716 of 14,716 in generation 1 and 9,134 of
 12,353 in generation 2. One worker is partly done, which the per-shard skip
 handles. The table below is as of 41788545675, and gets its final numbers from
 the manifests when the label set is complete.
