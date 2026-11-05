@@ -611,3 +611,16 @@ Loss is the binary cross-entropy of `sigmoid(score / 400)` against the game resu
 - The other roles' write access to `selfplay/v1/`.
 - Generation 0's source files against any earlier record, since their manifests
   have no checksums.
+
+**2026-11-05,** `N7` on generations 0–2 re-audited with
+`ci/label-set-audit.sh` (#199), the tool made from the scripts above, from an empty
+directory at `cb9e55b`'s build: **passed**, with every number above reproduced, 42
+of 42 shards byte-identical and all 3 negative-control shards different.
+
+Its first run failed. The tool compares every field of the source manifest, which
+the scripts above didn't, and 121 shards had a `seconds` that differs from the
+source by at most 7e-15 of a second (62, 50 and 9 in generations 0, 1 and 2). The
+difference appears to be `relabel` reading and rewriting the float through JSON;
+that cause wasn't tested in isolation. Nothing reads that field, so it alone now
+has a tolerance of 1e-9. So the earlier statement that metadata matches the source
+holds for the fields it named, not for this one at full precision.
