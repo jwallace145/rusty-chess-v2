@@ -7,6 +7,12 @@
 
 * **nnue:** record label sets and which labels each net trained on ([#198](https://github.com/jwallace145/rusty-chess-v2/issues/198)) ([844d473](https://github.com/jwallace145/rusty-chess-v2/commit/844d473dc7023207d16ae73861b0820f6a7b06d1))
 
+### Benchmarks
+
+* bench signature 1,031,896, instructions per node 4106, search 1.98M NPS, perft 287.59M NPS (pass (63)), fail-high first 87.5%, EBF 1.81, TT hit 53.0%
+* since v0.44.3: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.0%, search NPS +36.7%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.44.3](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.2...v0.44.3) (2026-11-04)
 
 
