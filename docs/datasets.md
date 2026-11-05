@@ -59,8 +59,8 @@ of each.
 | Gen | Positions | `O`, labelled by | `N7` |
 |--:|--:|:--|:--|
 | 0 | 231,240,344 | PeSTO | In progress: 9,329 of 9,329 shards; label set not yet complete |
-| 1 | 368,354,466 | net 1 | In progress: 11,875 of 14,716 shards |
-| 2 | 307,037,810 | net2x80 | In progress: 5,677 of 12,353 shards |
+| 1 | 368,354,466 | net 1 | In progress: 13,219 of 14,716 shards |
+| 2 | 307,037,810 | net2x80 | In progress: 6,122 of 12,353 shards |
 | 3 | 628,213,254 | net4w512 | Not started |
 | 4 | 495,147,759 | net 5 | Not started |
 | 5 | 318,934,530 | net6k4 | Not started |
@@ -133,13 +133,14 @@ the originals. Design and method: [relabel.md](relabel.md).
 | [41884537437](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41884537437) | 2026-11-04 | `cb9e55b` (`v0.44.3`) | 0, 1, 2 | 2 × 220 asked; none ran | Spot only | 0 | 0 | — | **Failed, no instance launched.** Dispatched from tag `v0.44.3`, but the `ci-task` role's OIDC trust allows only `refs/heads/main` and pull requests, so `sts:AssumeRoleWithWebIdentity` was refused. Both jobs stopped in about 35 seconds. No instance cost. A listing at 18:13 UTC still showed 23,414 relabelled manifests |
 | [41885152500](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41885152500) | 2026-11-04 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; none ran | Spot only | 0 | 0 | — | **Failed, no instance launched.** Top-up of 41788545675, with 2 instances rather than 3 so the work left splits evenly. Both tasks got `InsufficientInstanceCapacity` for `c8a.16xlarge` in all five zones (`us-east-1a`, `b`, `c`, `d`, `f`) from 18:15 to about 18:45 UTC, then exited 3. No instance cost. A listing afterwards still showed 23,414 relabelled manifests |
 | [41933996045](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41933996045) | 2026-11-04 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; t0 ran about 24, t1 about 62 | Spot only, both in us-east-1d | 3,467 | 86,721,621 | t0 16,194, t1 17,019 | **Partial: 9,517 shards (237,188,328 records) left.** Second top-up of 41788545675, launched at 23:29 UTC. **t0 was reclaimed by spot at 23:54:45 UTC and t1 at 00:32:18 UTC** on the 5th. About $1.50, an estimate from instance-hours at about $1.03/h |
+| [41942564123](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41942564123) | 2026-11-05 | `cb9e55b` (`v0.44.3`, from `main`) | 0, 1, 2 | 2 × 220 asked; t0 ran about 18, t1 about 27 | Spot only, t0 in us-east-1d, t1 in us-east-1c | 1,789 | 44,738,538 | t0 15,915, t1 17,275 | **Partial: 7,728 shards (192,449,790 records) left.** Third top-up of 41788545675, launched at 00:40 UTC. **t0 was reclaimed by spot at 00:58:40 UTC and t1 at 01:07:36 UTC.** About $0.80, an estimate from instance-hours at about $1.03/h |
 
 Before the top-up, generation 0 needed t1's last 1,400 shards, generation 1 t1's 4,908, and
 generation 2 t0's 2,554 and t1's 4,122.
 
-After 41933996045, an S3 listing shows 26,881 of 36,398 shards with no extras:
-9,329 of 9,329 in generation 0, 11,875 of 14,716 in generation 1 and 5,677 of
-12,353 in generation 2. Two workers are partly done, which the per-shard skip
+After 41942564123, an S3 listing shows 28,670 of 36,398 shards with no extras:
+9,329 of 9,329 in generation 0, 13,219 of 14,716 in generation 1 and 6,122 of
+12,353 in generation 2. Three workers are partly done, which the per-shard skip
 handles. The table below is as of 41788545675, and gets its final numbers from
 the manifests when the label set is complete.
 
