@@ -177,7 +177,8 @@ ci/label-set-audit.sh s3://jwall-engineering-rusty-chess-nnue/data/selfplay \
 
 It writes `summary.json` and exits 0 only on a pass. It exits 1 on a failure, and
 2 with `--skip-determinism`, which is never a pass. On generations 0–2 (22 GB, 16
-cores) it takes about 15 minutes.
+cores) it takes about 22 minutes from empty, and about 9 with the download and
+build kept.
 
 ## Plan
 
