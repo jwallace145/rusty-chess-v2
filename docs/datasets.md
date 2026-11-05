@@ -585,7 +585,7 @@ the run. All 906,632,620 records were read from 22 GB of positions files:
 | 2. Records | 0 failures: every count matches its source and manifest, and every FEN and result is identical and in order |
 | 3. Provenance | 0 failures: label id, net, nodes and commit in every manifest, and every positions file's SHA-256 matches. Changes, change sum and largest change recomputed from the files equal each manifest |
 | 4. Plausibility | Sign agreement 92.98–95.68% and correlation 0.9519–0.9700. Not what a wrong point of view would give, though below the same-net noise floor, as expected of a different net |
-| 5. Determinism | **42 of 42 shards byte-identical** (6 from each of the 7 runs, seed 20261105), rebuilt from tag `v0.44.3`, and manifests equal apart from `seconds`. The originals ran on x86-64 `c8a.16xlarge`, these on Apple arm64, so the labels didn't depend on that either. **Negative control:** 3 of them at 2,500 nodes all differ |
+| 5. Determinism | **42 of 42 shards byte-identical** (6 from each of the 7 runs, seed 20261105), rebuilt from tag `v0.44.3`, and manifests equal apart from `seconds`. The cloud runs used x86-64 `c8a.16xlarge` and these re-runs Apple arm64, so the labels did not depend on the hardware in this sample. **Negative control:** 3 of them at 2,500 nodes all differ |
 | 6. Originals | The `relabel` role's only S3 writes are under `selfplay/relabel/` and its task-results bucket. Source shard counts match this ledger, and all 27,069 source checksums in generations 1–2 match their files |
 
 Scores against game results, a measure this audit added and set no bar for:
