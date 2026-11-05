@@ -46,7 +46,7 @@ of each.
 | Key | Label set id | Scores from | Nodes | Location | Status |
 |:--|:--|:--|--:|:--|:--|
 | `O` | `original` | The net that played each generation, so a mix (below) | 5,000 | `data/selfplay/v1/gen=N/` | Complete, kept forever |
-| `N7` | `net7-l050-r41363264869-n5000` | net7, sha256 `0866bde1…1b6f`, for every generation | 5,000 | `data/selfplay/relabel/net7-l050-r41363264869-n5000/gen=N/` | Generations 0–2 complete, not audited; generations 3–5 not started |
+| `N7` | `net7-l050-r41363264869-n5000` | net7, sha256 `0866bde1…1b6f`, for every generation | 5,000 | `data/selfplay/relabel/net7-l050-r41363264869-n5000/gen=N/` | Generations 0–2 audited; generations 3–5 not started |
 
 - **`original`** is the name used here for the labels made during play. Those
   prefixes aren't called that in S3, and `Train`'s `labels` input doesn't take
@@ -58,9 +58,9 @@ of each.
 
 | Gen | Positions | `O`, labelled by | `N7` |
 |--:|--:|:--|:--|
-| 0 | 231,240,344 | PeSTO | Complete, not audited |
-| 1 | 368,354,466 | net 1 | Complete, not audited |
-| 2 | 307,037,810 | net2x80 | Complete, not audited |
+| 0 | 231,240,344 | PeSTO | Audited |
+| 1 | 368,354,466 | net 1 | Audited |
+| 2 | 307,037,810 | net2x80 | Audited |
 | 3 | 628,213,254 | net4w512 | Not started |
 | 4 | 495,147,759 | net 5 | Not started |
 | 5 | 318,934,530 | net6k4 | Not started |
@@ -123,7 +123,7 @@ scored on identical data.** All used split seed 1, shuffle seed 1 and
 
 ### `net7-l050-r41363264869-n5000`
 
-**Status: generations 0–2 complete, not audited.** net7's scores at 5,000 nodes, the same budget that made
+**Status: generations 0–2 audited.** net7's scores at 5,000 nodes, the same budget that made
 the originals. Design and method: [relabel.md](relabel.md).
 
 | Run | Date | Commit | Generations | Instances × minutes | Market | Shards | Records | Records/s an instance | Status and notes |
@@ -150,13 +150,13 @@ task-hours and, as an estimate, about $15.
 
 | Gen | Source shards | Source records | Relabelled shards | Relabelled records | Changed | Mean \|change\| (cp) | Mates clamped | Sign agreement | Correlation | Audit |
 |--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|:--|
-| 0 | 9,329 | 231,240,344 | 9,329 | 231,240,344 | 99.19% | 492.6 | 794,510 | 93.26% (sample) | 0.9515 (sample) | Partial, [2026-11-05](#audit-log) |
-| 1 | 14,716 | 368,354,466 | 14,716 | 368,354,466 | 98.55% | 178.9 | 741,889 | 95.20% (sample) | 0.9604 (sample) | Partial, [2026-11-05](#audit-log) |
-| 2 | 12,353 | 307,037,810 | 12,353 | 307,037,810 | 98.34% | 120.9 | 125,044 | 95.87% (sample) | 0.9703 (sample) | Partial, [2026-11-05](#audit-log) |
+| 0 | 9,329 | 231,240,344 | 9,329 | 231,240,344 | 99.19% | 492.6 | 794,510 | 92.98% | 0.9519 | Passed, [2026-11-05](#audit-log) |
+| 1 | 14,716 | 368,354,466 | 14,716 | 368,354,466 | 98.55% | 178.9 | 741,889 | 95.12% | 0.9594 | Passed, [2026-11-05](#audit-log) |
+| 2 | 12,353 | 307,037,810 | 12,353 | 307,037,810 | 98.34% | 120.9 | 125,044 | 95.68% | 0.9700 | Passed, [2026-11-05](#audit-log) |
 
 Records, changes and mates are summed from the manifests. Sign agreement and
-correlation come from 20 random shards a generation (about 500,000
-records each), and a score of zero counts as agreeing.
+correlation are over every record, and sign agreement leaves out records where
+either score is zero.
 
 **Reading these:** the same net re-scoring its own generation at the same budget
 changes a label by a median of 17 cp and a mean of 30 cp, with 97.7% sign
@@ -573,3 +573,41 @@ sample seed, drawn from all 36,398 shards:
 - Determinism: no shard was re-run.
 - The `relabel` profile's write policy.
 - The larger net7 scores noted on 2026-11-04 remain unexplained.
+
+**2026-11-05, the full audit of `N7` on generations 0–2: passed.** Read-only with
+`AWS_PROFILE=prog-strength-admin`, on an Apple M-series Mac with 16 cores, using
+local scripts that aren't in the repository. The criteria were written down before
+the run. All 906,632,620 records were read from 22 GB of positions files:
+
+| Check | Result |
+|:--|:--|
+| 1. Inventory | 36,398 of 36,398 shards, with no extras or orphans |
+| 2. Records | 0 failures: every count matches its source and manifest, and every FEN and result is identical and in order |
+| 3. Provenance | 0 failures: label id, net, nodes and commit in every manifest, and every positions file's SHA-256 matches. Changes, change sum and largest change recomputed from the files equal each manifest |
+| 4. Plausibility | Sign agreement 92.98–95.68% and correlation 0.9519–0.9700. Not what a wrong point of view would give, though below the same-net noise floor, as expected of a different net |
+| 5. Determinism | **42 of 42 shards byte-identical** (6 from each of the 7 runs, seed 20261105), rebuilt from tag `v0.44.3`, and manifests equal apart from `seconds`. The originals ran on x86-64 `c8a.16xlarge`, these on Apple arm64, so the labels didn't depend on that either. **Negative control:** 3 of them at 2,500 nodes all differ |
+| 6. Originals | The `relabel` role's only S3 writes are under `selfplay/relabel/` and its task-results bucket. Source shard counts match this ledger, and all 27,069 source checksums in generations 1–2 match their files |
+
+Scores against game results, a measure this audit added and set no bar for:
+
+| Gen | Mean \|score\|, net7 / original | Loss against results, net7 / original | Sign matches a decisive result, net7 / original | \|score\| over 3,000, net7 |
+|--:|--:|--:|--:|--:|
+| 0 | 767 / 293 | 0.4804 / 0.5364 | 88.93% / 88.27% | 8,786,495 |
+| 1 | 433 / 289 | 0.5687 / 0.5840 | 88.30% / 88.02% | 163,584 |
+| 2 | 379 / 288 | 0.5312 / 0.5509 | 87.91% / 87.80% | 97,023 |
+
+Loss is the binary cross-entropy of `sigmoid(score / 400)` against the game result.
+
+- **net7's larger scores fit the results better at the training scale,** in every
+  generation, so they don't look like a fault. This doesn't measure what they do
+  to a net's strength, and why they're larger hasn't been measured either.
+- **Scores beyond ±3,000 exist.** Only mates are clamped to ±3,000 by design, and
+  9,047,102 other records score higher, up to the search's own values. The target
+  saturates well before that. The originals' count wasn't taken.
+
+**Not checked:**
+- The `relabel` role can overwrite objects under `selfplay/relabel/`, so `N7`'s
+  append-only status rests on the workflow, not on a policy.
+- The other roles' write access to `selfplay/v1/`.
+- Generation 0's source files against any earlier record, since their manifests
+  have no checksums.
