@@ -33,6 +33,7 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
 | `net6-l050-r41273387683` | Default `v0.40.0`–`v0.41.0`; replaced by net6k4 (never played a generation) | 0 + 1 + 2 + 3 + **4** · 1,932.3M | `O` | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | **+14.5 ± 7.1** vs net5b8 | +11.4 ± 6.3 | 3156 ± 30 (`v0.40.0`), 3119 ± 29 (`v0.41.0`) |
 | `net6k4-l050-r41282883885` | Default `v0.42.0`–`v0.42.1`; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | `O` | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | +40.0 ± 12.4 | 3166 ± 31 (`v0.42.0`), 3144 ± 29 (`v0.42.1`) |
 | `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.3`; **will play generation 6** (not generated yet) | 0–5 · 2,238.2M | `O` | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`), 3166 ± 30 (`v0.44.2`) |
+| `net7rl012-l050-r42054816508` | Trained, **SPRT not run** | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019361 (its own labels; not comparable with net7's, cross-scored below) | 7.79 / 52.58 | Not run | Not run | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -41,8 +42,8 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
   with `rusty-chess-trainer validate` to compare them.
 - **The same positions aren't the same held-out data if the labels differ.**
   The `val.data` SHA-256 tells you: losses compare only when it matches
-  ([datasets.md](datasets.md#prepared-training-sets)). All 14 nets so far use
-  `O`, so this first matters for net7rl012.
+  ([datasets.md](datasets.md#prepared-training-sets)). The first 14 nets use
+  `O`; net7rl012 is the first that doesn't.
 - **Both SPRTs are required to merge, since #184.** The timed leg shows what
   the engine does at a clock, and the fixed-node leg isolates the net's
   knowledge from its speed. Through #180, every net above, only the timed leg
@@ -122,10 +123,11 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
-## Planned: net7rl012, net7's recipe on relabelled generations 0–2
+## net7rl012-l050-r42054816508
 
-**Not trained yet.** This section records the plan before any result exists, and
-becomes the net's section once it does.
+net7's recipe with generations 0–2 on label set `N7`. **Trained; no SPRT yet, so
+nothing here says it's stronger.** The plan below was recorded before any result
+existed, in #198, and is unchanged.
 
 | | |
 |:--|:--|
@@ -142,30 +144,81 @@ gh workflow run Train --ref main -f net-id=net7rl012 -f generations=0,1,2,3,4,5 
   -f hidden=512 -f output-buckets=8 -f king-buckets=4 -f wdl=0.5 -f superbatches=80
 ```
 
-**Before the SPRT, check and record:**
-- `training.json`'s `labels` and `datasets` name the label set for generations
+| | |
+|:--|:--|
+| Data | Generations 0–5: 2,238,186,465 training / 110,741,698 held-out records (94,149 shards); workers 1,336 / 72 at `val_fraction` 0.05, split seed 1, shuffle seed 1. Prepared set `g0-5·N7(0-2)`: `train.data` `9df1226c…07bd`, `val.data` `ad1f1aa4…f8ef` |
+| Network | (768 × 4 → 512) × 2 → 8, as net7; 3,163,200 bytes; sha256 `74af5b46…70ce` (the file in S3 matches `training.json`) |
+| Schedule | As net7: 80 superbatches, LR 0.001, ×0.1 after 36 and 72 |
+| Training | `Train` run [42054816508](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42054816508), from `v0.44.4` (`d25ce3f`): on-demand `g6.xlarge`, us-east-1a, NVIDIA L4, bullet `da426a4`. Prepare 1,124 s, 4,470 s to trained (net7: 4,027). About $1.05, an estimate scaled from net7's cost |
+| Loss | Training loss 0.0723 → 0.0191 |
+| Validation | 0.019361 on its own held-out set, best at superbatch 80. Not comparable with net7's 0.019514: the labels differ. Scorer against bullet: 0.0024 cp |
+| Engine check | 256 held-out positions: mean **7.79 cp**, max 52.58 (bar 20 on the mean; none beyond max(50 cp, 5%)) |
+
+**Attempts:** the first real run of `labels` (#190). All used the plan's command,
+from `d25ce3f`. The three refused attempts started no instance, so they cost
+nothing to run. `Train` tries each zone once and then fails.
+
+| Run | Started (UTC) | Outcome |
+|:--|:--|:--|
+| [42041209288](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42041209288) | 2026-11-05 14:02 | No on-demand `g6.xlarge` in us-east-1a, b, c, d or f |
+| [42047772456](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42047772456) | 14:43 | The same |
+| [42049345865](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42049345865) | 14:53 | The same |
+| [42054816508](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42054816508) | 15:25 | Launched in us-east-1a; succeeded |
+
+**The plan's checks:**
+- **Labels:** `training.json`'s `labels` and `datasets` name `N7` for generations
   0–2 and `selfplay/v1/` for generations 3–5.
-- Its `val_workers` and record counts equal net7's, and its `val.data` SHA-256
-  differs from net7's.
-- Any change to the trainer between net7's commit (`b2497b7`) and the training
-  commit, since that would be a second change.
+- **Same positions:** `val_workers` and all record, worker and shard counts equal
+  net7's, and the `val.data` SHA-256 differs from net7's (`4dc5921e…b99e`).
+- **Trainer:** `trainer/` has no change from `b2497b7` to `d25ce3f`. In
+  `ci/train-task.sh` only the label-set handling changed.
 
 **Comparing it with net7:** their held-out positions match but their held-out
 labels don't, so each net's own held-out loss **isn't comparable**. Score both
 quantised nets with `rusty-chess-trainer validate` on each of these, on identical
 positions:
 
-| Held-out set, target | net7 | net7rl012 |
-|:--|--:|--:|
-| Generations 0–2, results only (`--wdl 1.0`), the one target the label sets share | Pending | Pending |
-| Generations 3–5, results only (`--wdl 1.0`) | Pending | Pending |
-| Generations 0–2 under `O`, λ 0.5 | Pending | Pending |
-| Generations 0–2 under `N7`, λ 0.5 | Pending | Pending |
-| Generations 3–5 under `O`, λ 0.5 | Pending | Pending |
+| Held-out set, target | net7 | net7rl012 | Change |
+|:--|--:|--:|--:|
+| Generations 0–2, results only (`--wdl 1.0`), the one target the label sets share | 0.067977 | **0.067404** | −0.84% |
+| Generations 3–5, results only (`--wdl 1.0`) | 0.065801 | **0.064857** | −1.43% |
+| Generations 0–2 under `O`, λ 0.5 | **0.019634** | 0.021017 | +7.05% |
+| Generations 0–2 under `N7`, λ 0.5 | 0.019982 | **0.019619** | −1.82% |
+| Generations 3–5 under `O`, λ 0.5 | 0.019470 | **0.019208** | −1.35% |
 
 Expect each net to do better on its own labels for generations 0–2, which says
 little on its own. The results-only rows and generations 3–5 are the fairer
 tests, and the SPRT decides.
+
+**What it showed:** each net did better on its own labels, as expected. net7rl012
+also did better on all three fairer rows, including generations 3–5 under the
+labels both nets trained on. That's a reason to run the SPRT, not a strength
+result.
+
+**How it was measured:** a local measurement on an Apple arm64 machine, scoring
+every held-out record with the trainer from `d25ce3f` (`--features metal`; the
+scorer is the CPU float network). Each set was prepared with seed 1 from only its
+held-out workers' shards, so it isn't a slice of either net's `val.data`:
+
+| Set | Records | Workers | Shards | `val.data` |
+|:--|--:|--:|--:|:--|
+| Generations 0–2 under `O` | 49,369,383 | 46 | 1,980 | `4b4a0b73…7137` |
+| Generations 0–2 under `N7` | 49,369,383 | 46 | 1,980 | `4f3e14a6…6122` |
+| Generations 3–5 under `O` | 61,372,315 | 26 | 2,458 | `d6453319…ae48` |
+
+The record and worker totals match the 110,741,698 and 72 in `training.json`. The
+two generation 0–2 sets were compared record by record: all 49,369,383 are
+identical outside the score, and the scores differ in 48,736,581 (98.7%), so the
+comparison wasn't of one file against itself.
+
+**Not measured:**
+- **Noise:** these differences have no error bars, and this is one training run
+  of each net.
+- **Why results-only loss fell:** `N7`'s scores are larger than the originals
+  ([datasets.md](datasets.md#net7-l050-r41363264869-n5000)), and a net's
+  confidence affects this loss, so it may not all be better judgement.
+- **Bench and speed:** not run on this net yet; that comes with the SPRT PR.
+- **The `Train` artifact's copy of the net:** only the S3 copy was hashed.
 
 ## net7-l050-r41363264869
 
@@ -652,8 +705,8 @@ the fixed-node SPRT against the current default.
      old manifests, fixed in #187. `N7` on generations 0–2 is complete and
      audited ([datasets.md](datasets.md#label-sets)), from
      [41788545675](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41788545675) and its top-ups, with #189 (stay on spot) and
-     #196 (batches). #190 (`Train` chooses a label set) hasn't had a real run.
-     Then [net7rl012](#planned-net7rl012-net7s-recipe-on-relabelled-generations-02).
+     #196 (batches). #190 (`Train` chooses a label set) had its first real run in
+     [net7rl012](#net7rl012-l050-r42054816508), which is trained. Its SPRT against net7 is next.
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
@@ -683,7 +736,7 @@ For every net trained on the GPU task, kept or not:
 6. **Name a labels-only change with an `rl` suffix** giving the relabelled
    generations, like net7rl012, as a schedule change takes `x`. Compare it with
    its base as in
-   [net7rl012's plan](#planned-net7rl012-net7s-recipe-on-relabelled-generations-02).
+   [net7rl012's plan](#net7rl012-l050-r42054816508).
 7. Take numbers from the primary source (`training.json`, the PR's SPRT and
    bench comments, the release notes) and label anything else, such as costs,
    as an estimate. The full rule is in
