@@ -191,6 +191,7 @@ The destination named in the goals: our own network, trained on our own games. *
 - [x] net6k4: net6 with 4 king buckets beat net6 by **+21.7 ± 9.0** timed and +40.0 ± 12.4 at fixed nodes, 10.8% slower per node (#175, v0.42.0; ladder 3166 ± 31)
 - [x] Generation 5, played by net6k4: 318,934,530 positions, fully audited with every worker's games regenerated from their seeds ([datasets.md](datasets.md)); draws 47.7%, within-batch repetition down to 0.98%
 - [x] net7: net6k4's recipe on generations 0–5 beat net6k4 by **+6.8 ± 4.5** timed; +5.1 ± 4.2 at fixed nodes, inconclusive at 10,000 games after spot reclaimed the first attempt (#180, v0.43.0; ladder 3171 ± 27)
+- [ ] net7rl012: net7's recipe with generations 0–2 relabelled by net7 beat net7 by **+16.3 ± 7.7** timed and **+18.1 ± 8.1** at fixed nodes (#202, merge pending; no ladder rating yet)
 - [x] The binary carries only the default net (4.0 MB, from 9.2 MB); every earlier generation's net is listed with its SHA-256 in `nnue::RETIRED_NETS` and kept in the dataset bucket
 - [x] The ladder moved up when the engine outgrew 2950: v0.28.0 scored 88% on 2650 (about 3000). Rungs 2800/2950/3100/3190 against an official, pinned Stockfish 19, with v0.26.0–v0.28.0 re-rated for the overlap
 - [ ] A new anchor once the engine outgrows 3190, the top of Stockfish's `UCI_Elo` range (past about 3300 limited Stockfish cannot bracket it): full Stockfish at a fixed node budget, calibrated against the last limited ladder
