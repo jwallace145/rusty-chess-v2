@@ -86,6 +86,9 @@ net6k4 at 5,000 nodes, the net and budget that played them:
 
 ## Where the labels live
 
+Which label sets exist, their results and which nets trained on them are in
+[datasets.md](datasets.md#labels).
+
 ```text
 s3://<dataset bucket>/data/selfplay/relabel/<label id>/
   gen=N/run=R/task=T/

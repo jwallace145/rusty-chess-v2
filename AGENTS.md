@@ -25,7 +25,7 @@ This project is research: a result counts only when someone else can reproduce i
 
 | When you run | Record it in |
 |:--|:--|
-| Datagen, a Relabel run, a generation's audit | [docs/datasets.md](docs/datasets.md) |
+| Datagen, a Relabel run, a generation's or label set's audit | [docs/datasets.md](docs/datasets.md) |
 | Training, a net's SPRT, a release's rating of a net | [docs/nets.md](docs/nets.md), and its "What we've learned" and "Next experiments" when the result changes what to try next |
 | A design measurement (relabelling, king buckets, datagen settings) | That topic's page in `docs/` |
 | Anything that completes or changes a phase item | [docs/roadmap.md](docs/roadmap.md) |
@@ -34,7 +34,7 @@ This project is research: a result counts only when someone else can reproduce i
 - **Decide before you run.** Write down the question, the one thing that changes, what stays the same and what result would keep or drop it. Don't move the criterion after seeing the result.
 - **Make it reproducible.** Record the commit or tag, the workflow inputs or exact command, the run id, seeds, the generations and label sets, each net's id and SHA-256, the trainer revision, and the hardware and market.
 - **Use primary sources.** Take numbers from shard manifests, `task.json`, `datagen-audit`, `training.json`, a PR's SPRT and bench comments, or release notes, never from progress lines, memory or another document. Link the source. Label estimates, such as costs, and local measurements as what they are.
-- **Audit before you build on it.** A generation needs a full audit with a GO before anything trains on it. Compare nets' losses only on identical held-out positions. Where a check could pass without testing anything, add a negative control, as the determinism step does.
+- **Audit before you build on it.** A generation needs a full audit with a GO, and a label set its recorded audit, before anything trains on it. Name a net's data by its generations and each one's label set, and compare losses only on identical held-out positions and labels. Where a check could pass without testing anything, add a negative control, as the determinism step does.
 - **Say what wasn't verified.** Name any check you skipped or couldn't run, and why. When you check a ledger against its sources, add the result to its audit log, gaps included.
 - **Keep every result and correct in the open.** Never delete or reword a failed or disappointing result. Record every attempt, including reclaimed legs and re-runs, and the gate in force when the decision was made. A later rule doesn't rewrite an earlier decision; note how the two differ.
 
