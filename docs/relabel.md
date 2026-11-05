@@ -151,6 +151,34 @@ original manifests predate checksums.
   exists, so a spot interruption only costs the shards in progress. Running
   the workflow again with the same `instances` finishes what is left.
 
+## Auditing a label set
+
+`ci/label-set-audit.sh` makes the checks a label set needs before anything
+trains on it, listed in
+[datasets.md](datasets.md#auditing-a-label-set). It runs locally and only reads
+from S3:
+
+```sh
+ci/label-set-audit.sh s3://jwall-engineering-rusty-chess-nnue/data/selfplay \
+  net7-l050-r41363264869-n5000 0,1,2 /tmp/n7-audit
+```
+
+- **Every record** is read from both sides: counts, FENs and results in order,
+  checksums, and the manifest's change statistics recomputed from the files.
+- **Provenance** is checked in every manifest, against the commit it names. The
+  tool builds `relabel` from that commit, whatever is checked out.
+- **Determinism:** 6 seeded shards from each run are re-relabelled and compared
+  byte for byte. As a negative control, 3 of them at half the nodes must differ.
+- **Plausibility** is reported per generation and run, and fails only on what a
+  wrong point of view would give: sign agreement under 70% or correlation
+  under 0.5.
+- **Two checks are left to the auditor:** the `relabel` role's write policy, and
+  the source's shard counts against [datasets.md](datasets.md).
+
+It writes `summary.json` and exits 0 only on a pass. It exits 1 on a failure, and
+2 with `--skip-determinism`, which is never a pass. On generations 0–2 (22 GB, 16
+cores) it takes about 15 minutes.
+
 ## Plan
 
 1. **The tool and this note** (`feat(tools)`): `relabel`, its tests, and the
