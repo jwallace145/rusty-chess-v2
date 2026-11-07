@@ -102,6 +102,11 @@ in search (castling, and king walks in endgames), so the first version
 rebuilds from scratch and the paired bench measures the cost. The cache
 follows as a `perf` PR, with the signature unchanged, if the cost shows.
 
+**It showed.** A profile at `v0.46.0` found 8.4% of pushes rebuilding a
+perspective, 8.1% of search time at 512 and 11.3% at 768: the layout's
+boundaries (files d/e, ranks 1/2, f1/g1) are where kings step. The cache is
+planned in [nnue.md](nnue.md#planned-a-refresh-cache-for-king-bucket-rebuilds).
+
 `make_move` already pushes the accumulators after the position has made the
 move, so the rebuild has the position it needs; the move delta also carries
 the king's from and to squares.
