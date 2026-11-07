@@ -163,7 +163,7 @@ dependencies = [
 
 [[package]]
 name = "rusty-chess"
-version = "0.45.1"
+version = "0.46.0"
 dependencies = [
  "rusty-chess-core",
  "rusty-chess-search",
@@ -172,11 +172,11 @@ dependencies = [
 
 [[package]]
 name = "rusty-chess-core"
-version = "0.45.1"
+version = "0.46.0"
 
 [[package]]
 name = "rusty-chess-search"
-version = "0.45.1"
+version = "0.46.0"
 dependencies = [
  "rusty-chess-core",
  "serde",
@@ -185,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "rusty-chess-tools"
-version = "0.45.1"
+version = "0.46.0"
 dependencies = [
  "bulletformat",
  "flate2",
