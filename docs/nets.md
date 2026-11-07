@@ -34,7 +34,7 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
 | `net6k4-l050-r41282883885` | Default `v0.42.0`–`v0.42.1`; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | `O` | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | +40.0 ± 12.4 | 3166 ± 31 (`v0.42.0`), 3144 ± 29 (`v0.42.1`) |
 | `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.3`; **will play generation 6** (not generated yet) | 0–5 · 2,238.2M | `O` | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`), 3166 ± 30 (`v0.44.2`) |
 | `net7rl012-l050-r42054816508` | Default from `v0.45.0`; passed its SPRT (#202) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019361 (its own labels; not comparable with net7's, cross-scored below) | 7.79 / 52.58 | **+16.3 ± 7.7** vs net7 | **+18.1 ± 8.1** | — |
-| `net7rl012345-l050-r42398995769` | Trained, **SPRT not run** | 0–5 · 2,238.2M | `N7` on 0–2, `N7r` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019640 (its own labels; not comparable with net7rl012's, cross-scored below) | 8.22 / 35.56 | Not run | Not run | — |
+| `net7rl012345-l050-r42398995769` | **Dropped:** failed its SPRT against net7rl012 (#210) | 0–5 · 2,238.2M | `N7` on 0–2, `N7r` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019640 (its own labels; not comparable with net7rl012's, cross-scored below) | 8.22 / 35.56 | +1.9 ± 4.1 vs net7rl012 (inconclusive) | −5.2 ± 5.2 (H0) | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -165,8 +165,10 @@ a reason to run the SPRT, not a strength result.
 
 ## net7rl012345-l050-r42398995769
 
-net7rl012's recipe with generations 3–5 on label set `N7r`. **Trained; no SPRT yet,
-so nothing here says it's stronger.** The plan below was recorded before any result
+net7rl012's recipe with generations 3–5 on label set `N7r`. **Dropped: it failed
+its SPRT against net7rl012 (#210), +1.9 ± 4.1 timed, inconclusive at 10,000 games,
+and −5.2 ± 5.2 at fixed nodes, H0.** So relabelling generations 3–5 with
+net7rl012 didn't make a stronger net. The plan below was recorded before any result
 existed, in #206, and is unchanged.
 
 | | |
@@ -254,6 +256,36 @@ reproduce [its comparison](#net7rl012-l050-r42054816508) exactly.
   of each net. They're smaller than net7rl012's against net7.
 - **Bench and speed:** not run on this net yet; that comes with the SPRT PR.
 - **The `Train` artifact's copy of the net:** only the S3 copy was hashed.
+
+**Bench** (#210's CI comment, base `v0.45.1`): signature 886973 (net7rl012:
+976528), identical run to run and with `--features stats`; **time to depth −9.8% ±
+2.7%**, speed per node +0.7% ± 3.1%; fail-high-first 0.881 (net7rl012: 0.878); EBF
+1.89 (net7rl012: 1.84, worse, inside the bar of 2); 4,153 instructions a node. The
+performance gate passed.
+
+**SPRT against net7rl012** ([run 42406536564](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42406536564),
+#210, `8eefd3f` against `main` at `ad0a9fb`; elo0 0, elo1 5, α = β = 0.05; on demand,
+two `c8a.16xlarge` in us-east-1a; one attempt, no interruptions):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | +1.9 ± 4.1 | 81.6% | 10000 | 2211 / 2157 / 5632 | 0.26 | 153, 1155, 2333, 1203, 156 | Inconclusive at the 5,000-round cap |
+| Fixed nodes, 200,000 per move | −5.2 ± 5.2 | 2.3% | 6414 | 1417 / 1514 / 3483 | −2.96 | 138, 721, 1552, 692, 104 | H0 |
+
+**The recorded gate isn't met:** neither leg accepted H1, so the net is dropped, as
+the plan said. The comment's reading: "Gate: fail: no gain at a clock: do not
+merge."
+
+**Reading it:**
+- **Per node it played worse:** the fixed-node interval, −10.4 to −0.1 (−5.25 ± 5.18 in the log), sits
+  below zero. The timed leg's +1.9 ± 4.1 includes zero and −2. The two legs'
+  intervals overlap, and the net is no slower per node, so they don't show a real
+  gain at a clock. No experiment here tests a gain smaller than about 5.
+- **The held-out comparison had warned:** small, mixed differences, and slightly
+  worse on generations 0–2's `N7` labels (+0.54%).
+- **Not measured:** why. `N7r` sits much closer to the originals than `N7` did
+  ([datasets.md](datasets.md#net7rl012-l050-r42054816508-n5000)), and it mixes two
+  labellers with `N7`. This is one training run.
 
 ## net7rl012-l050-r42054816508
 
@@ -822,6 +854,7 @@ differ.
 | **A new generation's gain shrinks with the share of data it adds** | Added training data and timed SPRT: +71% gave +21.9 (net 5), +32% gave +14.5 (net6), +16% gave +6.8 (net7). Few points, and each net's recipe differs | Expect less from each generation of about this size. Test whether label quality (relabelling) pays more than volume |
 | **Gains near `elo1` cost the most games** | net7 took 8,088 timed games and hit the 10,000 cap at fixed nodes; net5x120 hit the cap on both legs. Both tests use `elo1` = 5 | Budget for the cap on small changes. With both legs in the check, a real gain of about +5 can still end inconclusive |
 | **Better labels on the same positions gained strength** | net7rl012 against net7: only generations 0–2's scores changed (38.6% of the records), +16.3 ± 7.7 timed and +18.1 ± 8.1 at fixed nodes (#202), against +6.8 ± 4.5 for adding generation 5 (net7). One result, one training run | Relabelling can pay as much as new data. Test relabelling more generations as its own experiment |
+| **Relabelling the newer generations didn't pay** | net7rl012345 against net7rl012: only generations 3–5's scores changed, to net7rl012's (61.4% of the records), +1.9 ± 4.1 timed (inconclusive at 10,000 games) and −5.2 ± 5.2 at fixed nodes, H0 (#210). Their original labellers, net4w512 to net6k4, were much closer to net7rl012 than PeSTO to net2x80 were to net7; `N7r` agrees with the originals on sign 96.1–96.5% of the time, against 93.0–95.7% for `N7`. One result, one training run | Relabelling pays most where the labeller gains most over the original. Don't relabel generations whose labeller is close to the current net; test width and other capacity next |
 
 ## Next experiments
 
@@ -861,7 +894,8 @@ the fixed-node SPRT against the current default.
      Then net7rl012 relabelled generations 3–5 (`N7r`, audited;
      [datasets.md](datasets.md#net7rl012-l050-r42054816508-n5000)), the first
      label set from the relabel manager (#204).
-     [net7rl012345](#net7rl012345-l050-r42398995769), `N7r` on generations 3–5, is trained; its SPRT against net7rl012 is next.
+     [net7rl012345](#net7rl012345-l050-r42398995769), `N7r` on generations 3–5, was
+     **dropped**: +1.9 ± 4.1 timed (inconclusive), −5.2 ± 5.2 at fixed nodes (H0; #210).
    - **768 neurons:** [net7rl012w768](#planned-net7rl012w768-net7rl012s-recipe-at-768-hidden-neurons),
      net7rl012's recipe at 768 wide, planned. The engine reads 768 from #211.
    - **1024 neurons or a second hidden layer:** later, at about 3B
