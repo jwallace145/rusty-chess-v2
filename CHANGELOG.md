@@ -13,6 +13,12 @@
 * **nnue:** record net7rl012345's failed SPRT against net7rl012 and drop it ([#212](https://github.com/jwallace145/rusty-chess-v2/issues/212)) ([f098dea](https://github.com/jwallace145/rusty-chess-v2/commit/f098deabdf13597cf609a2d7fe9bc22a0246dc82))
 * **nnue:** record the training of net7rl012345 and its held-out comparison with net7rl012 ([#208](https://github.com/jwallace145/rusty-chess-v2/issues/208)) ([ad0a9fb](https://github.com/jwallace145/rusty-chess-v2/commit/ad0a9fbb940a27c05f4123e85eff0e92470397ba))
 
+### Benchmarks
+
+* bench signature 976,528, instructions per node 4123, search 2.05M NPS, perft 288.99M NPS (pass (63)), fail-high first 87.8%, EBF 1.84, TT hit 51.9%
+* since v0.45.1: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.1%, search NPS +11.6%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.45.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.45.0...v0.45.1) (2026-11-07)
 
 
