@@ -153,6 +153,65 @@ original manifests predate checksums.
 - **Resumable:** a task skips shards whose relabelled manifest already
   exists, so a spot interruption only costs the shards in progress. Running
   the workflow again with the same `instances` finishes what is left.
+- **One slot at a time:** `slots` runs only some of the N tasks, such as
+  `-f instances=3 -f slots=2` for the third, and each task is its own
+  concurrency group, so the same slot never runs twice at once. Task I of N
+  always owns the same workers, so a relaunched slot resumes its own
+  leftovers.
+
+## The relabel manager
+
+Spot reclaims a 64-core instance every hour or two, so a long relabel is mostly
+relaunching tasks. `ci/relabel-manager.py` does that from a laptop: it keeps N
+slots running until the label set has every shard, and recomputes the work left
+from S3 on every poll, so it never has to keep count while instances run.
+
+```sh
+export AWS_PROFILE=prog-strength-admin   # reads S3; dispatches use gh's login
+ci/relabel-manager.py status --generations 3,4,5
+ci/relabel-manager.py run --generations 3,4,5 --max-instance-hours 40 --dry-run --once
+screen -S relabel ci/relabel-manager.py run --generations 3,4,5 --max-instance-hours 40 --notify
+```
+
+- **A campaign** is one label set (`main`'s default net at `--nodes`), its
+  generations and its number of slots (`--instances`, 3 by default). Its log,
+  `~/.rusty-chess/relabel-manager/<label>-g<gens>-of<N>/log.jsonl`, records
+  every dispatch and outcome for [datasets.md](datasets.md#labels).
+- **Each poll** (every 5 minutes) it lists what's done in S3 and the `Relabel`
+  runs on GitHub, classifies each finished slot run from its job log, and
+  dispatches every idle slot with work left, one dispatch a slot.
+- **What each outcome does:**
+
+  | Outcome | Next |
+  |:--|:--|
+  | Reclaimed by spot | Relaunch at the next poll |
+  | Out of `--minutes` | Relaunch at the next poll |
+  | No spot capacity (the task already retried for 30 minutes) | Relaunch after 10 minutes |
+  | Task failed, or its run was cancelled | Pause the slot: read the log first |
+  | Finished but relabelled nothing with work left, or 3 launches in a row with no progress | Pause the slot |
+
+- **It only dispatches the workflow,** never EC2, so the `relabel` role's
+  limits hold: spot only, read `selfplay/`, write only `selfplay/relabel/`.
+- **One commit a label set.** It pins `main` at start, and stops dispatching
+  if `main` moves, because a label set from two commits fails its audit. Don't
+  merge to `main` during a campaign; when it moves, start a new label set.
+  It also refuses to add to a label set made at another commit.
+- **The budget is required.** `--max-instance-hours` caps the hours used plus
+  each running slot's whole hard limit (6 hours at 280 minutes), so it holds
+  even if every running task goes the distance. `--max-launches` (40) is a
+  second cap. The hours are job wall time, an overestimate, and the dollar
+  figure it prints is an estimate.
+- **Stopping:** Ctrl-C or `ci/relabel-manager.py stop` stops new dispatches;
+  running tasks finish their minutes, and it exits when none is left. Ctrl-C
+  again quits at once and leaves them running.
+  `ci/relabel-manager.py cancel` cancels them; complete shards are kept
+  either way. Running `run` again picks the campaign up from its log.
+- **It waits** while any other `Relabel` run is active, so a manual run can't
+  overlap it. It follows a matching run it didn't start.
+- **When it's done,** audit the label set (below) before anything trains on it.
+- **Tested:** `ci/test-relabel-manager.py` in CI covers its decisions. Its
+  classifier was checked against all 25 past slot jobs, its split against the
+  task script's on every generation, and `status` against `N7`.
 
 ## Auditing a label set
 

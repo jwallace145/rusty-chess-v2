@@ -28,6 +28,9 @@
 # Never exits 75, which the runner reserves for interruptions.
 
 set -euo pipefail
+# Byte order for every sort: the split into tasks must be the same everywhere,
+# including in ci/relabel-manager.py.
+export LC_ALL=C
 
 dataset="" labels="" generations="" index="" tasks="" minutes="" nodes=5000 target_cpu=native
 while [ $# -gt 0 ]; do
