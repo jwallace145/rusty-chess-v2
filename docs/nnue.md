@@ -142,10 +142,118 @@ are in [king-buckets.md](king-buckets.md).
 - **The accumulator:** only a side's own king moving can change its view. A
   king move that changes it rebuilds that side's accumulator from the
   position after the move; every other move is the usual incremental update.
-  There is no refresh cache yet.
+  There is no refresh cache yet; one is [planned](#planned-a-refresh-cache-for-king-bucket-rebuilds)
+  from the profile below.
 - **Cost:** none measurable for single-view nets (the paired bench, 1.003 ±
   0.021). A 4-bucket net at 512 × 8 is 3,163,152 bytes, but a position only
   reads its own buckets' columns.
+
+## Planned: a refresh cache for king-bucket rebuilds
+
+**Not implemented yet.** This section records the measurements and the plan
+before any code exists, and becomes the change's record once it does.
+
+### What the profile says
+
+Two local measurements at `v0.46.0` (`1cd5486`) on an Apple M3 Max, each in a
+scratch build that isn't in the repository. Both used the bench positions.
+
+**How often each accumulator operation runs** (temporary counters in
+`NnueState`, `bench` at depth 10):
+
+| Net | Pushes (`make_move`) | Evaluations | Pushes never evaluated | Rebuilds (a king changed its view) |
+|:--|--:|--:|--:|--:|
+| net7rl012, 512 | 933,625 | 811,605 | 122,020 (13.1%) | 78,672 (8.4% of pushes) |
+| net7rl012w768 | 969,221 | 848,347 | 120,874 (12.5%) | 81,756 (8.4%) |
+
+The search reads the static evaluation at every node that isn't in check
+before any pruning, and quiescence takes stand-pat at every node not in check;
+only transposition cutoffs, nodes in check and repetition draws skip it. So 87%
+of pushed accumulators are evaluated, and deferring updates until evaluation
+("lazy updates") could skip at most 13% of the update work.
+
+**Where the time goes** (`sample`, 1 ms, `bench` at depth 15, with `update`,
+`Net::refresh` and `Net::evaluate` marked `#[inline(never)]` so the sampler can
+tell them apart; self time, samples with fewer than 5 omitted):
+
+| Function | 512: samples | share | 768: samples | share |
+|:--|--:|--:|--:|--:|
+| `negamax` (with what's inlined into it) | 1,463 | 31.2% | 1,672 | 27.2% |
+| NNUE `update` (incremental, both perspectives) | 719 | 15.3% | 1,157 | 18.8% |
+| NNUE `evaluate` (the forward pass) | 548 | 11.7% | 912 | 14.8% |
+| NNUE `refresh` (rebuild after a view change) | 379 | 8.1% | 698 | 11.3% |
+| `generate_with` (move generation) | 461 | 9.8% | 467 | 7.6% |
+| `quiescence`, `see`, `attackers_to`, make and unmake, TT store, the rest | 1,122 | 23.9% | 1,252 | 20.3% |
+| **All NNUE** | **1,646** | **35.1%** | **2,767** | **44.9%** |
+| Listed self samples | 4,692 | | 6,158 | |
+
+The runs: 512 searched 16,140,428 nodes in 6,992 ms (433 ns a node); 768
+searched 17,031,170 in 8,863 ms (520 ns a node). Splitting each by the shares
+above gives nanoseconds a node:
+
+| | 512 | 768 | 768 − 512 |
+|:--|--:|--:|--:|
+| `update` | 66 | 98 | +32 |
+| `evaluate` | 51 | 77 | +26 |
+| `refresh` | 35 | 59 | +24 |
+| **NNUE** | **152** | **233** | **+81** |
+| Everything else | 281 | 287 | +6 |
+| **A node** | **433** | **520** | **+87** |
+
+"Everything else" being equal in the two runs is the consistency check: the
+width changed only the NNUE terms. A rebuild costs about 12–14 incremental
+updates (435 ns against 35 at 512; 730 against 51 at 768), as expected from
+the bias plus about 25 columns against 2–4.
+
+**What it means for making 768 affordable.** The CI bench found net7rl012w768
+13.9% ± 6.9% slower a node and 20.9% ± 9.4% longer to depth, and its SPRT
+gained +28.9 ± 10.2 at fixed nodes but lost −9.0 ± 6.4 timed
+([nets.md](nets.md#net7rl012w768-l050-r42411319602)). The three NNUE terms are
+the only ones that grew. In order of what each could give back, per node at 768:
+
+1. **Rebuilds, 59 ns.** 8.4% of pushes rebuild a perspective because the
+   layout's boundaries (files d/e, ranks 1/2, f1/g1 after castling) are where
+   kings step. A refresh cache makes a rebuild cost a few columns instead of
+   about 25: an estimated 40–50 ns back.
+2. **Updates, 98 ns.** Lazy updates can skip the 13% that are never
+   evaluated: at most 13 ns back, before their bookkeeping.
+3. **The forward pass, 77 ns.** Only SIMD or quantization work changes it,
+   and nothing here is planned for it.
+
+So the cache comes first. At 512 the rebuilds are 35 of 433 ns, 8.1% of the
+search, so the same change should show on the default net too.
+
+### The change
+
+| | |
+|:--|:--|
+| Question | Does caching one accumulator per perspective and view make king-bucket rebuilds cheap enough to show in search speed, without changing a single evaluation? |
+| The one change | `NnueState` gains a cache: for each perspective and each of the 8 views (4 buckets × mirrored or not), an `Acc<H>` and the per-piece bitboards it reflects, 12 `Bitboard`s. A view change brings the cached entry up to date by adding the columns of pieces present now but not then and subtracting those present then but not now, copies it to the stack, and records the new placement. Entries start as the bias with empty bitboards, so a view's first use is a full build, and no validity flag is needed |
+| Held the same | The network, the weights, the quantization, the file format, every incremental update, the search, the stack, `set_root`, the stack's restart in long games, and the output. The cache reflects the board, not the game, so a new root or an unmade move never invalidates it |
+| Exactness | Wrapping `i16` addition is associative and commutative, so adding and subtracting columns in any order from the cached entry gives exactly `refresh(pos)`. The bench signature must be unchanged: `976528` at `v0.46.0` |
+| Cost | One cache per `Board`, allocated once in `NnueState::new`: 2 × 8 × `H` × 2 bytes plus 2 × 8 × 12 × 8 bytes, 24.6 KB at 768. Nothing allocates in the search. A new network gets a new `NnueState`, so no entry outlives its network |
+| Kept or dropped by | **Kept** if the signature is unchanged and the CI bench comment's paired speed interval clears the noise bar (`paired_noise_pct`, 1%) on the default net, or its time to depth does. **Dropped** if neither clears it. The timed SPRT is run but doesn't decide: a few percent of speed is worth a few Elo, below what `elo1` 5 can confirm, and the fixed-node leg is zero by construction. The owner merges over the check for a speed change, with the reason stated, as the rules allow |
+
+**Tests:**
+- Every rebuild's result equals `Net::refresh` of the same position, in the
+  existing random-game tests (which run through castling and king walks) and
+  in games built to cross every boundary of the layout in both directions and
+  return.
+- A cached entry reused after other pieces moved: the diff path with
+  additions, subtractions and both.
+- **Negative control:** a deliberately corrupted cache entry changes the
+  evaluation, so the tests exercise the diff path and don't pass through a
+  fallback rebuild.
+- All four widths, through the shapes the width tests already iterate.
+
+**Measured and recorded:** the counters above again, so the share of rebuilds
+that found a useful entry and the columns they applied are known; the local
+alternating bench at 512 and 768 with `--eval-file`; the CI bench comment; and
+the SPRT, with the result either way.
+
+**Not in this change:** lazy updates, which are second in the list above and
+need their own measurement after this one; a finer bucket layout, which is a
+training change; and any SIMD work on the forward pass.
 
 ## The embedded net, and the retired ones
 
@@ -230,9 +338,11 @@ there is no `unsafe` and no per-architecture code.
 | PeSTO, for reference (its own bench tree) | 544–585 ms | 2.9–3.1M |
 
 With net 1 the engine now searches about as many nodes a second as it did
-with PeSTO. Next, if profiles say it pays: updating the accumulators only
-for positions that are evaluated, and larger nets (where the output and
-update costs grow with the hidden layer).
+with PeSTO. A profile at `v0.46.0` says what pays next: the king-bucket
+rebuilds, then the incremental updates, then the forward pass
+([the refresh cache plan](#planned-a-refresh-cache-for-king-bucket-rebuilds)).
+Updating the accumulators only for positions that are evaluated would skip
+13% of the updates, because the search evaluates nearly every node.
 
 ## Next
 
