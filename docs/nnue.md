@@ -18,7 +18,7 @@ available for comparisons. The data the nets are trained on is described in
   each block ordered pawn, knight, bishop, rook, queen, king with 64 squares
   each. Black's perspective flips the board vertically (`square ^ 56`). This
   is `bullet`'s `Chess768` input.
-- **Hidden layer:** H neurons per perspective: 128, 256 or 512, read from
+- **Hidden layer:** H neurons per perspective: 128, 256, 512 or 768, read from
   the file's size (*Widths* below). The default net has 512 since `v0.36.0`.
   The two perspectives share their weights.
 - **Activation:** squared clipped ReLU, `clamp(x, 0, QA)²`.
@@ -82,9 +82,10 @@ passant, promotions and captures, made and unmade.
 
 ## Widths
 
-The engine reads nets of **128, 256 or 512** hidden neurons per perspective
-(`nnue::WIDTHS`), told apart by the file's size: 197,378, 394,754 or 789,506
-bytes, plus up to 63 of padding.
+The engine reads nets of **128, 256, 512 or 768** hidden neurons per
+perspective (`nnue::WIDTHS`), told apart by the file's size: 197,378, 394,754,
+789,506 or 1,184,258 bytes, plus up to 63 of padding. With 8 output buckets
+and 4 king buckets, a 768-neuron net is 4,744,720 bytes.
 - **Compiled per width:** each width's code is compiled separately
   (`Net<H>`, `Acc<H>`), and chosen once per evaluation and per move
   (`NnueState`). So the 128-neuron code is the same as before 256 existed,
@@ -94,7 +95,8 @@ bytes, plus up to 63 of padding.
   at most 255² × 127 × 256 = 2,114,092,800, inside 32 bits, so the result is
   exact at any width: the same as summing in 64 bits. At 128 and 256 there's
   one run a side, as before 512 existed. Tests check the extreme cases: at
-  256 the two sides together pass 32 bits, and at 512 one side alone does.
+  256 the two sides together pass 32 bits, and at 512 one side alone does. At
+  768 there are three runs a side.
 
 ## Output buckets
 

@@ -124,6 +124,45 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
+## Planned: net7rl012w768, net7rl012's recipe at 768 hidden neurons
+
+**Not trained yet.** This section records the plan before any result exists, and
+becomes the net's section once it does.
+
+| | |
+|:--|:--|
+| Question | At 2.24B training positions, does a wider hidden layer, 768 neurons rather than 512, make a stronger net at a clock? |
+| The one change from net7rl012 | `hidden` 768 instead of 512: 50% more first-layer weights (4,744,720 bytes against 3,163,200) and accumulator work per move |
+| Held the same | net7rl012's data and labels (`g0-5·N7(0-2)`: `N7` on generations 0–2, `O` on 3–5), split, seeds, 8 output buckets, 4 king buckets, λ 0.5 and the 80-superbatch schedule. `trainer/`, `ci/train-task.sh` and the `Train` workflow have no change since `d25ce3f` except this PR's `hidden` description |
+| Prepared set | `g0-5·N7(0-2)`: its `train.data` and `val.data` SHA-256s must equal net7rl012's (`9df1226c…07bd`, `ad1f1aa4…f8ef`) |
+| Prerequisite | The engine reads 768-neuron nets (this PR), so `Train`'s engine check runs and the SPRT can load the net |
+| Gate | H1 in both the timed and the fixed-node SPRT against net7rl012, the default. Anything else drops the net, unless the owner merges over the check with a stated reason |
+
+```sh
+gh workflow run Train --ref main -f net-id=net7rl012w768 -f generations=0,1,2,3,4,5 \
+  -f labels=0=net7-l050-r41363264869-n5000,1=net7-l050-r41363264869-n5000,2=net7-l050-r41363264869-n5000 \
+  -f hidden=768 -f output-buckets=8 -f king-buckets=4 -f wdl=0.5 -f superbatches=80
+```
+
+**Why 768, and the risk:**
+- **The record so far:** going wider paid each time, and 512 beat 256 by
+  +44.3 ± 13.1 timed (#152). But 512 was about 14% slower per node, and lost 30
+  of its +74 fixed-node gain at a clock. 768 adds half as much work again, and its
+  first layer, already past most L2 caches at 512, grows to 4.7 MB.
+- **So the timed leg is the likely failure:** the fixed-node leg could pass on
+  better judgement while the timed one doesn't. Both gate.
+
+**Before the SPRT, check and record:**
+- `training.json`'s `hidden` is 768, its `labels` and `datasets` match
+  net7rl012's, and its `train.data` and `val.data` SHA-256s equal net7rl012's.
+- `Train`'s engine check passed (`check_passed: true`), so the engine read the
+  net.
+- Bench and local speed per node against net7rl012, and the CI bench comment.
+
+**Comparing it with net7rl012:** the held-out data is identical, so its own
+validation loss is comparable with net7rl012's 0.019361 directly. A lower loss is
+a reason to run the SPRT, not a strength result.
+
 ## net7rl012345-l050-r42398995769
 
 net7rl012's recipe with generations 3–5 on label set `N7r`. **Trained; no SPRT yet,
@@ -823,6 +862,8 @@ the fixed-node SPRT against the current default.
      [datasets.md](datasets.md#net7rl012-l050-r42054816508-n5000)), the first
      label set from the relabel manager (#204).
      [net7rl012345](#net7rl012345-l050-r42398995769), `N7r` on generations 3–5, is trained; its SPRT against net7rl012 is next.
+   - **768 neurons:** [net7rl012w768](#planned-net7rl012w768-net7rl012s-recipe-at-768-hidden-neurons),
+     net7rl012's recipe at 768 wide, planned. The engine reads 768 from #211.
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.

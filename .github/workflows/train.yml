@@ -36,7 +36,7 @@ on:
         required: false
         default: ""
       hidden:
-        description: Hidden neurons per perspective (a multiple of 16). The engine reads 128, 256 and 512; another width trains, but skips the engine check until the engine reads it
+        description: Hidden neurons per perspective (a multiple of 16). The engine reads 128, 256, 512 and 768; another width trains, but skips the engine check until the engine reads it
         required: true
         default: "128"
       output-buckets:
