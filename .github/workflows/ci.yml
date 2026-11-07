@@ -124,3 +124,5 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --locked
       - run: cargo test --workspace --locked --features stats
+      - name: Unit test the relabel manager's decisions
+        run: python3 ci/test-relabel-manager.py

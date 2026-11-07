@@ -11,7 +11,11 @@ name: Relabel
 # Tasks split the generations by self-play worker and skip shards already
 # relabelled, so an interrupted or cancelled run loses only what was in
 # progress: run it again with the same `instances` to finish what is left.
-# Run it from `main` or a release tag: the commit decides the net.
+# `slots` runs only some of the tasks, such as one reclaimed by spot, and each
+# task is its own concurrency group, so a slot never runs twice at once.
+# ci/relabel-manager.py relaunches slots this way. Run it from `main`: the
+# commit decides the net, and the task role trusts only `main` and pull
+# requests, so a dispatch from a tag fails before it starts.
 
 on:
   workflow_dispatch:
@@ -25,6 +29,10 @@ on:
         type: choice
         options: ["1", "2", "3"]
         default: "3"
+      slots:
+        description: Only these tasks, e.g. 2 or 0,2, counting from 0 (empty for all); `instances` still sets how the work is split
+        required: false
+        default: ""
       minutes:
         description: Minutes per instance before it stops starting work (at most 300; about 19,000 records a second an instance with a 512-neuron king-bucketed net)
         required: true
@@ -38,7 +46,7 @@ on:
         required: false
         default: ""
 
-run-name: "Relabel: gen ${{ inputs.generations }}, ${{ inputs.instances }} × ${{ inputs.minutes }} min, ${{ inputs.nodes }} nodes${{ inputs.note != '' && format(' — {0}', inputs.note) || '' }}"
+run-name: "Relabel: gen ${{ inputs.generations }}, ${{ inputs.instances }} × ${{ inputs.minutes }} min, ${{ inputs.nodes }} nodes${{ inputs.slots != '' && format(', slots {0}', inputs.slots) || '' }}${{ inputs.note != '' && format(' — {0}', inputs.note) || '' }}"
 
 permissions: {}
 
@@ -58,6 +66,7 @@ jobs:
         env:
           GENERATIONS: ${{ inputs.generations }}
           INSTANCES: ${{ inputs.instances }}
+          SLOTS: ${{ inputs.slots }}
           MINUTES: ${{ inputs.minutes }}
           NODES: ${{ inputs.nodes }}
         run: |
@@ -65,12 +74,19 @@ jobs:
           [[ "$MINUTES" =~ ^[0-9]+$ ]] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 300 ] \
             || { echo "::error::minutes must be a whole number from 1 to 300 (the task runner's 6-hour limit covers boot, build and upload too), got $MINUTES"; exit 1; }
           [[ "$NODES" =~ ^[0-9]+$ ]] && [ "$NODES" -ge 1 ] || { echo "::error::nodes must be a positive whole number"; exit 1; }
+          if [ -n "$SLOTS" ]; then
+            [[ "$SLOTS" =~ ^[0-9]+(,[0-9]+)*$ ]] || { echo "::error::slots must be task numbers separated by commas, e.g. 0,2"; exit 1; }
+            for s in $(echo "$SLOTS" | tr ',' ' '); do
+              [ "$s" -lt "$INSTANCES" ] || { echo "::error::slot $s is not a task of $INSTANCES (they count from 0)"; exit 1; }
+            done
+          fi
           bucket=$(yq -r '[.components[] | select(.kind == "dataset")][0].bucket // ""' jwall-engineering-sites.yaml)
           prefix=$(yq -r '[.components[] | select(.kind == "dataset")][0].prefix // ""' jwall-engineering-sites.yaml)
           [ -n "$bucket" ] && [ -n "$prefix" ] || { echo "::error::no dataset component in jwall-engineering-sites.yaml"; exit 1; }
           root="s3://$bucket/${prefix%/}/selfplay"
-          tasks=$(jq -cn --arg d "$root/v1" --arg l "$root/relabel" --arg g "$GENERATIONS" --argjson n "$INSTANCES" --arg m "$MINUTES" --arg nodes "$NODES" \
-            '[range($n) | {task: "t\(.)", args: (["--dataset", $d, "--labels", $l, "--generations", $g,
+          tasks=$(jq -cn --arg d "$root/v1" --arg l "$root/relabel" --arg g "$GENERATIONS" --argjson n "$INSTANCES" --arg m "$MINUTES" --arg nodes "$NODES" --arg s "$SLOTS" \
+            '($s | if . == "" then null else split(",") | map(tonumber) end) as $only
+            | [range($n) | select($only == null or (. as $i | $only | index($i) != null)) | {task: "t\(.)", args: (["--dataset", $d, "--labels", $l, "--generations", $g,
               "--index", (. | tostring), "--tasks", ($n | tostring), "--minutes", $m, "--nodes", $nodes] | tojson)}]')
           # The instance's hard limit: the work, plus an hour for boot, build
           # and the last worker; clamped to the runner's limit, 6.
@@ -80,11 +96,16 @@ jobs:
             echo "tasks=$tasks"
             echo "hours=$hours"
           } >> "$GITHUB_OUTPUT"
-          echo "Generations $GENERATIONS, $INSTANCES × $MINUTES minutes at $NODES nodes, into $root/relabel/"
+          echo "Generations $GENERATIONS, $INSTANCES × $MINUTES minutes at $NODES nodes${SLOTS:+, only task(s) $SLOTS}, into $root/relabel/"
 
   relabel:
     name: Relabel (${{ matrix.task }})
     needs: plan
+    # One task at a time per slot of a split: a second dispatch of a running
+    # slot waits, and then finds only what is left.
+    concurrency:
+      group: relabel-g${{ inputs.generations }}-n${{ inputs.nodes }}-of${{ inputs.instances }}-${{ matrix.task }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
