@@ -47,6 +47,7 @@ of each.
 |:--|:--|:--|--:|:--|:--|
 | `O` | `original` | The net that played each generation, so a mix (below) | 5,000 | `data/selfplay/v1/gen=N/` | Complete, kept forever |
 | `N7` | `net7-l050-r41363264869-n5000` | net7, sha256 `0866bde1…1b6f`, for every generation | 5,000 | `data/selfplay/relabel/net7-l050-r41363264869-n5000/gen=N/` | Generations 0–2 audited; generations 3–5 not started |
+| `N7r` | `net7rl012-l050-r42054816508-n5000` | net7rl012, sha256 `74af5b46…70ce`, for every generation | 5,000 | `data/selfplay/relabel/net7rl012-l050-r42054816508-n5000/gen=N/` | Generations 3–5 audited; generations 0–2 not started |
 
 - **`original`** is the name used here for the labels made during play. Those
   prefixes aren't called that in S3, and `Train`'s `labels` input doesn't take
@@ -56,14 +57,14 @@ of each.
 
 ### Which label sets exist
 
-| Gen | Positions | `O`, labelled by | `N7` |
-|--:|--:|:--|:--|
-| 0 | 231,240,344 | PeSTO | Audited |
-| 1 | 368,354,466 | net 1 | Audited |
-| 2 | 307,037,810 | net2x80 | Audited |
-| 3 | 628,213,254 | net4w512 | Not started |
-| 4 | 495,147,759 | net 5 | Not started |
-| 5 | 318,934,530 | net6k4 | Not started |
+| Gen | Positions | `O`, labelled by | `N7` | `N7r` |
+|--:|--:|:--|:--|:--|
+| 0 | 231,240,344 | PeSTO | Audited | Not started |
+| 1 | 368,354,466 | net 1 | Audited | Not started |
+| 2 | 307,037,810 | net2x80 | Audited | Not started |
+| 3 | 628,213,254 | net4w512 | Not started | Audited |
+| 4 | 495,147,759 | net 5 | Not started | Audited |
+| 5 | 318,934,530 | net6k4 | Not started | Audited |
 
 | Status | Meaning |
 |:--|:--|
@@ -163,6 +164,58 @@ changes a label by a median of 17 cp and a mean of 30 cp, with 97.7% sign
 agreement and correlation 0.990 ([relabel.md](relabel.md)). That's the noise
 floor, and only disagreement beyond it is net7's opinion. It was measured on 16
 shards of one generation, so it's a guide, not a bar.
+
+### `net7rl012-l050-r42054816508-n5000`
+
+**Status: generations 3–5 audited.** net7rl012's scores at 5,000 nodes. It was
+the default net at `v0.45.0`, and these were the positions `N7` didn't cover
+yet. The first label set made by the relabel manager (#204): one `slots`
+dispatch per slot, 3 slots, every run from `main` at `7cb6ea2` (`v0.45.0`),
+280 minutes each, spot only. The manager ran with
+`--max-instance-hours 40` and its default 40-launch cap.
+
+| Run | Date | Commit | Slot | Market | Shards | Records | Records/s | Status and notes |
+|:--|:--|:--|--:|:--|--:|--:|--:|:--|
+| [42340392266](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42340392266) | 2026-11-07 | `7cb6ea2` | 0 | Spot, $0.8119/h at launch in us-east-1b | 3,920 | 97,900,052 | 18,113 | **Reclaimed by spot at 06:24:41 UTC** after 90 minutes |
+| [42340394396](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42340394396) | 2026-11-07 | `7cb6ea2` | 1 | Spot, $0.8119/h in us-east-1b | 3,972 | 99,228,427 | 18,382 | **Reclaimed by spot at 06:24:40 UTC** |
+| [42340396613](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42340396613) | 2026-11-07 | `7cb6ea2` | 2 | Spot, $0.8119/h in us-east-1b | 3,865 | 96,566,190 | 17,879 | **Reclaimed by spot at 06:24:42 UTC** |
+| [42347189266](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42347189266) | 2026-11-07 | `7cb6ea2` | 0 | Spot, $0.9695/h in us-east-1d | 12,203 | 304,715,302 | 17,777 | Relaunched by the manager 4 minutes after the reclaim. Used its 280 minutes and stopped before worker 166 of 214 |
+| [42347191513](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42347191513) | 2026-11-07 | `7cb6ea2` | 1 | Spot, $0.9695/h in us-east-1d | 11,815 | 294,975,970 | 17,389 | Used its 280 minutes, stopped before worker 163 of 213 |
+| [42347194014](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42347194014) | 2026-11-07 | `7cb6ea2` | 2 | Spot, $0.9695/h in us-east-1d | 12,193 | 304,468,914 | 17,724 | Used its 280 minutes, stopped before worker 165 of 213 |
+| [42388140967](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42388140967) | 2026-11-07 | `7cb6ea2` | 0 | Spot, $0.8246/h in us-east-1b | 3,217 | 80,332,495 | 17,118 | **Complete.** Dispatched at 15:48 UTC by a restarted manager (below) |
+| [42388143266](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42388143266) | 2026-11-07 | `7cb6ea2` | 1 | Spot, $0.8246/h in us-east-1b | 3,356 | 83,881,403 | 17,548 | **Complete** |
+| [42388145645](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42388145645) | 2026-11-07 | `7cb6ea2` | 2 | Spot, $0.8246/h in us-east-1b | 3,210 | 80,226,790 | 17,667 | **Complete** |
+
+Shards, records and seconds are from each run's `task.json`. Records/s is for one
+`c8a.16xlarge`. Prices are the spot price each job's log printed at launch.
+
+- **The gap:** the laptop running the manager slept during the second round. The
+  manager recorded slot 0's end at 12:22 UTC, about an hour late, and then
+  stopped before recording slots 1 and 2 or dispatching the third round. Restarted
+  at 15:47 UTC, it read its log, recorded both and dispatched all three slots.
+  About 4.5 hours passed with no instance running, which cost time but nothing
+  else. Its log is `~/.rusty-chess/relabel-manager/net7rl012-l050-r42054816508-n5000-g345-of3/log.jsonl`
+  on that laptop, not in the repository.
+- **Totals:** 9 runs, 9 instances, 3 reclaimed by spot, all at once. 57,751
+  shards and 1,442,295,543 records. The manager counted 22.86 instance-hours of
+  job time. At the launch prices that's about $21, an estimate; actual spot
+  billing wasn't read.
+- **Not verified:** the manager's `--notify` never fired, since nothing paused.
+
+| Gen | Source shards | Source records | Relabelled shards | Relabelled records | Changed | Mean \|change\| (cp) | Mates clamped | Sign agreement | Correlation | Audit |
+|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|:--|
+| 3 | 25,158 | 628,213,254 | 25,158 | 628,213,254 | 98.13% | 112.4 | 301,181 | 96.10% | 0.9745 | Passed, [2026-11-07](#audit-log) |
+| 4 | 19,838 | 495,147,759 | 19,838 | 495,147,759 | 97.92% | 81.7 | 198,373 | 96.16% | 0.9770 | Passed, [2026-11-07](#audit-log) |
+| 5 | 12,755 | 318,934,530 | 12,755 | 318,934,530 | 97.67% | 61.6 | 16,726 | 96.53% | 0.9817 | Passed, [2026-11-07](#audit-log) |
+
+All columns are from `ci/label-set-audit.sh`'s `summary.json`, over every record.
+
+**Reading these:** they're closer to the originals than `N7` was on generations
+0–2 (sign agreement 92.98–95.68%, correlation 0.9519–0.9700). That's expected:
+these generations' labellers, net4w512 to net6k4, are nearer net7rl012 in
+strength than PeSTO to net2x80 were to net7. Each newer generation moves less,
+from 112 cp to 62 cp. Everything still sits above the same-net noise floor (97.7%
+and 0.990).
 
 ### Auditing a label set
 
@@ -624,3 +677,46 @@ difference appears to be `relabel` reading and rewriting the float through JSON;
 that cause wasn't tested in isolation. Nothing reads that field, so it alone now
 has a tolerance of 1e-9. So the earlier statement that metadata matches the source
 holds for the fields it named, not for this one at full precision.
+
+**2026-11-07, the full audit of `N7r` on generations 3–5: passed.** Run with
+`ci/label-set-audit.sh` at `7cb6ea2`, read-only with
+`AWS_PROFILE=prog-strength-admin`, on an Apple M3 Max (arm64, 16 cores), from an
+empty directory. All 1,442,295,543 records were read from 17.7 GB of relabelled
+positions and their sources:
+
+```sh
+ci/label-set-audit.sh s3://jwall-engineering-rusty-chess-nnue/data/selfplay \
+  net7rl012-l050-r42054816508-n5000 3,4,5 <dir>
+```
+
+| Check | Result |
+|:--|:--|
+| 1. Inventory | 57,751 of 57,751 shards, with no extras or orphans. Equal to this ledger's 25,158 + 19,838 + 12,755 source shards |
+| 2. Records | 0 failures: every count matches its source and manifest, and every FEN and result is identical and in order |
+| 3. Provenance | 0 failures: label id, net SHA-256 `74af5b46…70ce`, 5,000 nodes and commit `7cb6ea2` in every manifest, and every positions file's SHA-256 matches. All 57,751 source checksums match their files |
+| 4. Plausibility | Sign agreement 96.10–96.53% and correlation 0.9745–0.9817 ([the table above](#net7rl012-l050-r42054816508-n5000)). Not what a wrong point of view would give |
+| 5. Determinism | **24 of 24 shards byte-identical** (6 from each of the 4 source runs, seed 20261105), rebuilt from `7cb6ea2`, and manifests equal apart from `seconds`. The cloud runs were x86-64 `c8a.16xlarge` and the re-runs Apple arm64. **Negative control:** 3 of them at 2,500 nodes all differ |
+| 6. Originals | The `relabel` role's only S3 writes are under `selfplay/relabel/` and its task-results prefix, read from its two inline policies. Every object under `selfplay/v1/gen=3/` to `gen=5/` dates from 2026-11-01 or earlier, before the campaign |
+
+Scores against game results, as for `N7`:
+
+| Gen | Mean \|score\|, net7rl012 / original | Loss against results, net7rl012 / original | Sign matches a decisive result, net7rl012 / original | \|score\| over 3,000, net7rl012 |
+|--:|--:|--:|--:|--:|
+| 3 | 375 / 290 | 0.5427 / 0.5563 | 88.35% / 88.42% | 456,043 |
+| 4 | 347 / 296 | 0.5526 / 0.5599 | 87.68% / 87.80% | 277,504 |
+| 5 | 324 / 291 | 0.5580 / 0.5619 | 87.64% / 87.84% | 106,158 |
+
+- **The new scores fit the results better** by loss in every generation, by less
+  in each newer one, as `N7` did on generations 0–2. Their signs match a decisive
+  result slightly less often, by 0.07–0.20 points. The scores are also larger,
+  and loss rewards confidence, so the two measures can disagree.
+- **The scores grew less than net7's did:** a mean \|score\| 11–29% above the
+  originals, against 32–162% for `N7` on generations 0–2.
+
+**Not checked:**
+- **Which relabel run made which shard:** manifests don't record it. So the
+  determinism sample was drawn by source run, and isn't known to cover all 9
+  instances.
+- The `relabel` role can still overwrite objects under `selfplay/relabel/`, as
+  noted for `N7`.
+- A training set that mixes `N7` and `N7r`: nothing has been prepared from one yet.

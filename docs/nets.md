@@ -726,6 +726,9 @@ the fixed-node SPRT against the current default.
      [41788545675](https://github.com/jwallace145/rusty-chess-v2/actions/runs/41788545675) and its top-ups, with #189 (stay on spot) and
      #196 (batches). #190 (`Train` chooses a label set) had its first real run in
      [net7rl012](#net7rl012-l050-r42054816508), which passed both SPRT legs against net7 (#202).
+     Then net7rl012 relabelled generations 3–5 (`N7r`, audited;
+     [datasets.md](datasets.md#net7rl012-l050-r42054816508-n5000)), the first
+     label set from the relabel manager (#204). No net has trained on it yet.
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
