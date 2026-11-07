@@ -41,6 +41,7 @@
 
 use std::sync::{Arc, OnceLock};
 
+use rusty_chess_core::bitboard::Bitboard;
 use rusty_chess_core::position::Position;
 use rusty_chess_core::types::{Color, PieceKind, Square};
 
@@ -728,34 +729,144 @@ pub(crate) struct NnueState {
     net: Arc<Network>,
     stack: Stack,
     top: usize,
+    stats: RebuildStats,
 }
 
-/// `[white's perspective, black's]` per ply, at the network's width.
+/// The accumulators of the line and the refresh cache, at the network's
+/// width.
 #[derive(Clone)]
 enum Stack {
-    H128(Box<[[Acc<128>; 2]]>),
-    H256(Box<[[Acc<256>; 2]]>),
-    H512(Box<[[Acc<512>; 2]]>),
-    H768(Box<[[Acc<768>; 2]]>),
+    H128(Plies<128>),
+    H256(Plies<256>),
+    H512(Plies<512>),
+    H768(Plies<768>),
 }
 
-fn new_stack<const H: usize>(net: &Net<H>, pos: &Position, len: usize) -> Box<[[Acc<H>; 2]]> {
-    let mut stack = vec![[Acc([0; H]); 2]; len].into_boxed_slice();
-    stack[0] = [
-        net.refresh(pos, Color::White),
-        net.refresh(pos, Color::Black),
-    ];
-    stack
+/// The views a king-bucketed net has: each bucket, mirrored or not.
+const VIEWS: usize = 8;
+
+/// A view's slot in the refresh cache.
+#[inline]
+fn view_index((base, flip): (usize, usize)) -> usize {
+    (base / INPUTS) * 2 + usize::from(flip != 0)
+}
+
+/// `[white's perspective, black's]` per ply, and for each perspective one
+/// cached accumulator per view.
+#[derive(Clone)]
+struct Plies<const H: usize> {
+    stack: Box<[[Acc<H>; 2]]>,
+    cache: Box<[[CacheEntry<H>; VIEWS]; 2]>,
+}
+
+impl<const H: usize> Plies<H> {
+    fn new(net: &Net<H>, pos: &Position, len: usize) -> Plies<H> {
+        let mut stack = vec![[Acc([0; H]); 2]; len].into_boxed_slice();
+        stack[0] = [
+            net.refresh(pos, Color::White),
+            net.refresh(pos, Color::Black),
+        ];
+        Plies {
+            stack,
+            cache: Box::new([[CacheEntry::empty(net); VIEWS]; 2]),
+        }
+    }
+}
+
+/// One perspective's accumulator the last time its king stood in a view, and
+/// the pieces it reflects, `[color][kind]` in board squares. When the king
+/// comes back to the view, only the pieces that moved meanwhile are applied,
+/// instead of every piece on the board.
+#[derive(Clone, Copy)]
+struct CacheEntry<const H: usize> {
+    acc: Acc<H>,
+    pieces: [[Bitboard; 6]; 2],
+}
+
+impl<const H: usize> CacheEntry<H> {
+    /// The bias with no pieces, so a view's first rebuild adds every piece,
+    /// as a refresh from scratch does.
+    fn empty(net: &Net<H>) -> CacheEntry<H> {
+        CacheEntry {
+            acc: Acc(net.feature_bias),
+            pieces: [[Bitboard::EMPTY; 6]; 2],
+        }
+    }
+
+    /// Bring the entry up to date with `pos` and write it to `out`: the
+    /// columns of pieces here now but not then are added, those there then
+    /// but not now subtracted. Wrapping addition is associative and
+    /// commutative, so the result equals `net.refresh(pos, perspective)`
+    /// exactly, whatever the entry held. Returns the columns applied.
+    fn rebuild(
+        &mut self,
+        net: &Net<H>,
+        pos: &Position,
+        perspective: Color,
+        view: (usize, usize),
+        out: &mut Acc<H>,
+    ) -> usize {
+        let mut columns = 0;
+        for color in Color::ALL {
+            for kind in PieceKind::ALL {
+                let now = pos.pieces(color, kind);
+                let then = &mut self.pieces[color.index()][kind.index()];
+                if now == *then {
+                    continue;
+                }
+                for sq in now & !*then {
+                    self.acc
+                        .add(net, feature_in(view, perspective, color, kind, sq));
+                }
+                for sq in *then & !now {
+                    self.acc
+                        .sub(net, feature_in(view, perspective, color, kind, sq));
+                }
+                columns += (now ^ *then).count() as usize;
+                *then = now;
+            }
+        }
+        *out = self.acc;
+        columns
+    }
+}
+
+/// What the refresh cache did, counted only with the `stats` feature; a
+/// zero-sized no-op without it.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RebuildStats {
+    /// Rebuilds after a king changed its view.
+    #[cfg(feature = "stats")]
+    pub rebuilds: u64,
+    /// Weight columns the rebuilds applied in total. A rebuild from scratch
+    /// applies one per piece on the board.
+    #[cfg(feature = "stats")]
+    pub columns: u64,
+}
+
+impl RebuildStats {
+    #[inline]
+    fn rebuild(&mut self, columns: usize) {
+        #[cfg(feature = "stats")]
+        {
+            self.rebuilds += 1;
+            self.columns += columns as u64;
+        }
+        #[cfg(not(feature = "stats"))]
+        let _ = columns;
+    }
 }
 
 #[inline]
 fn push_move<const H: usize>(
     net: &Net<H>,
-    stack: &mut [[Acc<H>; 2]],
+    plies: &mut Plies<H>,
     top: &mut usize,
+    stats: &mut RebuildStats,
     d: &MoveDelta,
     pos: &Position,
 ) {
+    let Plies { stack, cache } = plies;
     // Outside a search (a long game played move by move) the stack can fill;
     // it then restarts from the bottom, which is safe because a game is never
     // unmade there.
@@ -789,7 +900,8 @@ fn push_move<const H: usize>(
                 d.from.index() ^ 56
             };
             if king_view(net.king_buckets, from) != view {
-                new[i] = net.refresh(pos, side);
+                let columns = cache[i][view_index(view)].rebuild(net, pos, side, view, &mut new[i]);
+                stats.rebuild(columns);
                 continue;
             }
         }
@@ -829,12 +941,41 @@ impl NnueState {
     /// plies.
     pub(crate) fn new(net: Arc<Network>, pos: &Position, len: usize) -> NnueState {
         let stack = match &*net {
-            Network::H128(n) => Stack::H128(new_stack(n, pos, len)),
-            Network::H256(n) => Stack::H256(new_stack(n, pos, len)),
-            Network::H512(n) => Stack::H512(new_stack(n, pos, len)),
-            Network::H768(n) => Stack::H768(new_stack(n, pos, len)),
+            Network::H128(n) => Stack::H128(Plies::new(n, pos, len)),
+            Network::H256(n) => Stack::H256(Plies::new(n, pos, len)),
+            Network::H512(n) => Stack::H512(Plies::new(n, pos, len)),
+            Network::H768(n) => Stack::H768(Plies::new(n, pos, len)),
         };
-        NnueState { net, stack, top: 0 }
+        NnueState {
+            net,
+            stack,
+            top: 0,
+            stats: RebuildStats::default(),
+        }
+    }
+
+    /// What the refresh cache did since this state was made.
+    pub(crate) fn rebuild_stats(&self) -> RebuildStats {
+        self.stats
+    }
+
+    /// Spoil every cached accumulator by one, so the next rebuild from any
+    /// entry is wrong: a negative control for the tests, which must then see
+    /// the difference. Only with the `stats` feature, so release builds
+    /// don't carry it.
+    #[cfg(feature = "stats")]
+    pub(crate) fn corrupt_refresh_cache(&mut self) {
+        fn spoil<const H: usize>(p: &mut Plies<H>) {
+            for entry in p.cache.iter_mut().flatten() {
+                entry.acc.0[0] = entry.acc.0[0].wrapping_add(1);
+            }
+        }
+        match &mut self.stack {
+            Stack::H128(p) => spoil(p),
+            Stack::H256(p) => spoil(p),
+            Stack::H512(p) => spoil(p),
+            Stack::H768(p) => spoil(p),
+        }
     }
 
     /// The evaluation for the side to move, with `pieces` pieces on the
@@ -844,10 +985,18 @@ impl NnueState {
         let w = usize::from(stm != Color::White);
         let t = self.top;
         match (&*self.net, &self.stack) {
-            (Network::H128(n), Stack::H128(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
-            (Network::H256(n), Stack::H256(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
-            (Network::H512(n), Stack::H512(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
-            (Network::H768(n), Stack::H768(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
+            (Network::H128(n), Stack::H128(s)) => {
+                n.evaluate(&s.stack[t][w], &s.stack[t][1 - w], pieces)
+            }
+            (Network::H256(n), Stack::H256(s)) => {
+                n.evaluate(&s.stack[t][w], &s.stack[t][1 - w], pieces)
+            }
+            (Network::H512(n), Stack::H512(s)) => {
+                n.evaluate(&s.stack[t][w], &s.stack[t][1 - w], pieces)
+            }
+            (Network::H768(n), Stack::H768(s)) => {
+                n.evaluate(&s.stack[t][w], &s.stack[t][1 - w], pieces)
+            }
             _ => unreachable!("the stack has the network's width"),
         }
     }
@@ -855,11 +1004,12 @@ impl NnueState {
     /// Push the accumulators after a move; `pos` is the position after it.
     #[inline]
     pub(crate) fn push(&mut self, d: &MoveDelta, pos: &Position) {
+        let (top, stats) = (&mut self.top, &mut self.stats);
         match (&*self.net, &mut self.stack) {
-            (Network::H128(n), Stack::H128(s)) => push_move(n, s, &mut self.top, d, pos),
-            (Network::H256(n), Stack::H256(s)) => push_move(n, s, &mut self.top, d, pos),
-            (Network::H512(n), Stack::H512(s)) => push_move(n, s, &mut self.top, d, pos),
-            (Network::H768(n), Stack::H768(s)) => push_move(n, s, &mut self.top, d, pos),
+            (Network::H128(n), Stack::H128(s)) => push_move(n, s, top, stats, d, pos),
+            (Network::H256(n), Stack::H256(s)) => push_move(n, s, top, stats, d, pos),
+            (Network::H512(n), Stack::H512(s)) => push_move(n, s, top, stats, d, pos),
+            (Network::H768(n), Stack::H768(s)) => push_move(n, s, top, stats, d, pos),
             _ => unreachable!("the stack has the network's width"),
         }
     }
@@ -876,10 +1026,10 @@ impl NnueState {
     #[inline]
     pub(crate) fn set_root(&mut self) {
         match &mut self.stack {
-            Stack::H128(s) => s[0] = s[self.top],
-            Stack::H256(s) => s[0] = s[self.top],
-            Stack::H512(s) => s[0] = s[self.top],
-            Stack::H768(s) => s[0] = s[self.top],
+            Stack::H128(s) => s.stack[0] = s.stack[self.top],
+            Stack::H256(s) => s.stack[0] = s.stack[self.top],
+            Stack::H512(s) => s.stack[0] = s.stack[self.top],
+            Stack::H768(s) => s.stack[0] = s.stack[self.top],
         }
         self.top = 0;
     }
@@ -887,11 +1037,14 @@ impl NnueState {
     /// The current accumulators, `[white's perspective, black's]`, as plain
     /// values (for tests).
     pub(crate) fn values(&self) -> [Vec<i16>; 2] {
+        fn at<const H: usize>(p: &Plies<H>, top: usize) -> [Vec<i16>; 2] {
+            [p.stack[top][0].0.to_vec(), p.stack[top][1].0.to_vec()]
+        }
         match &self.stack {
-            Stack::H128(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
-            Stack::H256(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
-            Stack::H512(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
-            Stack::H768(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
+            Stack::H128(s) => at(s, self.top),
+            Stack::H256(s) => at(s, self.top),
+            Stack::H512(s) => at(s, self.top),
+            Stack::H768(s) => at(s, self.top),
         }
     }
 }

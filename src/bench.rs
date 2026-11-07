@@ -76,6 +76,8 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
     let mut searcher = Searcher::new(Arc::new(AtomicBool::new(false)));
     searcher.set_hash_mb(args.hash_mb as usize);
     let mut total_nodes = 0u64;
+    #[cfg(feature = "stats")]
+    let mut rebuilds = (0u64, 0u64);
     let started = Instant::now();
 
     for (i, fen) in BENCH_POSITIONS.iter().enumerate() {
@@ -91,6 +93,11 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
         let nodes = result.nodes + result.qnodes;
         let elapsed_ms = result.elapsed.as_millis() as u64;
         total_nodes += nodes;
+        #[cfg(feature = "stats")]
+        if let Some(r) = board.nnue_rebuilds() {
+            rebuilds.0 += r.rebuilds;
+            rebuilds.1 += r.columns;
+        }
 
         writeln!(out, "Position {}/{}: {fen}", i + 1, BENCH_POSITIONS.len())?;
         writeln!(
@@ -138,6 +145,14 @@ pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
     writeln!(out, "Total time (ms) : {}", record.elapsed_ms)?;
     writeln!(out, "Nodes searched  : {}", record.nodes)?;
     writeln!(out, "Nodes/second    : {}", record.nps)?;
+    #[cfg(feature = "stats")]
+    writeln!(
+        out,
+        "NNUE rebuilds   : {} ({} weight columns, {:.1} a rebuild)",
+        rebuilds.0,
+        rebuilds.1,
+        rebuilds.1 as f64 / rebuilds.0.max(1) as f64
+    )?;
     out.flush()?;
 
     if let Some(w) = jsonl.as_mut() {

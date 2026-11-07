@@ -239,6 +239,102 @@ fn a_long_game_played_forward_wraps_the_stack_safely() {
     }
 }
 
+/// Kings walking across every boundary of the layout and back, with other
+/// pieces moving and a capture in between: `(move, rebuilds, columns)`. A
+/// king's first visit to a view rebuilds from every piece on the board; a
+/// return applies only what changed since the last visit.
+const KING_WALK: [(&str, u64, u64); 18] = [
+    ("e1d1", 1, 14), // white crosses the d/e mirror line: a first visit
+    ("e8d8", 1, 14), // black too
+    ("a2a4", 0, 0),
+    ("h7h5", 0, 0),
+    ("d1e1", 1, 14), // the start view was built from scratch, not cached
+    ("d8e8", 1, 14),
+    ("e1e2", 1, 14), // rank 2 is another bucket
+    ("e8e7", 1, 14),
+    ("a4a5", 0, 0),
+    ("h5h4", 0, 0),
+    ("e2d2", 1, 14), // across the mirror line on rank 2
+    ("e7d7", 1, 14),
+    ("d2d1", 1, 6), // back to the view of move 1: a2→a5, e8→d7, h7→h4
+    ("d7d8", 1, 4), // back to the view of move 2: a2→a5, h7→h4
+    ("a5a6", 0, 0),
+    ("b7a6", 0, 0), // a capture: 13 pieces from here
+    ("d1e1", 1, 5), // the view of move 5: a4 gone, b7→a6, h5→h4
+    ("d8e8", 1, 5), // the view of move 6: the same three
+];
+const KING_WALK_FEN: &str = "r3k2r/pp4pp/8/8/8/8/PP4PP/R3K2R w KQkq - 0 1";
+
+#[test]
+fn a_king_returning_to_a_view_rebuilds_from_the_cache_and_exactly() {
+    for &h in &WIDTHS {
+        for &king in &KING_BUCKETS {
+            let net = Arc::new(random_net(13, h, 8, king));
+            let mut b = board(KING_WALK_FEN, &net);
+            for (uci, rebuilds, columns) in KING_WALK {
+                #[cfg(feature = "stats")]
+                let before = b.nnue_rebuilds().unwrap();
+                let m = b.position().parse_uci_move(uci).unwrap();
+                b.make_move(m);
+                assert_eq!(
+                    b.accumulators().unwrap(),
+                    fresh(&b, &net),
+                    "width {h}, {king} king buckets, after {uci}"
+                );
+                // With the counters compiled in, the cache's work is checked
+                // too: a return to a view must apply only the pieces that
+                // moved, not every piece, or the cache isn't being used.
+                #[cfg(feature = "stats")]
+                {
+                    let after = b.nnue_rebuilds().unwrap();
+                    let expected = if king == 1 {
+                        (0, 0)
+                    } else {
+                        (rebuilds, columns)
+                    };
+                    assert_eq!(
+                        (
+                            after.rebuilds - before.rebuilds,
+                            after.columns - before.columns
+                        ),
+                        expected,
+                        "width {h}, {king} king buckets, after {uci}"
+                    );
+                }
+                #[cfg(not(feature = "stats"))]
+                let _ = (rebuilds, columns);
+            }
+        }
+    }
+}
+
+/// The negative control: a spoiled cache entry must show in the accumulator
+/// the next return to its view produces. If it didn't, the tests above could
+/// pass while rebuilds quietly fell back to a recomputation from scratch.
+#[cfg(feature = "stats")]
+#[test]
+fn a_spoiled_cache_entry_is_seen_on_the_next_return_to_its_view() {
+    for &h in &WIDTHS {
+        let net = Arc::new(random_net(13, h, 8, 4));
+        let mut b = board(KING_WALK_FEN, &net);
+        for (uci, _, _) in &KING_WALK[..12] {
+            let m = b.position().parse_uci_move(uci).unwrap();
+            b.make_move(m);
+        }
+        b.corrupt_nnue_refresh_cache();
+        // d2d1 returns white's king to the view of move 1, from the cache.
+        let m = b.position().parse_uci_move("d2d1").unwrap();
+        b.make_move(m);
+        let [white, black] = b.accumulators().unwrap();
+        let [fresh_white, fresh_black] = fresh(&b, &net);
+        assert_ne!(
+            white, fresh_white,
+            "width {h}: the spoiled entry was not used"
+        );
+        assert_eq!(black, fresh_black, "width {h}: black didn't change view");
+    }
+}
+
 #[test]
 fn the_evaluation_is_the_same_for_a_mirrored_position() {
     // Perspective features make a net colour-symmetric by construction.
