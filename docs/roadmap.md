@@ -200,7 +200,7 @@ The destination named in the goals: our own network, trained on our own games. *
 
 - [ ] Lazy SMP
 - [ ] HTTP API (`api` crate on `search`, `POST /analyze`, worker pool of single-threaded searches, per-request time cap; the JSON lines schema is the response shape). Open question: hosting, and whether requests are public or authenticated
-- [ ] Larger nets (1024 hidden neurons, more layers, output buckets; 256 and 512 are done, above) and longer iteration once Phase 6's loop is proven, with more data per generation and GPU spot training (a quota increase)
+- [ ] Larger nets (1024 hidden neurons, more layers, output buckets; 256 and 512 are done, above, and the engine reads 768) and longer iteration once Phase 6's loop is proven, with more data per generation and GPU spot training (a quota increase)
 
 ## Repo layout and conventions
 

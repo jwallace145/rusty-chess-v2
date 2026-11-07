@@ -1,6 +1,6 @@
 //! NNUE evaluation: a (768 × K → H) × 2 → B network with squared clipped
 //! ReLU, quantized to `i16`, evaluated from an accumulator that make and
-//! unmake update incrementally. H is 128, 256 or 512 ([`WIDTHS`]), B, the
+//! unmake update incrementally. H is 128, 256, 512 or 768 ([`WIDTHS`]), B, the
 //! output buckets, 1 or 8 ([`OUTPUT_BUCKETS`]), and K, the king buckets, 1 or
 //! 4 ([`KING_BUCKETS`], `docs/king-buckets.md`), all read from the file's size; each
 //! width's code is compiled separately ([`Net`], [`Acc`]) and chosen once per
@@ -171,7 +171,7 @@ pub fn network_by_id(id: &str) -> Option<Arc<Network>> {
 pub const HIDDEN: usize = 128;
 
 /// The hidden-layer widths the engine reads, told apart by file size.
-pub const WIDTHS: [usize; 3] = [128, 256, 512];
+pub const WIDTHS: [usize; 4] = [128, 256, 512, 768];
 
 /// The output bucket counts the engine reads, told apart by file size: one
 /// output layer, or one per band of piece counts ([`output_bucket`]).
@@ -453,6 +453,8 @@ pub enum Network {
     H256(Net<256>),
     /// 512 hidden neurons per perspective.
     H512(Net<512>),
+    /// 768 hidden neurons per perspective.
+    H768(Net<768>),
 }
 
 impl Network {
@@ -496,7 +498,8 @@ impl Network {
         Ok(match width {
             128 => Network::H128(Net::from_words(&mut next, buckets, king_buckets)?),
             256 => Network::H256(Net::from_words(&mut next, buckets, king_buckets)?),
-            _ => Network::H512(Net::from_words(&mut next, buckets, king_buckets)?),
+            512 => Network::H512(Net::from_words(&mut next, buckets, king_buckets)?),
+            _ => Network::H768(Net::from_words(&mut next, buckets, king_buckets)?),
         })
     }
 
@@ -506,6 +509,7 @@ impl Network {
             Network::H128(n) => n.king_buckets,
             Network::H256(n) => n.king_buckets,
             Network::H512(n) => n.king_buckets,
+            Network::H768(n) => n.king_buckets,
         }
     }
 
@@ -515,6 +519,7 @@ impl Network {
             Network::H128(n) => n.buckets,
             Network::H256(n) => n.buckets,
             Network::H512(n) => n.buckets,
+            Network::H768(n) => n.buckets,
         }
     }
 
@@ -524,6 +529,7 @@ impl Network {
             Network::H128(_) => 128,
             Network::H256(_) => 256,
             Network::H512(_) => 512,
+            Network::H768(_) => 768,
         }
     }
 
@@ -538,6 +544,7 @@ impl Network {
             Network::H128(n) => n.put_words(&mut out),
             Network::H256(n) => n.put_words(&mut out),
             Network::H512(n) => n.put_words(&mut out),
+            Network::H768(n) => n.put_words(&mut out),
         }
         out
     }
@@ -575,6 +582,7 @@ impl Network {
             Network::H128(n) => at(n, us, them, pieces),
             Network::H256(n) => at(n, us, them, pieces),
             Network::H512(n) => at(n, us, them, pieces),
+            Network::H768(n) => at(n, us, them, pieces),
         }
     }
 
@@ -585,6 +593,7 @@ impl Network {
             Network::H128(n) => n.refresh(pos, perspective).0.to_vec(),
             Network::H256(n) => n.refresh(pos, perspective).0.to_vec(),
             Network::H512(n) => n.refresh(pos, perspective).0.to_vec(),
+            Network::H768(n) => n.refresh(pos, perspective).0.to_vec(),
         }
     }
 }
@@ -727,6 +736,7 @@ enum Stack {
     H128(Box<[[Acc<128>; 2]]>),
     H256(Box<[[Acc<256>; 2]]>),
     H512(Box<[[Acc<512>; 2]]>),
+    H768(Box<[[Acc<768>; 2]]>),
 }
 
 fn new_stack<const H: usize>(net: &Net<H>, pos: &Position, len: usize) -> Box<[[Acc<H>; 2]]> {
@@ -822,6 +832,7 @@ impl NnueState {
             Network::H128(n) => Stack::H128(new_stack(n, pos, len)),
             Network::H256(n) => Stack::H256(new_stack(n, pos, len)),
             Network::H512(n) => Stack::H512(new_stack(n, pos, len)),
+            Network::H768(n) => Stack::H768(new_stack(n, pos, len)),
         };
         NnueState { net, stack, top: 0 }
     }
@@ -836,6 +847,7 @@ impl NnueState {
             (Network::H128(n), Stack::H128(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
             (Network::H256(n), Stack::H256(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
             (Network::H512(n), Stack::H512(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
+            (Network::H768(n), Stack::H768(s)) => n.evaluate(&s[t][w], &s[t][1 - w], pieces),
             _ => unreachable!("the stack has the network's width"),
         }
     }
@@ -847,6 +859,7 @@ impl NnueState {
             (Network::H128(n), Stack::H128(s)) => push_move(n, s, &mut self.top, d, pos),
             (Network::H256(n), Stack::H256(s)) => push_move(n, s, &mut self.top, d, pos),
             (Network::H512(n), Stack::H512(s)) => push_move(n, s, &mut self.top, d, pos),
+            (Network::H768(n), Stack::H768(s)) => push_move(n, s, &mut self.top, d, pos),
             _ => unreachable!("the stack has the network's width"),
         }
     }
@@ -866,6 +879,7 @@ impl NnueState {
             Stack::H128(s) => s[0] = s[self.top],
             Stack::H256(s) => s[0] = s[self.top],
             Stack::H512(s) => s[0] = s[self.top],
+            Stack::H768(s) => s[0] = s[self.top],
         }
         self.top = 0;
     }
@@ -877,6 +891,7 @@ impl NnueState {
             Stack::H128(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
             Stack::H256(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
             Stack::H512(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
+            Stack::H768(s) => [s[self.top][0].0.to_vec(), s[self.top][1].0.to_vec()],
         }
     }
 }

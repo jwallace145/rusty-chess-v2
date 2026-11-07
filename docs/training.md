@@ -39,7 +39,7 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
    - **Width:** `--hidden` sets the hidden neurons per perspective (a
      multiple of 16, up to 1024; 128 by default). The `Train` workflow's
      `hidden` input passes it on, and `training.json` records it.
-   - **Engine support:** the engine reads 128-, 256- and 512-neuron nets
+   - **Engine support:** the engine reads 128-, 256-, 512- and 768-neuron nets
      (`WIDTHS` in `crates/search/src/nnue.rs`). A net of another width trains
      and is uploaded, but the engine-to-trainer check is skipped and recorded
      as not run (`check_passed: null`). Run `nnue-eval --check` on it once
