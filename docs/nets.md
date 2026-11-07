@@ -35,6 +35,7 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
 | `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.3`; **will play generation 6** (not generated yet) | 0–5 · 2,238.2M | `O` | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`), 3166 ± 30 (`v0.44.2`) |
 | `net7rl012-l050-r42054816508` | Default from `v0.45.0`; passed its SPRT (#202) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019361 (its own labels; not comparable with net7's, cross-scored below) | 7.79 / 52.58 | **+16.3 ± 7.7** vs net7 | **+18.1 ± 8.1** | — |
 | `net7rl012345-l050-r42398995769` | **Dropped:** failed its SPRT against net7rl012 (#210) | 0–5 · 2,238.2M | `N7` on 0–2, `N7r` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019640 (its own labels; not comparable with net7rl012's, cross-scored below) | 8.22 / 35.56 | +1.9 ± 4.1 vs net7rl012 (inconclusive) | −5.2 ± 5.2 (H0) | — |
+| `net7rl012w768-l050-r42411319602` | **Dropped:** failed its SPRT against net7rl012 at a clock (#214) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → **768**) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019168** (same held-out set as net7rl012: 0.019361) | 7.64 / 41.77 | −9.0 ± 6.4 vs net7rl012 (H0) | **+28.9 ± 10.2** (H1) | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -124,10 +125,12 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
-## Planned: net7rl012w768, net7rl012's recipe at 768 hidden neurons
+## net7rl012w768-l050-r42411319602
 
-**Not trained yet.** This section records the plan before any result exists, and
-becomes the net's section once it does.
+net7rl012's recipe at 768 hidden neurons. **Dropped: much smarter per node, but
+weaker at a clock.** Against net7rl012 (#214) it scored +28.9 ± 10.2 at fixed nodes
+(H1) and −9.0 ± 6.4 timed (H0), so it fails the gate. The plan below was recorded
+before any result existed, in #211, and is unchanged.
 
 | | |
 |:--|:--|
@@ -152,16 +155,81 @@ gh workflow run Train --ref main -f net-id=net7rl012w768 -f generations=0,1,2,3,
 - **So the timed leg is the likely failure:** the fixed-node leg could pass on
   better judgement while the timed one doesn't. Both gate.
 
-**Before the SPRT, check and record:**
-- `training.json`'s `hidden` is 768, its `labels` and `datasets` match
-  net7rl012's, and its `train.data` and `val.data` SHA-256s equal net7rl012's.
-- `Train`'s engine check passed (`check_passed: true`), so the engine read the
-  net.
-- Bench and local speed per node against net7rl012, and the CI bench comment.
+| | |
+|:--|:--|
+| Data | As net7rl012: generations 0–5, 2,238,186,465 training / 110,741,698 held-out records (94,149 shards); workers 1,336 / 72. Prepared set `g0-5·N7(0-2)`, `train.data` `9df1226c…07bd` and `val.data` `ad1f1aa4…f8ef`, both equal to net7rl012's |
+| Network | (768 × 4 → 768) × 2 → 8; 4,744,768 bytes (4,744,720 plus 48 of padding); sha256 `430eb048…9ad0` (the file in S3 matches `training.json`) |
+| Schedule | As net7rl012: 80 superbatches, LR 0.001, ×0.1 after 36 and 72 (the `schedule` objects are equal) |
+| Training | `Train` run [42411319602](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42411319602), from `v0.46.0` (`1cd5486`): on-demand `g6.xlarge`, us-east-1a, NVIDIA L4, bullet `da426a4`. Prepare 1,121 s, 4,792 s to trained (net7rl012: 4,470). About $1.15, an estimate scaled from net7rl012's |
+| Loss | Training loss 0.0723 → 0.0188 (net7rl012: 0.0723 → 0.0191) |
+| Validation | **0.019168**, best at superbatch 80, against net7rl012's 0.019361 on the identical held-out set: **−1.00%**. Lower at every checkpoint from 60 to 80, and still falling at 80 |
+| Engine check | 256 held-out positions: mean **7.64 cp**, max 41.77 (bar 20 on the mean; none beyond max(50 cp, 5%)). The first 768-neuron net the engine has read |
+
+**Attempts:** one. The plan's command, from `1cd5486`, got an instance at the
+first try, at 20:30:11 UTC on 2026-11-07.
+
+**The plan's checks:**
+- **Width:** `hidden` 768, with 8 output buckets and 4 king buckets.
+- **Same data:** `labels`, `datasets`, `val_workers`, every record, worker and
+  shard count, and the `train.data` and `val.data` SHA-256s equal net7rl012's.
+- **Engine check:** `check_passed: true`.
+- **Trainer:** `trainer/` and `ci/train-task.sh` have no change from `d25ce3f`
+  to `1cd5486`. `train.yml` changed only in the `hidden` input's description
+  (#211).
+
+**Speed, a local measurement** (Apple M3 Max, `bench` at `1cd5486`, three runs
+each, `--eval-file` for this net):
+
+| Net | Bench signature | Nodes/s |
+|:--|--:|:--|
+| net7rl012 (default) | 976528 | 2.59M–2.88M |
+| net7rl012w768 | 1013277 | 2.35M |
+
+So it's about 12–18% slower per node here, and searches 3.8% more nodes on the
+bench. That's about 23% longer to finish it. That's the timed-leg risk the plan
+named. The SPRT PR's CI bench comment will be the record.
 
 **Comparing it with net7rl012:** the held-out data is identical, so its own
 validation loss is comparable with net7rl012's 0.019361 directly. A lower loss is
-a reason to run the SPRT, not a strength result.
+a reason to run the SPRT, not a strength result. **It's 1.00% lower,** between the
+2.1% of 128 → 256 and the 1.5% of 256 → 512, on 2.6× the data of #152.
+
+**Bench** (#214's CI comment, base `v0.46.0`): signature 1013277 (net7rl012:
+976528), identical run to run and with `--features stats`.
+- **Speed per node −13.9% ± 6.9%** and **time to depth +20.9% ± 9.4%**. The local
+  measurement above (12–18% slower, about 23% longer) agrees.
+- 4,750 instructions a node, against net7rl012345's 4,153 on the same bench
+  positions (#210). net7rl012's own count wasn't in a comment.
+- Fail-high-first 0.874 (net7rl012: 0.878). **EBF 2.010 (net7rl012: 1.84), over
+  the bar of 2,** so **the performance gate failed** on `efficiency.max_ebf`. That
+  bar is always enforced, so #214 couldn't merge without a declared exception.
+
+**SPRT against net7rl012** ([run 42419939378](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42419939378),
+#214, `3fb3cf2` against `main` at `1cd5486`; elo0 0, elo1 5, α = β = 0.05; on demand,
+two `c8a.16xlarge` in us-east-1a; one attempt):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | −9.0 ± 6.4 | 0.3% | 4086 | 848 / 954 / 2284 | −2.95 | 70, 524, 952, 436, 61 | H0 |
+| Fixed nodes, 200,000 per move | **+28.9 ± 10.2** | 100.0% | 1576 | 425 / 294 / 857 | 2.95 | 19, 122, 396, 211, 40 | H1 |
+
+**The recorded gate isn't met:** the timed leg accepted H0, so the net is dropped,
+as the plan said. The comment's reading: "Gate: fail: smarter per node, but the
+extra cost per node eats the gain at a clock: do not merge; worth a `perf` pass to
+make it cheaper and a re-test."
+
+**Reading it:**
+- **The plan named this risk, and it happened.** The fixed-node gain, +28.9, is
+  the largest since king buckets (+40.0, net6k4). But about 14% fewer nodes a
+  second and a larger tree cost more than that at 5+0.05. 512 kept +44 of its +74
+  at a clock (#152); 768 kept none of its +29.
+- **The knowledge is real; the cost is the problem.** A cheaper 768 net, through
+  faster accumulator updates or a refresh cache, could be re-tested with this same
+  file. Its bench signature would be unchanged by a pure speed change.
+- **Not measured:** how much of the cost is the first layer leaving cache
+  (4.7 MB against 3.2 MB) and how much is the extra arithmetic. Also not measured:
+  whether a longer clock, where nodes matter less than judgement, would change the
+  timed result.
 
 ## net7rl012345-l050-r42398995769
 
@@ -855,6 +923,7 @@ differ.
 | **Gains near `elo1` cost the most games** | net7 took 8,088 timed games and hit the 10,000 cap at fixed nodes; net5x120 hit the cap on both legs. Both tests use `elo1` = 5 | Budget for the cap on small changes. With both legs in the check, a real gain of about +5 can still end inconclusive |
 | **Better labels on the same positions gained strength** | net7rl012 against net7: only generations 0–2's scores changed (38.6% of the records), +16.3 ± 7.7 timed and +18.1 ± 8.1 at fixed nodes (#202), against +6.8 ± 4.5 for adding generation 5 (net7). One result, one training run | Relabelling can pay as much as new data. Test relabelling more generations as its own experiment |
 | **Relabelling the newer generations didn't pay** | net7rl012345 against net7rl012: only generations 3–5's scores changed, to net7rl012's (61.4% of the records), +1.9 ± 4.1 timed (inconclusive at 10,000 games) and −5.2 ± 5.2 at fixed nodes, H0 (#210). Their original labellers, net4w512 to net6k4, were much closer to net7rl012 than PeSTO to net2x80 were to net7; `N7r` agrees with the originals on sign 96.1–96.5% of the time, against 93.0–95.7% for `N7`. One result, one training run | Relabelling pays most where the labeller gains most over the original. Don't relabel generations whose labeller is close to the current net; test width and other capacity next |
+| **768 wide is smarter but too slow at a clock** | net7rl012w768 against net7rl012 on identical data: held-out −1.00%, **+28.9 ± 10.2** at fixed nodes but **−9.0 ± 6.4** timed (#214), at 13.9% ± 6.9% slower per node and 20.9% longer to depth. 512 kept +44 of +74 at a clock | Width now costs more at 5+0.05 than it adds. Make the wide path cheaper (accumulator updates, a refresh cache) before going wider, and re-test this net after |
 
 ## Next experiments
 
@@ -896,8 +965,11 @@ the fixed-node SPRT against the current default.
      label set from the relabel manager (#204).
      [net7rl012345](#net7rl012345-l050-r42398995769), `N7r` on generations 3–5, was
      **dropped**: +1.9 ± 4.1 timed (inconclusive), −5.2 ± 5.2 at fixed nodes (H0; #210).
-   - **768 neurons:** [net7rl012w768](#planned-net7rl012w768-net7rl012s-recipe-at-768-hidden-neurons),
-     net7rl012's recipe at 768 wide, planned. The engine reads 768 from #211.
+   - **768 neurons:** [net7rl012w768](#net7rl012w768-l050-r42411319602),
+     net7rl012's recipe at 768 wide, **dropped**: +28.9 ± 10.2 at fixed nodes
+     (H1) but −9.0 ± 6.4 timed (H0; #214), about 14% slower per node. The engine
+     reads 768 from #211. A cheaper 768 path, then a re-test of the same net, is the
+     follow-up.
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
