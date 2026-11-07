@@ -65,13 +65,13 @@ impl EmbeddedNet {
 
 /// The nets the binary carries: only the default, the last entry. A net is
 /// about 200 KB at 128 hidden neurons, 400 KB at 256 and 790 KB at 512 (800
-/// KB with 8 output buckets, 3.2 MB with 4 king buckets as well), so
+/// KB with 8 output buckets, 3.2 MB with 4 king buckets as well, 4.7 MB at 768), so
 /// carrying every generation's net grew the binary with each one. A new
 /// default replaces the entry; the one it replaces moves to [`RETIRED_NETS`].
 pub const NETS: [EmbeddedNet; 1] = [EmbeddedNet {
-    id: "net7rl012-l050-r42054816508",
+    id: "net7rl012w768-l050-r42411319602",
     generation: 6,
-    bytes: include_bytes!("../nets/net7rl012-l050-r42054816508.nnue"),
+    bytes: include_bytes!("../nets/net7rl012w768-l050-r42411319602.nnue"),
 }];
 
 /// Where every trained net is kept, forever: `<NET_STORE>/<id>/net.nnue`,

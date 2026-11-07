@@ -542,7 +542,7 @@ fn single_bucket_files_keep_their_size_and_buckets_are_thousands_of_bytes_apart(
         }
     }
     // Every net before generation 5 has one output and one view; from
-    // generation 5 (net6k4, net7rl012) they have 8 output buckets and 4 king
+    // generation 5 (net6k4, net7rl012w768) they have 8 output buckets and 4 king
     // buckets.
     for n in &NETS {
         let net = network_by_id(n.id).unwrap();
