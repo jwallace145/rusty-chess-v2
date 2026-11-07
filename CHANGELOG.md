@@ -8,6 +8,12 @@
 * **nnue:** profile the NNUE cost at 512 and 768 and plan a refresh cache for king-bucket rebuilds ([#215](https://github.com/jwallace145/rusty-chess-v2/issues/215)) ([821b79b](https://github.com/jwallace145/rusty-chess-v2/commit/821b79b96fdffb5e71f6b1a34664f96f0cdeeaf2))
 * **nnue:** record net7rl012w768's training and its failed SPRT against net7rl012 ([#213](https://github.com/jwallace145/rusty-chess-v2/issues/213)) ([e61c3d1](https://github.com/jwallace145/rusty-chess-v2/commit/e61c3d1a691ab329d4beb885049f4117400bd2bc))
 
+### Benchmarks
+
+* bench signature 976,528, instructions per node 4123, search 1.79M NPS, perft 286.96M NPS (pass (63)), fail-high first 87.8%, EBF 1.84, TT hit 51.9%
+* since v0.46.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.0%, search NPS −12.7%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.46.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.45.1...v0.46.0) (2026-11-07)
 
 
