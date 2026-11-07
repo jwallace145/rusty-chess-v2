@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.46.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.46.0...v0.46.1) (2026-11-07)
+
+
+### Documentation
+
+* **nnue:** profile the NNUE cost at 512 and 768 and plan a refresh cache for king-bucket rebuilds ([#215](https://github.com/jwallace145/rusty-chess-v2/issues/215)) ([821b79b](https://github.com/jwallace145/rusty-chess-v2/commit/821b79b96fdffb5e71f6b1a34664f96f0cdeeaf2))
+* **nnue:** record net7rl012w768's training and its failed SPRT against net7rl012 ([#213](https://github.com/jwallace145/rusty-chess-v2/issues/213)) ([e61c3d1](https://github.com/jwallace145/rusty-chess-v2/commit/e61c3d1a691ab329d4beb885049f4117400bd2bc))
+
 ## [0.46.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.45.1...v0.46.0) (2026-11-07)
 
 
