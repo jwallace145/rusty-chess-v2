@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.45.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.45.0...v0.45.1) (2026-11-07)
+
+
+### Documentation
+
+* **datasets:** record net7rl012's relabelling of generations 3-5 and its passing audit ([#205](https://github.com/jwallace145/rusty-chess-v2/issues/205)) ([a9892ef](https://github.com/jwallace145/rusty-chess-v2/commit/a9892efad0b49376b9d3682a63cde65b3a799223))
+* **nnue:** plan net7rl012345, net7rl012's recipe with generations 3-5 relabelled by net7rl012 ([#206](https://github.com/jwallace145/rusty-chess-v2/issues/206)) ([50b588e](https://github.com/jwallace145/rusty-chess-v2/commit/50b588eb511c572838725245b5526e9e2e60547d))
+
 ## [0.45.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.44.4...v0.45.0) (2026-11-05)
 
 
