@@ -348,7 +348,9 @@ the SPRT does.
 
 ### Plan: a major-piece table
 
-Recorded before the run, on 2026-11-08, from `2acd8d4`.
+Recorded before the run, on 2026-11-08, from `2acd8d4`. **Dropped: −10.5 ± 7.0
+at fixed nodes (H0) and +1.9 ± 3.9 timed, inconclusive at the cap (#228); the
+result is below the table.**
 
 | | |
 |:--|:--|
@@ -358,6 +360,49 @@ Recorded before the run, on 2026-11-08, from `2acd8d4`.
 | Expectation | Fixed nodes: positive if the residual signal carries into play. Timed: about the same, the cost per node being a few instructions. EBF checked on the bench before the PR; the bar stands |
 | Gate | H1 in both legs against `main` at the PR's base. Anything else drops the table, recorded here either way. The efficiency bars stand, no exception planned |
 | Not changed by a failure | The pawn table and its schedule. A failure would say the residual's structure doesn't transfer to pruning the way the pawn structure's did, or that two corrections interfere; the counters (updates, mean applied correction by table, clamps of the sum) will say which |
+
+**Measured before the SPRT** (local, `bench` at depth 10 from `122e881`; #228):
+signature 997279 → 1032076 (+3.5% nodes); EBF 1.951 (1.953); fail-high-first
+0.8725 (0.879); the local gate passed. Mean applied correction **13.6 cp**, of
+which the major-piece table 9.3 (one table: 3.8); 22% of pawn and 20% of major
+updates had an error beyond ±128; the sum was held at the cap on 0.4% of
+reads. The warning recorded then: 13.6 cp is 3.6× the single table's mean and
+near the 15.5 cp of the schedule that lost 44 Elo, and a major-piece
+configuration persists across much of a search tree, so this key is exposed to
+learning a subtree's own error.
+
+**Result** ([run 42508401019](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42508401019),
+#228, `b4c8a40` against `main` at `122e881`; elo0 0, elo1 5, α = β = 0.05; on
+demand; one attempt):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | +1.9 ± 3.9 | 83.1% | 10000 | 2034 / 1979 / 5987 | 0.34 | 136, 1088, 2488, 1161, 127 | Inconclusive at the cap |
+| Fixed nodes, 200,000 per move | **−10.5 ± 7.0** | 0.1% | 3672 | 754 / 865 / 2053 | −2.96 | 79, 462, 847, 387, 61 | H0 |
+
+CI bench (base `v0.47.0`): speed per node +1.8% ± 2.5%; time to depth
++1.7% ± 2.5%; 4,082 instructions a node; EBF 1.95; fail-high-first 87.3%;
+the performance gate passed. **The recorded gate isn't met**, so the table is
+dropped and the engine keeps the pawn table alone, as in `v0.47.0`.
+
+**What it says.** The warning held. Per node the second table cost about 10
+Elo while costing nothing in speed, so the corrections themselves were wrong
+more often than right. The likely mechanism is the one named beforehand: the
+rooks, queens and kings move less than the search's horizon within a tree, so
+most nodes of a subtree share the major-piece key, the table learns that
+subtree's own error from its stores, and feeds it straight back to that
+subtree's pruning. That is noise with a sign, not knowledge about the
+position. It also says why the pre-test overstated this key: leave-one-out
+across samples that share a subtree predicts each from its neighbours, which
+is the same circularity. The pawn key changes more often within a tree, so
+the same measurement overstated it less, and its table passed.
+
+**For the method:** the leave-one-out signal test has now been right once
+(pawn structure, +7.4) and wrong once (major pieces, −10.5), and the
+difference is how fast the key changes along a line of play. Before the next
+table, the pre-test should measure signal *across* searches rather than
+within one: for example, errors from one search predicted by entries learned
+in earlier searches of a game, which is how the table is used.
 
 
 ## What could go wrong
