@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.47.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.47.0...v0.47.1) (2026-11-08)
+
+
+### Documentation
+
+* **search:** plan a major-piece correction table from the residual-signal measurement ([#227](https://github.com/jwallace145/rusty-chess-v2/issues/227)) ([122e881](https://github.com/jwallace145/rusty-chess-v2/commit/122e88190d25509834957be1b4bb27429e564464))
+* **search:** record the correction history's SPRT and pre-test, and plan its schedule ([#223](https://github.com/jwallace145/rusty-chess-v2/issues/223)) ([2acd8d4](https://github.com/jwallace145/rusty-chess-v2/commit/2acd8d42f6351e6db1b210190979273458914f18))
+* **search:** record the dropped correction-history schedule and why its pre-test misled ([#226](https://github.com/jwallace145/rusty-chess-v2/issues/226)) ([4c37b49](https://github.com/jwallace145/rusty-chess-v2/commit/4c37b497a8c314122107bbda996216dfba21f664))
+* **search:** record the dropped major-piece correction table and what it says about the pre-test ([#229](https://github.com/jwallace145/rusty-chess-v2/issues/229)) ([f945326](https://github.com/jwallace145/rusty-chess-v2/commit/f945326453f151e0d8dd40ca0bb7dae7572ce172))
+
 ## [0.47.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.46.2...v0.47.0) (2026-11-08)
 
 
