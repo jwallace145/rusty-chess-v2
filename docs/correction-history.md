@@ -165,6 +165,106 @@ and the entries keep learning. Whether they learn enough at 5+0.05 is the
 first risk in the table below, and the SPRT answers it; nothing was tuned to
 change it, as the plan requires.
 
+**Bench, CI** (#221's bench comment, base `v0.46.2`, the same shared runner):
+signature 976528 → 997279; speed per node −2.0% ± 1.6%; time to depth
++4.2% ± 1.7%; 4,044 instructions a node (+0.6% on #217's 4,018); fail-high-first
+87.9% (87.8%); EBF 1.95 (1.84), under the bar of 2; perft pass; performance
+gate pass. The comment marks EBF and time to depth red: the search visits 2.1%
+more nodes to a depth and each costs a hash, a read and the update. Whether the
+better pruning decisions were worth that is the SPRT's question.
+
+**SPRT against `v0.46.2`** ([run 42434032696](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42434032696),
+#221, `5e1e76e` against `main` at `58f8e89`; elo0 0, elo1 5, α = β = 0.05; on
+demand; one attempt):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **+7.4 ± 4.7** | 99.9% | 6612 | 1359 / 1218 / 4035 | 2.97 | 61, 682, 1705, 771, 87 | H1 |
+| Fixed nodes, 200,000 per move | **+9.8 ± 5.7** | 100.0% | 5238 | 1189 / 1042 / 3007 | 2.96 | 34, 665, 1173, 614, 133 | H1 |
+
+**The recorded gate is met:** H1 in both legs, with the plan's constants
+untuned. The comment's reading: "smarter per node, and worth its cost at a
+clock: merge." Merged as `ff672f3` and released in `v0.47.0`. Self-play against
+the previous build at one time control, one implementation.
+
+### Learning-speed pre-test
+
+**The question.** The table removed +7.4 Elo's worth of error while applying a
+mean of 3.8 cp on the bench, against structure means of 26 cp. Does it learn
+too slowly, or cap too low, to carry what a game teaches it? Measured before
+changing a constant, at `v0.47.0` (`e86fb45`).
+
+**Method.** A scratch build (not in the repository) gave the searcher twelve
+*passive* correction tables beside the real one, each under a different
+schedule, all fed by the same eligible stores and never read by the search.
+At every exact store each passive table was scored before its update: the
+error of the raw evaluation against the search score, and of the evaluation
+corrected by that table. The engine then played 40 self-play games of 100
+plies through UCI from the SPRT's openings at 200,000 nodes a move, the
+fixed-node budget, with `ucinewgame` between games, so the tables learned
+across a game's moves as they do in play. 4,000 searches and 233,802 exact
+stores a candidate. Scored by the share of mean squared error and of mean
+absolute error removed; the first weights the large late-game errors, the
+second doesn't.
+
+| Weight scale (of `depth + 1`, ≤ 16) | Cap | MSE removed | MAE removed | Plies 0–10 | 10–30 | 30–60 | 60–100 (MSE) | Mean \|correction\| |
+|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| 256 (current) | 128 (current) | 18.5% | 21.2% | 23.8% | 32.0% | 30.0% | 16.3% | 35 cp |
+| 256 | 256 | 27.3% | 24.7% | 25.0% | 38.3% | 37.5% | 25.5% | 46 |
+| 256 | 512 | 37.9% | 26.4% | 24.9% | 41.5% | 43.4% | 37.1% | 53 |
+| 128 | 128 | 19.0% | 22.5% | 28.5% | 35.2% | 31.9% | 16.5% | 38 |
+| 128 | 256 | 27.7% | 26.0% | 29.5% | 41.9% | 39.6% | 25.5% | 49 |
+| 128 | 512 | 38.1% | 27.5% | 29.3% | 45.0% | 45.4% | 36.9% | 56 |
+| 64 | 128 | 19.3% | 23.5% | 32.6% | 38.1% | 33.5% | 16.5% | 40 |
+| 64 | 256 | 27.9% | 26.8% | 33.1% | 44.9% | 41.0% | 25.4% | 52 |
+| **64** | **512** | **37.9%** | **28.1%** | 32.5% | 47.8% | 46.3% | 36.4% | 59 |
+| 32 | 128 | 19.4% | 24.1% | 35.4% | 40.2% | 34.4% | 16.4% | 43 |
+| 32 | 256 | 27.6% | 27.1% | 34.9% | 46.7% | 41.3% | 24.9% | 55 |
+| 32 | 512 | 37.0% | 27.9% | 33.3% | 48.9% | 45.7% | 35.3% | 62 |
+
+**What it says.** Two separate effects. **The cap** is where most of the
+headroom is: ±128 clips 19% of updates, and each doubling lifts the error
+removed, from 18% to 38% by MSE and 21% to 26% by MAE at the current speed.
+**Learning speed** matters in the first ten plies (24% → 33% as the scale
+falls from 256 to 64) and hardly at all later; 4× faster is near the plateau
+and 8× adds nothing. Together, scale 64 with cap 512 removes 28% of absolute
+error against 21% today, and 38% of squared error against 18%, close to the
+29–51% that the structure means could explain in the first measurement.
+
+**Caveats.** The stream of stores came from a search that used the *current*
+table, so a passive table's corrections never changed the tree that scored
+them; in play they would. Samples of one structure inside one search are
+correlated, which flatters every row alike. The games were 100 plies at fixed
+nodes, not 5+0.05 at a clock, though the node counts are similar. And none of
+this measures what larger corrections do to pruning decisions; only the SPRT
+does.
+
+**Local gate for the two leading schedules** (`bench` at depth 10 from
+`e86fb45`, `perf-gate --env local`; the current schedule's row is from #221):
+
+| Schedule | Signature | EBF (bar 2) | Fail-high-first (bar 0.87) | Mean applied correction | Clamped updates |
+|:--|--:|--:|--:|--:|--:|
+| 256 / 128 (current) | 997279 | 1.953 | 0.879 | 3.8 cp | 19% |
+| 64 / 256 | 996922 | 1.859 | 0.876 | 13.8 cp | 8.5% |
+| 64 / 512 | 1047521 | 1.941 | 0.876 | 15.5 cp | 2.3% |
+
+Both pass. Speed per node isn't quoted: the work per node is identical and the
+laptop was loaded during these runs; the CI bench comment is the record.
+
+### Plan: a faster schedule and a higher cap
+
+Recorded before the run, on 2026-11-08, from `v0.47.0`.
+
+| | |
+|:--|:--|
+| Question | Does letting the table learn faster and carry larger corrections, which removed 28% of the evaluation's absolute error in the pre-test against 21% today, make the engine stronger? |
+| The one change | The schedule: `WEIGHT_SCALE` 256 → **64** and `MAX_CORRECTION` 128 → **512** cp. The pre-test measured the two effects separately (speed early in the game, cap throughout) and chose the pair by one metric fixed beforehand; they are tested together as one schedule |
+| Held the same | The table, its index, the bound rule, the four application sites, the eligibility rules, the network, the search and the margins |
+| Expectation | Fixed nodes: positive. Timed: about the same, since the cost per node is unchanged. The bench searches 5% more nodes to a depth at this schedule, with EBF 1.94 |
+| Gate | H1 in both legs against `v0.47.0`'s engine. Anything else drops the schedule, and the result is recorded here either way. The efficiency bars stand, no exception planned |
+| If it fails | 64 / 256 is the fallback, as its own experiment: the pre-test's second choice, with a lower EBF (1.86) and the same node count as today |
+
+
 ## What could go wrong
 
 | Risk | How it shows | What's planned |
