@@ -303,6 +303,7 @@ signal at all (the first measurement, which the +7.4 confirmed), and not for
 tuning what the table does to pruning. The fallback named in the plan
 (64 / 256) is not run on this evidence: the cap is the likelier cause, and
 the right next pre-test for a schedule is one that plays games.
+
 ## A second table: the major pieces
 
 ### Measured before building
@@ -358,6 +359,8 @@ Recorded before the run, on 2026-11-08, from `2acd8d4`.
 | Gate | H1 in both legs against `main` at the PR's base. Anything else drops the table, recorded here either way. The efficiency bars stand, no exception planned |
 | Not changed by a failure | The pawn table and its schedule. A failure would say the residual's structure doesn't transfer to pruning the way the pawn structure's did, or that two corrections interfere; the counters (updates, mean applied correction by table, clamps of the sum) will say which |
 
+
+## What could go wrong
 
 | Risk | How it shows | What's planned |
 |:--|:--|:--|
