@@ -144,6 +144,16 @@ pub struct SearchStats {
     pub se_extensions: u64,
     /// Nodes cut by a singular-extension search clearing beta without the table move.
     pub se_multicuts: u64,
+    /// Correction-history reads: every corrected static evaluation.
+    pub corr_reads: u64,
+    /// The sum of the corrections applied, in centipawns, absolute.
+    pub corr_applied_abs: u64,
+    /// Correction-history updates by the stored bound: exact, lower, upper.
+    pub corr_updates: [u64; 3],
+    /// Stores that carried no evidence in the error's direction.
+    pub corr_skipped_by_bound: u64,
+    /// Updates whose error was beyond the cap, so the target was clamped.
+    pub corr_clamps: u64,
 }
 
 #[cfg(feature = "stats")]
@@ -176,6 +186,11 @@ impl Default for SearchStats {
             see_skips: 0,
             se_extensions: 0,
             se_multicuts: 0,
+            corr_reads: 0,
+            corr_applied_abs: 0,
+            corr_updates: [0; 3],
+            corr_skipped_by_bound: 0,
+            corr_clamps: 0,
         }
     }
 }
@@ -223,6 +238,15 @@ impl SearchStats {
             see_skips: self.see_skips,
             se_extensions: self.se_extensions,
             se_multicuts: self.se_multicuts,
+            correction: CorrectionSummary {
+                reads: self.corr_reads,
+                mean_abs_correction: ratio(self.corr_applied_abs, self.corr_reads),
+                updates_exact: self.corr_updates[0],
+                updates_lower: self.corr_updates[1],
+                updates_upper: self.corr_updates[2],
+                skipped_by_bound: self.corr_skipped_by_bound,
+                clamps: self.corr_clamps,
+            },
         })
     }
 }
@@ -321,6 +345,29 @@ pub struct StatsSummary {
     /// Singular-extension multi-cuts. Absent in records written before it existed.
     #[serde(default)]
     pub se_multicuts: u64,
+    /// What the pawn-structure correction history did. Absent in records
+    /// written before it existed.
+    #[serde(default)]
+    pub correction: CorrectionSummary,
+}
+
+/// The correction history's work in a search (`docs/correction-history.md`).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct CorrectionSummary {
+    /// Static evaluations corrected.
+    pub reads: u64,
+    /// The mean correction applied, in centipawns, absolute.
+    pub mean_abs_correction: f64,
+    /// Updates from exact scores.
+    pub updates_exact: u64,
+    /// Updates from fail-highs above the corrected evaluation.
+    pub updates_lower: u64,
+    /// Updates from fail-lows below the corrected evaluation.
+    pub updates_upper: u64,
+    /// Stores skipped because the bound carried no evidence in its direction.
+    pub skipped_by_bound: u64,
+    /// Updates whose error was beyond the cap, so the target was clamped.
+    pub clamps: u64,
 }
 
 /// Effective branching factor between two consecutive iterations of

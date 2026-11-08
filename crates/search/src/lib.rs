@@ -8,6 +8,7 @@
 #![warn(missing_docs)]
 
 pub mod board;
+pub mod corrhist;
 pub mod eval;
 pub mod history;
 pub mod killers;

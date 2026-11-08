@@ -18,6 +18,7 @@ use rusty_chess_core::position::Position;
 use rusty_chess_core::types::PieceKind;
 
 use crate::board::Board;
+use crate::corrhist::CorrectionHistory;
 use crate::history::{Continuation, History, PieceTo};
 use crate::killers::Killers;
 use crate::movepick::MovePicker;
@@ -215,6 +216,8 @@ pub struct Searcher {
     /// Continuation history one and two plies back.
     cont1: Continuation,
     cont2: Continuation,
+    /// The network's error by pawn structure, learned during the search.
+    corrhist: CorrectionHistory,
     /// The move made at each ply of the current line (`PieceTo::NONE`
     /// after a null move), so a node knows what led to it.
     moved: [PieceTo; MAX_PLY + 2],
@@ -251,6 +254,7 @@ impl Searcher {
             history: History::new(),
             cont1: Continuation::new(),
             cont2: Continuation::new(),
+            corrhist: CorrectionHistory::new(),
             moved: [PieceTo::NONE; MAX_PLY + 2],
             excluded: [Move::NULL; MAX_PLY + 2],
             root_depth: 0,
@@ -296,6 +300,7 @@ impl Searcher {
         self.history.clear();
         self.cont1.clear();
         self.cont2.clear();
+        self.corrhist.clear();
     }
 
     /// Per mille of the table in use by the current search.
@@ -564,7 +569,21 @@ impl Searcher {
         // Whole-node pruning (reverse futility, null move) is off in a
         // singular-extension search, which asks about the other moves only.
         let node_prunable = prunable && excluded == Move::NULL;
-        let static_eval = if prunable { board.evaluate() } else { 0 };
+        // The network's evaluation, then the structure's learned error
+        // added (`corrhist`): pruning reads the corrected one.
+        let raw_eval = if prunable { board.evaluate() } else { 0 };
+        let static_eval = if prunable {
+            let corrected = self.corrhist.corrected(board.position(), raw_eval);
+            stat!(self.stats, corr_reads);
+            stat!(
+                self.stats,
+                corr_applied_abs,
+                u64::from((corrected - raw_eval).unsigned_abs())
+            );
+            corrected
+        } else {
+            0
+        };
 
         // Reverse futility pruning: at shallow depth, when the static
         // evaluation beats beta by a margin that grows with the depth left,
@@ -873,6 +892,31 @@ impl Searcher {
         // must not overwrite the entry for the node with all of them.
         if excluded == Move::NULL {
             self.tt.store(key, best_move, best, depth as u8, bound, ply);
+            // Teach the correction history what this node found, when the
+            // result says something about the evaluation: the node had one
+            // (not in check), the score isn't a mate, the best move isn't a
+            // capture or a promotion (whose outcome is tactics, not the
+            // structure), and the bound points the way the error does.
+            let quiet_best =
+                best_move == Move::NULL || (!best_move.is_capture() && !best_move.is_promotion());
+            if prunable && !is_mate_score(best) && quiet_best {
+                if CorrectionHistory::is_evidence(bound, best, static_eval) {
+                    let capped = self
+                        .corrhist
+                        .update(board.position(), raw_eval, best, depth);
+                    let b = match bound {
+                        Bound::Exact => 0,
+                        Bound::Lower => 1,
+                        Bound::Upper => 2,
+                    };
+                    stat!(self.stats, corr_updates[b]);
+                    if capped {
+                        stat!(self.stats, corr_clamps);
+                    }
+                } else {
+                    stat!(self.stats, corr_skipped_by_bound);
+                }
+            }
         }
         best
     }
@@ -939,7 +983,14 @@ impl Searcher {
             }
             -INFINITY
         } else {
-            let stand_pat = board.evaluate();
+            let raw = board.evaluate();
+            let stand_pat = self.corrhist.corrected(board.position(), raw);
+            stat!(self.stats, corr_reads);
+            stat!(
+                self.stats,
+                corr_applied_abs,
+                u64::from((stand_pat - raw).unsigned_abs())
+            );
             if ply >= MAX_PLY - 1 {
                 return stand_pat;
             }
