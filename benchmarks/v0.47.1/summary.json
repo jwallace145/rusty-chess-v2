@@ -1,0 +1,27 @@
+{
+  "bench": {
+    "depth": 10,
+    "hash_mb": 16,
+    "nps": 2985865,
+    "positions": 50,
+    "signature": 997279
+  },
+  "cpu": "AMD EPYC 9V45 96-Core Processor",
+  "date": "2026-11-08",
+  "efficiency": {
+    "ebf": 1.9530823433564817,
+    "fail_high_first": 0.8790160164631958,
+    "tt_hit": 0.5135372959314447
+  },
+  "instructions_per_node": 4043.967120534975,
+  "perft": {
+    "failures": 0,
+    "max_depth": 7,
+    "nps": 379282810,
+    "positions": 63
+  },
+  "runner": "ubuntu-latest",
+  "target_cpu": "x86-64-v3",
+  "v": 1,
+  "version": "v0.47.1"
+}
