@@ -154,6 +154,13 @@ pub struct SearchStats {
     pub corr_skipped_by_bound: u64,
     /// Updates whose error was beyond the cap, so the target was clamped.
     pub corr_clamps: u64,
+    /// The sum of the major-piece table's part of the corrections applied,
+    /// in centipawns, absolute.
+    pub corr_major_applied_abs: u64,
+    /// Major-piece updates whose residual was beyond the cap.
+    pub corr_major_clamps: u64,
+    /// Reads where the two tables' sum was held at the cap.
+    pub corr_sum_clamps: u64,
 }
 
 #[cfg(feature = "stats")]
@@ -191,6 +198,9 @@ impl Default for SearchStats {
             corr_updates: [0; 3],
             corr_skipped_by_bound: 0,
             corr_clamps: 0,
+            corr_major_applied_abs: 0,
+            corr_major_clamps: 0,
+            corr_sum_clamps: 0,
         }
     }
 }
@@ -246,6 +256,9 @@ impl SearchStats {
                 updates_upper: self.corr_updates[2],
                 skipped_by_bound: self.corr_skipped_by_bound,
                 clamps: self.corr_clamps,
+                mean_abs_major: ratio(self.corr_major_applied_abs, self.corr_reads),
+                clamps_major: self.corr_major_clamps,
+                sum_clamps: self.corr_sum_clamps,
             },
         })
     }
@@ -368,6 +381,16 @@ pub struct CorrectionSummary {
     pub skipped_by_bound: u64,
     /// Updates whose error was beyond the cap, so the target was clamped.
     pub clamps: u64,
+    /// The major-piece table's mean part of the applied correction, in
+    /// centipawns, absolute. Absent in records written before it existed.
+    #[serde(default)]
+    pub mean_abs_major: f64,
+    /// Major-piece updates whose residual was beyond the cap.
+    #[serde(default)]
+    pub clamps_major: u64,
+    /// Reads where the two tables' sum was held at the cap.
+    #[serde(default)]
+    pub sum_clamps: u64,
 }
 
 /// Effective branching factor between two consecutive iterations of

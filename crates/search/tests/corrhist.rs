@@ -62,23 +62,34 @@ fn the_key_is_the_pawn_structure_and_the_side_to_move_has_its_own_entry() {
 fn updates_move_towards_the_target_converge_and_stay_within_the_cap() {
     let mut t = CorrectionHistory::new();
     let p = pos(START);
-    // Towards +50: monotone, and within a centipawn after enough updates.
+    // Towards +50: the pawn table is monotone and settles within a
+    // centipawn; the major-piece table, which learns what the pawn table
+    // leaves, rises then fades, so the applied sum settles there too.
     let mut last = 0;
-    for _ in 0..200 {
-        assert!(!t.update(&p, 0, 50, 10));
-        let c = t.correction(&p);
+    for _ in 0..300 {
+        assert_eq!(t.update(&p, 0, 50, 10), (false, false));
+        let c = t.pawn_correction(&p);
         assert!(c >= last, "monotone");
         assert!(c <= 50);
+        assert!(
+            t.correction(&p) <= 60,
+            "the sum never runs far past the error"
+        );
         last = c;
     }
     assert!((49..=50).contains(&last), "{last}");
+    assert!(
+        (48..=52).contains(&t.correction(&p)),
+        "{}",
+        t.correction(&p)
+    );
 
     // An error beyond the cap is reported, its target is clamped to the cap,
     // and the entry settles just under it (integer division stops a step
     // short) and never beyond.
     let mut t = CorrectionHistory::new();
-    assert!(t.update(&p, 0, 1_000, 20), "reported as beyond the cap");
-    assert!(!t.update(&p, 0, 100, 20), "within the cap");
+    assert!(t.update(&p, 0, 1_000, 20).0, "reported as beyond the cap");
+    assert!(!t.update(&p, 0, 100, 20).0, "within the cap");
     for _ in 0..400 {
         t.update(&p, 0, 1_000, 20);
     }
@@ -125,6 +136,62 @@ fn a_corrected_evaluation_never_reaches_the_mate_range() {
     }
     let low = t.corrected(&p, -(MATE_BOUND - 1));
     assert!((-MATE_BOUND + 1..=-(MATE_BOUND - 1)).contains(&low));
+}
+
+/// The start position's pawns and major pieces, with white's h-rook gone:
+/// the same pawn key, another major key.
+const NO_H_ROOK: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1 w Qkq - 0 1";
+
+#[test]
+fn the_major_key_is_the_rooks_queens_and_kings() {
+    assert_eq!(
+        CorrectionHistory::major_key(&pos(START)),
+        CorrectionHistory::major_key(&pos(SAME_PAWNS)),
+        "knights moved: the same majors"
+    );
+    assert_eq!(
+        CorrectionHistory::major_key(&pos(START)),
+        CorrectionHistory::major_key(&pos(OTHER_PAWNS)),
+        "a pawn moved: the same majors"
+    );
+    assert_ne!(
+        CorrectionHistory::major_key(&pos(START)),
+        CorrectionHistory::major_key(&pos(NO_H_ROOK)),
+        "a rook gone"
+    );
+    assert_eq!(
+        CorrectionHistory::key(&pos(START)),
+        CorrectionHistory::key(&pos(NO_H_ROOK))
+    );
+}
+
+#[test]
+fn the_second_table_learns_what_the_pawn_table_cannot_tell_apart() {
+    // Two positions with the same pawns but different major pieces, one
+    // evaluated 80 cp too low and the other 80 cp too high. The pawn table
+    // sees both and averages to nothing; the major-piece table separates
+    // them, so each position gets its own correction.
+    let mut t = CorrectionHistory::new();
+    let (a, b) = (pos(START), pos(NO_H_ROOK));
+    for _ in 0..300 {
+        t.update(&a, 0, 80, 10);
+        t.update(&b, 0, -80, 10);
+    }
+    assert!(
+        t.pawn_correction(&a).abs() < 20,
+        "{}",
+        t.pawn_correction(&a)
+    );
+    assert!(t.correction(&a) >= 60, "{}", t.correction(&a));
+    assert!(t.correction(&b) <= -60, "{}", t.correction(&b));
+    // The sum is held within the cap even when both tables are at theirs.
+    let mut t = CorrectionHistory::new();
+    for _ in 0..400 {
+        t.update(&a, 0, 1_000, 20);
+    }
+    assert!(t.pawn_correction(&a) >= MAX_CORRECTION - 1);
+    assert!(t.major_correction(&a) >= MAX_CORRECTION - 1);
+    assert_eq!(t.correction(&a), MAX_CORRECTION);
 }
 
 #[test]

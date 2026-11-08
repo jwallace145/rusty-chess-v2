@@ -273,6 +273,24 @@ impl Searcher {
         }
     }
 
+    /// Count the major-piece table's part of a correction, and a sum held at
+    /// the cap (nothing without the `stats` feature).
+    #[inline]
+    #[allow(unused_variables)]
+    fn count_tables(&mut self, pos: &Position) {
+        #[cfg(feature = "stats")]
+        {
+            stat!(
+                self.stats,
+                corr_major_applied_abs,
+                u64::from(self.corrhist.major_correction(pos).unsigned_abs())
+            );
+            if self.corrhist.sum_clamped(pos) {
+                stat!(self.stats, corr_sum_clamps);
+            }
+        }
+    }
+
     /// The efficiency counters, accumulated over every search so far.
     pub fn stats(&self) -> &SearchStats {
         &self.stats
@@ -580,6 +598,7 @@ impl Searcher {
                 corr_applied_abs,
                 u64::from((corrected - raw_eval).unsigned_abs())
             );
+            self.count_tables(board.position());
             corrected
         } else {
             0
@@ -901,9 +920,9 @@ impl Searcher {
                 best_move == Move::NULL || (!best_move.is_capture() && !best_move.is_promotion());
             if prunable && !is_mate_score(best) && quiet_best {
                 if CorrectionHistory::is_evidence(bound, best, static_eval) {
-                    let capped = self
-                        .corrhist
-                        .update(board.position(), raw_eval, best, depth);
+                    let (capped, capped_major) =
+                        self.corrhist
+                            .update(board.position(), raw_eval, best, depth);
                     let b = match bound {
                         Bound::Exact => 0,
                         Bound::Lower => 1,
@@ -912,6 +931,9 @@ impl Searcher {
                     stat!(self.stats, corr_updates[b]);
                     if capped {
                         stat!(self.stats, corr_clamps);
+                    }
+                    if capped_major {
+                        stat!(self.stats, corr_major_clamps);
                     }
                 } else {
                     stat!(self.stats, corr_skipped_by_bound);
@@ -991,6 +1013,7 @@ impl Searcher {
                 corr_applied_abs,
                 u64::from((stand_pat - raw).unsigned_abs())
             );
+            self.count_tables(board.position());
             if ply >= MAX_PLY - 1 {
                 return stand_pat;
             }

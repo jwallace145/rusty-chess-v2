@@ -348,7 +348,9 @@ the SPRT does.
 
 ### Plan: a major-piece table
 
-Recorded before the run, on 2026-11-08, from `2acd8d4`.
+Recorded before the run, on 2026-11-08, from `2acd8d4`. **Implemented** as the
+next `feat(search)` PR, which carries its SPRT; what was measured is below the
+table, and the result goes there.
 
 | | |
 |:--|:--|
@@ -358,6 +360,28 @@ Recorded before the run, on 2026-11-08, from `2acd8d4`.
 | Expectation | Fixed nodes: positive if the residual signal carries into play. Timed: about the same, the cost per node being a few instructions. EBF checked on the bench before the PR; the bar stands |
 | Gate | H1 in both legs against `main` at the PR's base. Anything else drops the table, recorded here either way. The efficiency bars stand, no exception planned |
 | Not changed by a failure | The pawn table and its schedule. A failure would say the residual's structure doesn't transfer to pruning the way the pawn structure's did, or that two corrections interfere; the counters (updates, mean applied correction by table, clamps of the sum) will say which |
+
+**Measured** (local, `bench` at depth 10 from `122e881`; the one-table row is
+#221's):
+
+| | One table | Two tables |
+|:--|--:|--:|
+| Signature | 997279 | **1032076** (+3.5% nodes; identical run to run and in the `stats` build) |
+| EBF (bar 2) | 1.953 | 1.951 |
+| Fail-high-first (bar 0.87) | 0.879 | 0.8725 |
+| Mean applied correction | 3.8 cp | **13.6 cp**, of which the major-piece table 9.3 |
+| Updates whose error was beyond ±128 | 19% | pawns 22%, majors 20% |
+| Reads with the sum held at ±128 | — | 3,181 (0.4%) |
+| Reverse futility cutoffs / futility skips / null-move cutoffs | 196,570 / 836,985 / 15,316 (`v0.46.2`) | 201,846 / 852,348 / 16,901 |
+
+The local gate passes. **A warning the SPRT must answer:** the applied
+correction averages 13.6 cp, 3.6× the single table's and close to the 15.5 cp
+of the schedule that lost 44 Elo per node (#225). The mechanism differs, since
+each table is capped where it was and the sum is held at ±128, but a
+major-piece configuration persists across much of a search tree, so a table
+keyed by it can learn a subtree's own error and feed it back to that
+subtree's pruning. The pre-test's within-tree correlation caveat weighs more
+for this key than for the pawn one. The gate stands either way.
 
 
 ## What could go wrong
