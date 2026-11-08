@@ -68,7 +68,10 @@ weak.
 activation, for both perspectives.
 
 - **`make_move`** pushes a copy and adds or subtracts the weight columns of
-  the pieces that moved, were captured or promoted, or castled.
+  the pieces that moved, were captured or promoted, or castled. When a king
+  move changes its side's view (king buckets, below), that side's accumulator
+  comes from the refresh cache instead: the accumulator from the last time the
+  king stood in that view, brought up to date with the pieces that moved since.
 - **`unmake_move`** pops.
 - **`set_root`** (the start of every search) moves the current entry to the
   bottom, so a search can go `MAX_PLY` deep whatever the game's length.
@@ -142,16 +145,18 @@ are in [king-buckets.md](king-buckets.md).
 - **The accumulator:** only a side's own king moving can change its view. A
   king move that changes it rebuilds that side's accumulator from the
   position after the move; every other move is the usual incremental update.
-  There is no refresh cache yet; one is [planned](#planned-a-refresh-cache-for-king-bucket-rebuilds)
-  from the profile below.
+  Since the [refresh cache](#the-refresh-cache-for-king-bucket-rebuilds) the
+  rebuild applies only the pieces that moved since the king last stood in that
+  view, about 5.5 weight columns on the bench instead of one per piece.
 - **Cost:** none measurable for single-view nets (the paired bench, 1.003 ±
   0.021). A 4-bucket net at 512 × 8 is 3,163,152 bytes, but a position only
   reads its own buckets' columns.
 
-## Planned: a refresh cache for king-bucket rebuilds
+## The refresh cache for king-bucket rebuilds
 
-**Not implemented yet.** This section records the measurements and the plan
-before any code exists, and becomes the change's record once it does.
+**Implemented** as a `perf` change with the bench signature unchanged. The
+measurements and the plan below were recorded before any code existed (#215)
+and are unchanged; what was measured afterwards is at the end.
 
 ### What the profile says
 
@@ -255,6 +260,48 @@ the SPRT, with the result either way.
 need their own measurement after this one; a finer bucket layout, which is a
 training change; and any SIMD work on the forward pass.
 
+### Measured
+
+**The implementation:** `Plies<H>` holds the stack and, per perspective, one
+`CacheEntry<H>` per view: an `Acc<H>` and 12 `Bitboard`s, `[color][kind]`.
+A rebuild walks the 12 piece sets, adds the columns of squares set now but not
+in the entry and subtracts those set then but not now, records the new sets
+and copies the entry to the stack. Entries start as the bias with no pieces.
+The `stats` build counts rebuilds and the columns they applied, and `bench`
+prints them.
+
+**Exactness:** the bench signature is `976528` before and after, identical run
+to run and with `--features stats`. Every rebuild equals `Net::refresh` of the
+same position in the random-walk tests and in a scripted walk of both kings
+across every boundary of the layout and back, with a capture between visits.
+With the counters compiled in, that walk also checks the work: a first visit
+to a view applies one column per piece (14, then 13 after the capture), and a
+return applies only the pieces that moved (6, 4, 5 and 5). **Negative
+control:** spoiling every cached accumulator by one makes the next return's
+accumulator differ from a fresh recomputation, so the tests would catch a
+rebuild that silently fell back to one.
+
+**Rebuild work on the bench** (`--features stats`, depth 10):
+
+| Net | Rebuilds | Columns applied | A rebuild | Before (one column per piece) |
+|:--|--:|--:|--:|--:|
+| net7rl012, 512 | 78,672 | 428,767 | 5.5 | about 25 |
+| net7rl012w768 | 81,756 | 453,005 | 5.5 | about 25 |
+
+**Speed, a local measurement** (Apple M3 Max, `bench --depth 12`, the base
+`v0.46.1` and this change alternating, six runs each; the signatures were
+equal in every run):
+
+| | Base time | Cache time | Base nodes/s | Cache nodes/s | Paired nodes/s, cache ÷ base |
+|:--|--:|--:|--:|--:|--:|
+| net7rl012, 512 (the default) | 1,348 ms | 1,281 ms | 2.51M | 2.65M | **1.052 ± 0.006** |
+| net7rl012w768 (`--eval-file`) | 1,645 ms | 1,517 ms | 2.06M | 2.23M | **1.085 ± 0.024** |
+
+The plan estimated 40–50 ns a node back at 768 of the 87 ns gap; a 7.8%
+shorter time is about 40 ns. Against the 512 default without the cache,
+net7rl012w768 is now 11.3% slower a node here, from 18.2%. The CI bench
+comment on the PR is the record on the shared runner.
+
 ## The embedded net, and the retired ones
 
 The binary carries **only the default net**, in `nnue::NETS` (one entry),
@@ -340,7 +387,7 @@ there is no `unsafe` and no per-architecture code.
 With net 1 the engine now searches about as many nodes a second as it did
 with PeSTO. A profile at `v0.46.0` says what pays next: the king-bucket
 rebuilds, then the incremental updates, then the forward pass
-([the refresh cache plan](#planned-a-refresh-cache-for-king-bucket-rebuilds)).
+([the refresh cache plan](#the-refresh-cache-for-king-bucket-rebuilds)).
 Updating the accumulators only for positions that are evaluated would skip
 13% of the updates, because the search evaluates nearly every node.
 

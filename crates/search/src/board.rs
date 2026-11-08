@@ -11,7 +11,7 @@ use rusty_chess_core::types::{Color, PieceKind, Square};
 use std::sync::Arc;
 
 use crate::eval::Eval;
-use crate::nnue::{MoveDelta, Network, NnueState};
+use crate::nnue::{MoveDelta, Network, NnueState, RebuildStats};
 use crate::stats::MAX_PLY;
 
 /// Game history plus search depth; a game of 400 moves is 800 keys.
@@ -68,6 +68,22 @@ impl Board {
     /// network is set (for tests).
     pub fn accumulators(&self) -> Option<[Vec<i16>; 2]> {
         self.nnue.as_ref().map(NnueState::values)
+    }
+
+    /// What the network's refresh cache did since it was set (counts only
+    /// with the `stats` feature); `None` without a network.
+    pub fn nnue_rebuilds(&self) -> Option<RebuildStats> {
+        self.nnue.as_ref().map(NnueState::rebuild_stats)
+    }
+
+    /// Spoil the refresh cache, so the tests can show they would catch a
+    /// wrong rebuild (see `NnueState::corrupt_refresh_cache`).
+    #[cfg(feature = "stats")]
+    #[doc(hidden)]
+    pub fn corrupt_nnue_refresh_cache(&mut self) {
+        if let Some(n) = &mut self.nnue {
+            n.corrupt_refresh_cache();
+        }
     }
 
     /// The position.
