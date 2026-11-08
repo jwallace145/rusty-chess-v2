@@ -108,6 +108,63 @@ doesn't update: its scores are shallow and mostly bounds.
 | Gate | H1 in both legs. Anything else drops the feature, and the result is recorded here either way. The efficiency bars stand: `max_ebf` 2 and `min_fail_high_first` 0.87; no exception is planned, so a crossing fails the PR |
 | Not changed by a failure | If it fails, the measurement above stands; the record should say whether the table learned too little (updates per game), too much (clamps, mean applied correction) or the right thing with no effect |
 
+## Measured
+
+**The implementation** (`crates/search/src/corrhist.rs`, used from `search.rs`):
+`CorrectionHistory` holds `[[i32; 16384]; 2]`; `key` mixes the pawn bitboards,
+`correction` and `corrected` read, `is_evidence` is the bound rule and `update`
+the moving average, all as the table above fixed them. `negamax` computes
+`raw_eval` and reads `static_eval` as the corrected value, so reverse futility,
+null move and futility see the correction; quiescence corrects its stand-pat
+the same way; the update sits inside the transposition-table store. The
+`stats` build counts reads, the applied correction, updates by bound, stores
+skipped by the bound rule and errors beyond the cap, under `correction` in the
+telemetry summary. `clear_hash` clears the table with the histories.
+
+One statistic changed from the plan's wording: "updates held at the cap" is
+impossible, since the target is clamped and a moving average never passes its
+target (integer division stops it a step short, so an entry tops out at 127
+cp). The counter reports errors beyond the cap instead, which is what the
+"corrections too large" risk needs.
+
+**Bench, local** (Apple M3 Max, depth 10, at `v0.46.2` plus this change):
+
+| | `v0.46.2` | With the table |
+|:--|--:|--:|
+| Signature | 976528 | **997279** (+2.1% nodes; identical run to run, and in the `stats` build) |
+| Fail-high-first | 0.8783 | 0.8790 |
+| EBF | 1.841 | **1.953** (bar 2) |
+| Reverse futility cutoffs | 196,570 | 199,052 |
+| Null-move cutoffs | 15,316 | 15,743 |
+| Futility skips | 836,985 | 844,453 |
+| Late-move-pruning skips | 961,946 | 990,132 |
+| LMR re-searches | 3,100 | 3,247 |
+| Quiescence nodes | 487,783 | 501,796 |
+| Nodes/second | 2.61–2.65M | 2.57–2.65M |
+
+The local performance gate passes. Speed per node is within this laptop's
+noise, as a hash and a table read should be; the CI bench comment's paired
+run is the record.
+
+**What the table did on the bench** (`stats`, the 50 positions searched
+independently, the table cleared between them):
+
+| | |
+|:--|--:|
+| Reads (corrected evaluations) | 827,081 |
+| Updates: exact / fail-high / fail-low | 2,747 / 24,212 / 30,503 = 57,462 |
+| Stores skipped by the bound rule | 69,828 (55% of eligible stores) |
+| Updates whose error was beyond ±128 cp | 11,155 (19%) |
+| Mean applied correction | **3.8 cp** |
+
+The mean applied correction is small next to the structure means measured
+above (26 cp median) because on a single position's depth-10 search each
+entry is young: about 6.6 updates a structure, each moving the entry by at
+most 16/256 of the error. In a game the same structures recur move after move
+and the entries keep learning. Whether they learn enough at 5+0.05 is the
+first risk in the table below, and the SPRT answers it; nothing was tuned to
+change it, as the plan requires.
+
 ## What could go wrong
 
 | Risk | How it shows | What's planned |
