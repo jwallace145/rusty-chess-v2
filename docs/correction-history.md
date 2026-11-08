@@ -70,14 +70,14 @@ magnitude, not a figure.
 | | |
 |:--|:--|
 | Storage | `[[i32; 16384]; 2]`, owned by `Searcher` beside the history tables, allocated once, 128 KB. Indexed by the side to move and the top 14 bits of a mix of the pawn bitboards: `(white_pawns × 0x9E3779B97F4A7C15) ^ (black_pawns.rotate_left(32) × 0xC2B2AE3D27D4EB4F)`. There is no pawn Zobrist key to reuse; `Position::key()` is the full key. Collisions are accepted: the table is a statistic, and the bench's 50 positions held 8,703 structures |
-| Units | Stored in 1/256 cp (`GRAIN = 256`), clamped at ±128 cp (`±128 × 256`). The applied correction is `value / 256`, so it is bounded by construction |
+| Units | Stored in 1/256 cp (`GRAIN = 256`), clamped at ±128 cp (`±128 × 256`; **±512 since the schedule change below**). The applied correction is `value / 256`, so it is bounded by construction |
 | Reading | `corrected = clamp(raw + value / 256, …)`, kept below the mate range (`is_mate_score` must stay false). `Board::evaluate()` stays the raw network; the correction lives in the search |
 | Where it applies | Everywhere the search reads the static evaluation: reverse futility, null-move eligibility, quiet-move futility, and quiescence stand-pat, including the stand-pat value stored in the table as a depth-0 lower bound. Never to a search score, a table score or a mate score, and never twice |
 | Update point | Where `negamax` stores to the transposition table, once the score and bound are known: `excluded == NULL`, the node was prunable (not in check, not at the root, no mate-score window), `best` is not a mate score, and the best move is not a capture or a promotion (an absent best move on a fail-low counts as quiet) |
 | Bound rule | Exact: always. Lower bound: only if `best > corrected`, since a fail-high says only that the position is at least that good. Upper bound: only if `best < corrected`. Otherwise the bound carries no evidence in its direction and the node is skipped. This is Stockfish's rule; exact-only would learn from 2% of stores |
-| Update | `target = clamp(best − raw, −128, 128) × 256`; `w = min(depth + 1, 16)`; `value += (target − value) × w / 256`, integer division, then clamp. Deterministic; one table, no aging |
+| Update | `target = clamp(best − raw, −128, 128) × 256`; `w = min(depth + 1, 16)`; `value += (target − value) × w / 256`, integer division, then clamp. Deterministic; one table, no aging. **Since the schedule change below:** the cap is 512 and the divisor 64 |
 | Lifecycle | Cleared with the history tables in `clear_hash`, which `ucinewgame` and `bench` use, so the bench stays reproducible. Kept across iterations, aspiration re-searches and the moves of a game, like the histories |
-| Constants | Three: the size (2¹⁴ a side), the cap (±128 cp) and the weight schedule (`min(depth + 1, 16)` of 256). Fixed here, before the run; the first PR tunes none of them |
+| Constants | Three: the size (2¹⁴ a side), the cap (±128 cp) and the weight schedule (`min(depth + 1, 16)` of 256). Fixed here, before the run; the first PR tuned none of them. The second (the schedule change below) set the cap to ±512 and the divisor to 64 from a pre-test |
 
 **Aborted searches** store nothing (the existing rule), so they update nothing.
 A singular-extension search has `excluded != NULL` and is skipped. Nodes in
@@ -253,7 +253,8 @@ laptop was loaded during these runs; the CI bench comment is the record.
 
 ### Plan: a faster schedule and a higher cap
 
-Recorded before the run, on 2026-11-08, from `v0.47.0`.
+Recorded before the run, on 2026-11-08, from `v0.47.0`. **Implemented** as the
+next `feat(search)` PR, which carries its SPRT; the result goes here.
 
 | | |
 |:--|:--|

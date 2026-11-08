@@ -146,6 +146,7 @@ mod in_search {
 
     use rusty_chess_core::position::Position;
     use rusty_chess_search::board::Board;
+    use rusty_chess_search::corrhist::MAX_CORRECTION;
     use rusty_chess_search::nnue::default_network;
     use rusty_chess_search::search::{Limits, SearchResult, Searcher, is_mate_score};
 
@@ -189,7 +190,7 @@ mod in_search {
                 c.updates_exact + c.updates_lower + c.updates_upper > 0,
                 "{c:?}"
             );
-            assert!(c.mean_abs_correction <= 128.0, "{c:?}");
+            assert!(c.mean_abs_correction <= f64::from(MAX_CORRECTION), "{c:?}");
         }
     }
 }

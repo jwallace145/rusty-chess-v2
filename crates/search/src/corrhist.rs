@@ -21,11 +21,11 @@ const SIZE_BITS: u32 = 14;
 pub const GRAIN: i32 = 256;
 
 /// The most a correction may move an evaluation, in centipawns.
-pub const MAX_CORRECTION: i32 = 128;
+pub const MAX_CORRECTION: i32 = 512;
 
 /// The most an update weighs, of `WEIGHT_SCALE`.
 pub const MAX_WEIGHT: i32 = 16;
-const WEIGHT_SCALE: i32 = 256;
+const WEIGHT_SCALE: i32 = 64;
 
 /// Corrections for `[side to move][structure]`, in `1 / GRAIN` centipawns,
 /// each within `±MAX_CORRECTION × GRAIN`.

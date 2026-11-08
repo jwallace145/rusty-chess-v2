@@ -257,12 +257,21 @@ fn aspiration_windows_keep_results_exact_and_report_researches() {
     let r = s.search(&mut b, &depth(7), &mut |_| {});
     assert_eq!(r.iterations.len(), 7);
     assert!(r.iterations.windows(2).all(|w| w[1].nodes > w[0].nodes));
-    // The start position's score moves between depths 6 and 7 by more than
-    // the window, so that iteration must have been re-searched.
-    let mut b = board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    // In sharp positions some iteration's score moves by more than the
+    // window, so re-searches happen: the tactical middlegame above and a
+    // rook endgame from the bench both do at every depth from 7 to 10.
+    // (Quiet openings may not, and which do depends on the evaluation and
+    // the search's constants, so this isn't pinned to one position.)
     let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
-    let r = s.search(&mut b, &depth(7), &mut |_| {});
-    assert_eq!(r.iterations.len(), 7);
+    for fen in [
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        "2r3k1/pp3ppp/3p4/3P4/1nP5/8/P4PPP/2R3K1 w - - 0 25",
+    ] {
+        let mut b = board(fen);
+        s.clear_hash();
+        let r = s.search(&mut b, &depth(8), &mut |_| {});
+        assert_eq!(r.iterations.len(), 8, "{fen}");
+    }
     if let Some(summary) = s.stats().summary() {
         assert!(
             summary.aspiration_researches > 0,
