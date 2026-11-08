@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.2](https://github.com/jwallace145/rusty-chess-v2/compare/v0.46.1...v0.46.2) (2026-11-08)
+
+
+### Performance
+
+* **nnue:** cache accumulators per view so king-bucket rebuilds apply only the pieces that moved ([#217](https://github.com/jwallace145/rusty-chess-v2/issues/217)) ([2fd48ff](https://github.com/jwallace145/rusty-chess-v2/commit/2fd48ffb0f608dc559aadbc3b1f4a15544adbecb))
+
 ## [0.46.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.46.0...v0.46.1) (2026-11-07)
 
 
