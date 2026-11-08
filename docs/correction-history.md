@@ -304,6 +304,63 @@ tuning what the table does to pruning. The fallback named in the plan
 (64 / 256) is not run on this evidence: the cap is the likelier cause, and
 the right next pre-test for a schedule is one that plays games.
 
+## A second table: the major pieces
+
+### Measured before building
+
+**The question.** After the pawn table's correction, is the error that remains
+explained by any other part of the position? If so, a second table has
+something to learn; if not, it doesn't. This is the use of the leave-one-out
+method that held up (the first measurement, confirmed by +7.4); it is not used
+to tune anything, after the schedule pre-test misled.
+
+**Method.** As for the first measurement, at `2acd8d4` (`v0.47.0` plus docs):
+at every eligible store of the bench (depth 10) the scratch build logged the
+side to move, six candidate keys, the depth, the bound, and the error of the
+search score against the raw evaluation and against the **corrected** one
+(raw plus the pawn table's correction, the live table at that node). Each key
+is a mix of the bitboards it names. Leave-one-out by side and key, shrunk by
+`n / (n + 2)`, on the error that remains after the pawn table; shuffled keys
+as the control.
+
+| Key (both sides unless noted) | Groups | Residual explained, exact stores (2,747) | Exact, depth ≥ 3 (1,472) | Stockfish's bound rule (57,462) | Shuffled control |
+|:--|--:|--:|--:|--:|--:|
+| **Major pieces: rooks, queens, kings** | 764 | **+51.6%** | **+58.1%** | **+37.1%** | −3% to −7% |
+| Minor pieces: knights, bishops, kings | 1,133 | +41.4% | +50.0% | +23.6% | −6% to −10% |
+| Non-pawn placement, black's (knights to king) | 766 | +35.7% | +47.4% | +26.7% | −5% to −9% |
+| Non-pawn placement, white's | 755 | +34.9% | +44.8% | +24.2% | −3% to −10% |
+| Pawn structure (the existing key, for reference) | 781 | +26.7% | +38.5% | +24.7% | −5% to −10% |
+| Material counts only | 182 | +23.5% | +35.6% | +21.9% | −1% to −3% |
+
+On the bench the pawn table lowers the mean error at exact stores only from
+65 to 61 cp, because within one search its entries are young, so most of the
+error is still there to explain. The pawn key still explains a quarter of the
+residual for the same reason.
+
+**Reading it.** Finer keys gain more from within-tree correlation (the minor
+key has 1,133 groups and 77% coverage), so like is compared with like: at the
+pawn key's granularity, the major-piece key explains about twice as much of
+the residual. The coarse material-count key, least inflated, still explains
+about a quarter. The caveats of the first measurement apply: within-tree
+correlation flatters every row, and the bound-rule row selects by the sign of
+the residual. None of this says what a second correction does to pruning;
+the SPRT does.
+
+### Plan: a major-piece table
+
+Recorded before the run, on 2026-11-08, from `2acd8d4`.
+
+| | |
+|:--|:--|
+| Question | Does a second table, keyed by where the rooks, queens and kings stand, learning what the pawn table leaves, make the engine stronger? |
+| The one change | A second `[[i32; 16384]; 2]` beside the pawn table, indexed by the side to move and the top 14 bits of a mix of six bitboards: each side's rooks, queens and king. Read: `corrected = raw + clamp(pawn + major, ±128 cp)`, kept below the mate range as now. Update, at the same store point under the same eligibility and the same bound rule (evidence judged against the fully corrected evaluation): the pawn table's target stays `best − raw`, exactly as today, so its behaviour is unchanged; the major table's target is `best − (raw + pawn correction)`, the error the first table leaves, so the two don't learn the same error twice. Same units, cap (±128 each) and weights (`min(depth + 1, 16)` of 256) as the pawn table |
+| Held the same | The pawn table and everything about it; the four application sites; the eligibility rules; the clamp of the applied correction at ±128 cp, now on the sum; the network, the search and the margins. One extra hash and read per evaluated node, one extra update per eligible store |
+| Expectation | Fixed nodes: positive if the residual signal carries into play. Timed: about the same, the cost per node being a few instructions. EBF checked on the bench before the PR; the bar stands |
+| Gate | H1 in both legs against `main` at the PR's base. Anything else drops the table, recorded here either way. The efficiency bars stand, no exception planned |
+| Not changed by a failure | The pawn table and its schedule. A failure would say the residual's structure doesn't transfer to pruning the way the pawn structure's did, or that two corrections interfere; the counters (updates, mean applied correction by table, clamps of the sum) will say which |
+
+
+## What could go wrong
 
 | Risk | How it shows | What's planned |
 |:--|:--|:--|
