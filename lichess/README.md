@@ -39,6 +39,23 @@ stop (games in progress are resigned by the server after `abort_time`).
 
 Delete `lichess/.lichess-bot/` to refetch everything.
 
+## Chat
+
+At its first move the bot greets both chat rooms with its name, the release
+it is running and what it is, for example:
+
+> Hi! I'm Rusty Chess v0.46.2: from-scratch Rust alpha-beta + NNUE, trained
+> on billions of my own self-play positions, all labelled by me.
+
+The goodbye carries the repository link. The texts are the `greeting` block
+of `config.yml`; `run.sh` fills `__VERSION__` from `rusty-chess --version`
+when it copies the config, so the deployed bot's entrypoint
+(jwall-engineering-infra) must do the same substitution. Lichess caps a chat
+message at 140 characters and lichess-bot silently drops a longer one, so
+`npm test` checks every greeting with a 9-character version filled in.
+Anyone in the chat can also type `!name`, which lichess-bot answers with the
+engine's UCI name, `rusty-chess <version>`.
+
 ## Pondering
 
 The bot thinks on its opponent's clock (`engine.ponder: true` in

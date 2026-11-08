@@ -37,7 +37,10 @@ fi
 
 mkdir -p "$work/engines"
 cp "$root/target/release/rusty-chess" "$work/engines/rusty-chess"
-sed "s|LICHESS_TOKEN_PLACEHOLDER|$LICHESS_TOKEN|" "$here/config.yml" > "$work/config.yml"
+# The token, and the engine's version for the chat greeting (`rusty-chess
+# --version` prints `rusty-chess 0.46.2`).
+version="v$("$work/engines/rusty-chess" --version | awk '{print $2}')"
+sed -e "s|LICHESS_TOKEN_PLACEHOLDER|$LICHESS_TOKEN|" -e "s|__VERSION__|$version|g" "$here/config.yml" > "$work/config.yml"
 
 cd "$work"
 if [ "${1:-}" = "--upgrade" ]; then

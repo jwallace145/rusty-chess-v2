@@ -90,11 +90,17 @@ challenge:
   bullet_requires_increment: false
   max_simultaneous_games_per_user: 1
 
+# Chat messages. __VERSION__ is filled in by lichess/run.sh (and by the
+# deployed bot's entrypoint) from `rusty-chess --version`, so a game's chat
+# says which release is playing; lichess-bot itself only substitutes {me} and
+# {opponent}. Lichess caps a chat message at 140 characters and lichess-bot
+# drops a longer one without sending it, so each line below must fit with a
+# version up to 9 characters long (`npm test` checks).
 greeting:
-  hello: "Hi! I'm rusty-chess, a from-scratch Rust engine: github.com/jwallace145/rusty-chess-v2. Good luck!"
-  goodbye: "Thanks for the game!"
-  hello_spectators: "Watching rusty-chess, a from-scratch Rust engine: github.com/jwallace145/rusty-chess-v2"
-  goodbye_spectators: "Thanks for watching!"
+  hello: "Hi! I'm Rusty Chess __VERSION__: from-scratch Rust alpha-beta + NNUE, trained on billions of my own self-play positions, all labelled by me."
+  goodbye: "Thanks for the game! Source and story: github.com/jwallace145/rusty-chess-v2"
+  hello_spectators: "Rusty Chess __VERSION__ here: from-scratch Rust alpha-beta + NNUE, trained on billions of its own self-play positions, all self-labelled."
+  goodbye_spectators: "Thanks for watching! Source and story: github.com/jwallace145/rusty-chess-v2"
 
 pgn_directory: "game_records"
 pgn_file_grouping: "game"
