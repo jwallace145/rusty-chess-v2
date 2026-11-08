@@ -10,6 +10,12 @@
 * **search:** record the dropped correction-history schedule and why its pre-test misled ([#226](https://github.com/jwallace145/rusty-chess-v2/issues/226)) ([4c37b49](https://github.com/jwallace145/rusty-chess-v2/commit/4c37b497a8c314122107bbda996216dfba21f664))
 * **search:** record the dropped major-piece correction table and what it says about the pre-test ([#229](https://github.com/jwallace145/rusty-chess-v2/issues/229)) ([f945326](https://github.com/jwallace145/rusty-chess-v2/commit/f945326453f151e0d8dd40ca0bb7dae7572ce172))
 
+### Benchmarks
+
+* bench signature 997,279, instructions per node 4044, search 2.99M NPS, perft 379.28M NPS (pass (63)), fail-high first 87.9%, EBF 1.95, TT hit 51.4%
+* since v0.47.0: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.0%, search NPS +114.4%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.47.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.46.2...v0.47.0) (2026-11-08)
 
 
