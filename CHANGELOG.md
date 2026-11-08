@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.47.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.46.2...v0.47.0) (2026-11-08)
+
+
+### Features
+
+* **search:** pawn-structure correction history for the static evaluation ([#221](https://github.com/jwallace145/rusty-chess-v2/issues/221)) ([ff672f3](https://github.com/jwallace145/rusty-chess-v2/commit/ff672f392c2e3403e5029387e91dda67f4decab8))
+
+
+### Documentation
+
+* **search:** plan pawn-structure correction history, with the measured error it could correct ([#219](https://github.com/jwallace145/rusty-chess-v2/issues/219)) ([58f8e89](https://github.com/jwallace145/rusty-chess-v2/commit/58f8e89339f719bf148cd3acbe92b7af362891a6))
+
 ## [0.46.2](https://github.com/jwallace145/rusty-chess-v2/compare/v0.46.1...v0.46.2) (2026-11-08)
 
 
