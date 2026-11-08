@@ -253,7 +253,9 @@ laptop was loaded during these runs; the CI bench comment is the record.
 
 ### Plan: a faster schedule and a higher cap
 
-Recorded before the run, on 2026-11-08, from `v0.47.0`.
+Recorded before the run, on 2026-11-08, from `v0.47.0`. **Dropped: it lost
+−62.7 ± 15.3 timed and −43.7 ± 13.2 at fixed nodes (#225; the result is below
+the table).**
 
 | | |
 |:--|:--|
@@ -265,7 +267,43 @@ Recorded before the run, on 2026-11-08, from `v0.47.0`.
 | If it fails | 64 / 256 is the fallback, as its own experiment: the pre-test's second choice, with a lower EBF (1.86) and the same node count as today |
 
 
-## What could go wrong
+**Result** ([run 42503876512](https://github.com/jwallace145/rusty-chess-v2/actions/runs/42503876512),
+#225, `5f6c9cf` against `main` at `2acd8d4`; elo0 0, elo1 5, α = β = 0.05; on
+demand; one attempt):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **−62.7 ± 15.3** | 0.0% | 762 | 115 / 251 / 396 | −2.95 | 31, 130, 171, 42, 7 | H0 |
+| Fixed nodes, 200,000 per move | **−43.7 ± 13.2** | 0.0% | 984 | 188 / 311 / 485 | −2.95 | 33, 148, 226, 79, 6 | H0 |
+
+CI bench (base `v0.47.0`): signature 997279 → 1047521; speed per node
+−0.8% ± 2.7%; time to depth +6.0% ± 2.9%; EBF 1.94; fail-high-first 87.6%;
+the performance gate passed. **The recorded gate isn't met**, so the schedule is
+dropped and the table keeps 256 / 128.
+
+**What it says.** The pre-test ranked schedules by how well the corrected
+evaluation predicted the search's exact scores, and the winner by that measure
+lost about 44 Elo per node in play. Three things it didn't measure:
+
+1. **Pruning is decided in the tails, not on average.** A correction four
+   times larger (15.5 cp mean on the bench against 3.8) feeds reverse
+   futility, futility and stand-pat directly. Being closer to the search score
+   on average says nothing about how often a large correction pushes a node
+   over a margin it shouldn't cross; the games say it did, often.
+2. **The passive tables never shaped the tree that scored them.** Their
+   corrections were read from a search that used the old schedule, so the
+   pre-test could not see a feedback loop: bigger corrections change which
+   nodes are searched, which changes what the table learns.
+3. **Exact stores are a biased sample.** They're the nodes whose score fell
+   inside the window, which are the quiet ones; the corrections that hurt act
+   on nodes that fail high or low.
+
+So the offline error metric is useful for one question, whether a table has
+signal at all (the first measurement, which the +7.4 confirmed), and not for
+tuning what the table does to pruning. The fallback named in the plan
+(64 / 256) is not run on this evidence: the cap is the likelier cause, and
+the right next pre-test for a schedule is one that plays games.
+
 
 | Risk | How it shows | What's planned |
 |:--|:--|:--|
