@@ -126,3 +126,5 @@ jobs:
       - run: cargo test --workspace --locked --features stats
       - name: Unit test the relabel manager's decisions
         run: python3 ci/test-relabel-manager.py
+      - name: Unit test the datagen manager's decisions
+        run: python3 ci/test-datagen-manager.py

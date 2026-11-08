@@ -120,6 +120,63 @@ re-run of the same one, gets its own `run=` partition and new seeds.
 positions in progress were lost, and no `task.json` was written. Both are
 fixed.
 
+## The datagen manager
+
+Spot reclaims a 64-core instance every hour or two, so a generation of several
+hundred million positions is mostly relaunching instances. `ci/datagen-manager.py`
+does that from a laptop: it keeps N instances generating until the generation
+holds a target number of positions, counting the shards in S3 on every poll.
+
+```sh
+export AWS_PROFILE=prog-strength-admin   # reads S3; dispatches use gh's login
+ci/datagen-manager.py status --generation 6
+ci/datagen-manager.py run --generation 6 --target-positions 600000000 --max-instance-hours 20 --dry-run --once
+screen -S datagen ci/datagen-manager.py run --generation 6 --target-positions 600000000 --max-instance-hours 20 --notify
+```
+
+- **A campaign** is one generation (the one `datagen.toml` names at `main`'s
+  commit; the manager refuses another), a target and N instances
+  (`--instances`, 3 by default, the `datagen` profile's budget). Its log,
+  `~/.rusty-chess/datagen-manager/gen<G>-<commit>/log.jsonl`, records every
+  dispatch and outcome for [datasets.md](datasets.md).
+- **Each dispatch is one instance:** `Datagen` with `instances=1`, so a
+  reclaim replaces exactly one. The workflow seeds each run from its run id,
+  so a replacement never replays games an earlier instance uploaded, and the
+  shards in S3 are the whole record of progress. There is nothing to resume.
+- **Progress** is the generation's manifests in S3 times the mean positions a
+  shard, sampled from 12 of them each poll (about 24,300; whole games fill a
+  shard to at most 25,000). The target counts only what is in S3, so a
+  campaign overshoots by up to N instances' last stretch, bounded by
+  `--minutes`; more data in a generation is fine. The exact count is the
+  audit's.
+- **What each outcome does:**
+
+  | Outcome | Next |
+  |:--|:--|
+  | Reclaimed by spot, or out of `--minutes` | Relaunch at the next poll |
+  | No spot capacity (the task already retried for 30 minutes) | Relaunch after 10 minutes |
+  | Task failed, or its run was cancelled | Pause the campaign: read the log first |
+  | 3 launches in a row uploaded nothing | Pause |
+
+- **It only dispatches the workflow,** never EC2, so the `datagen` role's
+  limits hold: spot only, write only the dataset prefix.
+- **One commit a generation.** It pins `main` at start and stops dispatching
+  if `main` moves; it also refuses to add to a generation whose shards were
+  made at another commit. Don't merge to `main` during a campaign.
+- **The budget is required.** `--max-instance-hours` caps the hours used plus
+  each running instance's whole hard limit (6 hours at 280 minutes);
+  `--max-launches` (30) is a second cap. About 80M positions an instance-hour,
+  so 600M is roughly 8 hours of instance time, about $8 on spot (an estimate).
+- **Stopping:** Ctrl-C or `ci/datagen-manager.py stop` stops new dispatches
+  and running instances finish their minutes; `cancel` cancels them. Complete
+  shards are kept either way. Running `run` again picks the campaign up from
+  its log. It waits while any other `Datagen` run is active, and follows a
+  matching run it didn't start.
+- **When it's done,** run the full audit (below) before anything trains on
+  the generation.
+- **Tested:** `ci/test-datagen-manager.py` in CI covers its decisions; the
+  shared helpers are `ci/relabel-manager.py`'s.
+
 ## After a run: the audit
 
 Record every run, including smoke tests and failed or cancelled runs, in
