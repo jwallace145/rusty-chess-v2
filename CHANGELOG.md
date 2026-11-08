@@ -12,6 +12,12 @@
 
 * **search:** plan pawn-structure correction history, with the measured error it could correct ([#219](https://github.com/jwallace145/rusty-chess-v2/issues/219)) ([58f8e89](https://github.com/jwallace145/rusty-chess-v2/commit/58f8e89339f719bf148cd3acbe92b7af362891a6))
 
+### Benchmarks
+
+* bench signature 997,279, instructions per node 4044, search 1.39M NPS, perft 225.45M NPS (pass (63)), fail-high first 87.9%, EBF 1.95, TT hit 51.4%
+* since v0.46.2: fail-high first +0.1 pt, EBF +0.11, instructions per node +0.7%, search NPS −3.7%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.46.2](https://github.com/jwallace145/rusty-chess-v2/compare/v0.46.1...v0.46.2) (2026-11-08)
 
 
