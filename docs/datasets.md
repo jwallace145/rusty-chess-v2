@@ -21,9 +21,10 @@ or from `datagen-audit`, never from the workflow's progress lines.
 | 3 | net4w512 (`v0.36.0`) | 628,213,254 | 6,562,925 | 25,158 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds |
 | 4 | net 5 (`v0.37.1`) | 495,147,759 | 5,252,191 | 19,838 | 2 | GO: 0 P0 problems, 0 P1 warnings; 3,072/3,072 games regenerated from their seeds |
 | 5 | net6k4 (`v0.42.0`) | 318,934,530 | 3,409,848 | 12,755 | 1 | GO: 0 P0 problems, 0 P1 warnings; 2,304/2,304 games regenerated from their seeds |
+| 6 | net7rl012 (`v0.47.1`) | 849,868,621 | 9,662,116 | 34,053 | 5 | GO: 0 P0 problems, 0 P1 warnings; 3,840/3,840 games regenerated from their seeds |
 
-**Generation 6** will be played by net7 (`datagen.toml` is at `generation = 6`).
-No run has started.
+**Generation 7** would be played by the next default net; `datagen.toml` still says
+`generation = 6` and must be bumped before any run.
 
 What labels each generation has, and which nets trained on them, is under
 [Labels](#labels).
@@ -65,6 +66,7 @@ of each.
 | 3 | 628,213,254 | net4w512 | Not started | Audited |
 | 4 | 495,147,759 | net 5 | Not started | Audited |
 | 5 | 318,934,530 | net6k4 | Not started | Audited |
+| 6 | 849,868,621 | net7rl012 | Not started | Not started |
 
 | Status | Meaning |
 |:--|:--|
@@ -523,6 +525,88 @@ native build. One engine commit throughout.
 **Cost:** about $5–6 on spot (about 4.7 instance-hours), an estimate, not
 billed figures.
 
+## Generation 6: net7rl012
+
+**Settings** (identical in every manifest): the same as generations 1–5.
+Played by `net7rl012-l050-r42054816508` (512 hidden, 8 output buckets, 4 king
+buckets; generations 0–5, with `N7` labels on 0–2), the default since
+`v0.45.0`, at `v0.47.1` (`863241e`), which also carries the pawn-structure
+correction history (#221) in the search that played. The native build; one
+engine commit throughout. **The first generation made by the datagen
+manager** (#230): five one-instance runs at 280 minutes each, dispatched and
+relaunched from a laptop toward a target of 600M positions.
+
+| Run | Date | Engine | Instance | Market | Shards | Positions | Games | Notes |
+|:--|:--|:--|:--|:--|--:|--:|--:|:--|
+| `20261108-42524365295-1` | 2026-11-08 | `v0.47.1` `863241e` | 1 × 280 asked; ran about 143 | Spot, $0.8773/h at launch, us-east-1b | 6,620 | 165,074,404 | 1,875,873 | Dispatched 21:16 UTC. **Reclaimed by spot at 23:38:47 UTC**; its complete shards kept |
+| `20261108-42524367808-1` | 2026-11-08 | `v0.47.1` `863241e` | 1 × 280; ran all 280 | Spot, $0.8773/h, us-east-1b | 12,564 | 314,061,753 | 3,570,912 | Dispatched 21:16. Finished at 02:01 UTC: 314,061,753 positions in 16,825 s, **18,666 positions/s an instance** (generation 5: 19,570) |
+| `20261108-42524370121-1` | 2026-11-08 | `v0.47.1` `863241e` | 1 × 280; ran about 146 | Spot, $0.8773/h, us-east-1b | 6,558 | 163,478,110 | 1,858,591 | Dispatched 21:16. **Reclaimed at 23:42:33 UTC** |
+| `20261108-42536885510-1` | 2026-11-08 | `v0.47.1` `863241e` | 1 × 280; ran about 15 | Spot, $0.8773/h, us-east-1b | 640 | 15,023,775 | 171,021 | Replacement dispatched 23:47 with 19,849 shards (about 482M) in S3. **Reclaimed at 00:02:11 UTC** |
+| `20261109-42538201838-1` | 2026-11-09 | `v0.47.1` `863241e` | 1 × 280; ran about 169 | Spot, $0.8803/h, us-east-1b | 7,671 | 192,230,579 | 2,185,719 | Replacement dispatched 00:04 with 21,220 shards (about 516M) in S3. **Cancelled by the owner at 02:53 UTC** once the generation had passed its target; the instance was terminated at 02:53:53 and its complete shards kept |
+
+Shards, positions and games are summed from the manifests; the finished run's
+`task.json` (the only one, since interrupted and cancelled tasks don't upload
+theirs) agrees with its manifests exactly. Seeds are the run ids (the
+workflow's default), so no two runs share one.
+
+**The campaign** (`ci/datagen-manager.py`, log
+`~/.rusty-chess/datagen-manager/gen6-863241e/log.jsonl` on the owner's laptop):
+5 dispatches, 5 launches, 3 spot reclaims. It reached 600M at about 01:00 UTC
+and ended at 849.9M, 42% over, because the manager of #230 dispatched from
+what was in S3 and let each instance run its full 280 minutes: the replacement
+launched at 516M alone made 192M. The owner cancelled the last instance by
+hand; #231 makes the manager size dispatches to the positions still needed
+and cancel at the target. About **12.6 instance-hours, about $11 on spot**,
+an estimate from the launch prices, not a billed figure; the manager's own log
+counts 9.8 hours because it was quit before the cancelled run ended.
+
+**Full audit** (`ci/datagen-full-audit.sh` on 16 cores, the tool built at
+`6815bfe`, whose Rust is `863241e`'s; the determinism step builds the engine
+at the data's own commit): **GO**.
+1. **Inventory:** 0 P0 problems over 34,053 shards, the three interrupted
+   tasks and the cancelled one included: no gaps, orphans, duplicate shards
+   or shared seeds; one settings block, one engine (`0.47.1 863241e`), one
+   generation, one net (`74af5b46…70ce`); the `task.json` present matches its
+   manifests.
+2. **Every record:** 0 failures over all 849,868,621 records (every record
+   rebuilt from its replayed game, every termination confirmed by the final
+   position, every FEN round-tripped, every checksum matched), and
+   bulletformat exact at 32 bytes a record, 27,195,795,872 bytes.
+3. **No P1 warnings** in any of the 173 batches.
+4. **Determinism: 3,840 of 3,840 games regenerated identically** from their
+   seeds (12 per worker, all 320 workers), with net7rl012 named in every
+   manifest and played by the build.
+
+| Quality | Generation 4 | Generation 5 | Generation 6 |
+|:--|--:|--:|--:|
+| Results (W / D / B) | 29.7 / 47.2 / 23.1% | 29.2 / 47.7 / 23.1% | 28.9 / 47.5 / 23.6% |
+| White–black gap | 6.6 points | 6.1 points | 5.3 points |
+| Games ended by win adjudication | 52.5% | 52.0% | 52.2% |
+| Duplicates within a batch (200 shards) | 1.71% | 0.98% | 1.12% |
+| Median game length (engine plies) | 109 | 108 | 102 |
+| Records a game | 94.3 | 93.5 | 88.0 |
+| \|score\| ≤ 100 | 32.4% | 34.1% | 33.7% |
+| Endgame share | 46.0% | 45.6% | 43.4% |
+
+Batch figures weighted by records (games for the median, which is the
+games-weighted median of the batch medians).
+
+**Compared with generation 5:**
+- **draws level,** 47.7% → 47.5%, the first generation without a rise, well
+  inside the 55% bar; the colour gap narrowed again, to 5.3 points;
+- **shorter games:** median 108 → 102 plies and 93.5 → 88.0 records a game,
+  with a smaller endgame share (45.6% → 43.4%): the stronger net decides
+  games earlier;
+- **within-batch repetition up a little,** 0.98% → 1.12%, still a fifth of the
+  5% bar;
+- **slower generation:** 18,666 positions/s an instance, 4.6% below
+  generation 5's 19,570: the same architecture, with the correction history's
+  cost per node (−2.0% ± 1.6% on the CI bench) and the shorter games' extra
+  openings.
+
+**Cost:** about $11 on spot (about 12.6 instance-hours), an estimate, not a
+billed figure.
+
 ## Adding a run, a generation or a label set
 
 After every Datagen or Relabel run, including smoke tests, benchmarks and
@@ -723,3 +807,21 @@ Scores against game results, as for `N7`:
 - The `relabel` role can still overwrite objects under `selfplay/relabel/`, as
   noted for `N7`.
 - A training set that mixes `N7` and `N7r`: nothing has been prepared from one yet.
+
+**2026-11-09, the full audit of generation 6: GO.** `ci/datagen-full-audit.sh`
+on a download of the whole generation (14 GB, 102,160 objects) to an Apple M3
+Max, read-only. Every figure in the generation's section comes from
+`summary.json`, `inventory.json` and the 173 batch logs; the run table's shards,
+positions and games are summed from the downloaded manifests by run, and the
+runs' times, zones and prices from their job logs.
+
+| Check | Result |
+|:--|:--|
+| Inventory | 0 P0 problems; 34,053 shards, 320 workers, 5 tasks, one engine, one net, one settings block |
+| Every record | 0 failures over 849,868,621 records; bulletformat exact |
+| P1 bars | Passed in all 173 batches |
+| Determinism | 3,840 of 3,840 games identical, every worker |
+| Manifests against the ledger's Generations row | Equal: 849,868,621 positions, 9,662,116 games, 34,053 shards, 5 runs |
+
+**Not checked:** the billed cost (the dollar figure is from launch prices and
+job hours); the manager's own hour count misses the cancelled run.
