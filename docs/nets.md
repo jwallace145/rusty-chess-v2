@@ -125,6 +125,48 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
+## Planned: net8, net7rl012's recipe on generations 0–6
+
+**Not trained yet.** This section records the plan before any result exists, and
+becomes the net's section once it does.
+
+| | |
+|:--|:--|
+| Question | Does a seventh generation of data, the largest yet and played by the strongest net, make a stronger net? Every generation so far has, by less each time: +21.9 for +71% data (net 5), +14.5 for +32% (net6), +6.8 for +16% (net7) |
+| The one change from net7rl012 | Generation 6 added: 849,868,621 records under their original labels (net7rl012's own scores at 5,000 nodes), +36% on the 2,348,928,163 of generations 0–5, so 3,198,796,784 records in all |
+| Held the same | Labels for generations 0–5 (`N7` on 0–2, `O` on 3–5), split seed 1, shuffle seed 1, `val_fraction` 0.05, (768 × 4 → 512) × 2 → 8, λ 0.5 and the 80-superbatch schedule. `trainer/` and `ci/train-task.sh` have no change since net7rl012's commit `d25ce3f`; `train.yml` changed only in the `hidden` input's description (#211) |
+| Prepared set | `g0-6·N7(0-2)` ([datasets.md](datasets.md#prepared-training-sets)): 3,198,796,784 records in 128,202 shards from 1,728 workers, training and held-out together. Its held-out workers must contain `g0-5·N7(0-2)`'s 72, as every set's have contained the previous set's, so net7rl012's `val.data` (`ad1f1aa4…f8ef`) is held out for net8 too and scores both nets on identical records |
+| Prerequisite | Generation 6's full audit is a GO ([datasets.md](datasets.md#generation-6-net7rl012)) |
+| Gate | H1 in both the timed and the fixed-node SPRT against net7rl012, the default, in the engine at the SPRT PR's base (`v0.47.2` or later, with the correction history). Anything else drops the net, unless the owner merges over the check with a stated reason |
+| Expectation | By the record above, about +10 to +15 at fixed nodes and the same at a clock, since the net's size and speed don't change. Less is possible: generation 6's labels are the labeller's own, as were 3–5's, and the labels on 0–2 come from net7, two steps behind |
+| Cost | `train.data` of about 102 GB on the `g6.xlarge`'s 233 GB NVMe scratch (net7rl012's run used `nvme1n1`); the schedule reads the same 8B positions as before, so training time should be near net7rl012's 4,470 s, with a longer prepare (1,124 s for 94,149 shards). About 2 hours and $1.30 on demand, an estimate |
+
+```sh
+gh workflow run Train --ref main -f net-id=net8 -f generations=0,1,2,3,4,5,6 \
+  -f labels=0=net7-l050-r41363264869-n5000,1=net7-l050-r41363264869-n5000,2=net7-l050-r41363264869-n5000 \
+  -f hidden=512 -f output-buckets=8 -f king-buckets=4 -f wdl=0.5 -f superbatches=80
+```
+
+**Before the SPRT, check and record:**
+- `training.json`'s `labels` names `N7` for generations 0–2 and its `datasets`
+  `selfplay/v1/` for 3–6.
+- Its held-out workers contain net7rl012's 72, and its record, worker and shard
+  counts are the sums above.
+- Any change to the trainer between `d25ce3f` and the training commit.
+
+**Comparing it with net7rl012:** their own held-out losses aren't comparable
+(net8's held-out set has generation 6's workers too). Score both quantised nets
+with `rusty-chess-trainer validate` on identical records:
+
+| Held-out set, target | net7rl012 | net8 |
+|:--|--:|--:|
+| Generations 0–5 under `N7(0-2)·O(3-5)`, λ 0.5: net7rl012's own `val.data`, held out for both | 0.019361 (its `training.json`) | Pending |
+| Generations 0–5, results only (`--wdl 1.0`) | Pending | Pending |
+| Generation 6 under `O`, λ 0.5: new positions for both nets, though net8 trained on their neighbours | Pending | Pending |
+| Generation 6, results only | Pending | Pending |
+
+A lower loss on the first row is the fairest offline sign; the SPRT decides.
+
 ## net7rl012w768-l050-r42411319602
 
 net7rl012's recipe at 768 hidden neurons. **Dropped: much smarter per node, but
@@ -942,7 +984,7 @@ the fixed-node SPRT against the current default.
 7. **The current loop.** Generation 4 (net 5) and generation 5 (net6k4) are
    done, and **generation 6 (net7rl012, 849.9M positions) is audited**
    ([datasets.md](datasets.md#generation-6-net7rl012)); net8 on generations 0–6
-   is next. `datagen.toml` still says 6 and must be bumped before generation 7.
+   is [planned](#planned-net8-net7rl012s-recipe-on-generations-06). `datagen.toml` still says 6 and must be bumped before generation 7.
    - ~~**Output buckets**~~: done, net5b8 (8 buckets, +6.5 ± 4.4 timed,
      +12.4 ± 6.6 at fixed nodes; #162, #163, #164). Every net from here is
      bucketed.
