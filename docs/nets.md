@@ -32,7 +32,7 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
 | `net5b8-l050-r41265636815` | Default `v0.39.0`–`v0.39.2`; replaced by net6 (never played a generation) | 0 + 1 + 2 + 3 · 1,465.5M | `O` | (768 → 512) × 2 → **8** (output buckets) | 0.5 | 80 | **0.019349** (same held-out set as net 5: 0.019432) | 6.14 / 21.71 | **+6.5 ± 4.4** vs net 5 | +12.4 ± 6.6 | 3127 ± 31 (`v0.39.0`), 3125 ± 29 (`v0.39.1`), 3120 ± 32 (`v0.39.2`) |
 | `net6-l050-r41273387683` | Default `v0.40.0`–`v0.41.0`; replaced by net6k4 (never played a generation) | 0 + 1 + 2 + 3 + **4** · 1,932.3M | `O` | (768 → 512) × 2 → 8 (output buckets) | 0.5 | 80 | 0.019626 (gen-0–4 held-out; cross-scored against net5b8 below: −1.11% on gen 3, −1.63% on gen 4) | 7.58 / 26.35 | **+14.5 ± 7.1** vs net5b8 | +11.4 ± 6.3 | 3156 ± 30 (`v0.40.0`), 3119 ± 29 (`v0.41.0`) |
 | `net6k4-l050-r41282883885` | Default `v0.42.0`–`v0.42.1`; **plays generation 5** | 0 + 1 + 2 + 3 + 4 · 1,932.3M | `O` | (768 × **4** → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019422** (same held-out set as net6: 0.019626) | 7.30 / 30.03 | **+21.7 ± 9.0** vs net6 | +40.0 ± 12.4 | 3166 ± 31 (`v0.42.0`), 3144 ± 29 (`v0.42.1`) |
-| `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.3`; **will play generation 6** (not generated yet) | 0–5 · 2,238.2M | `O` | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`), 3166 ± 30 (`v0.44.2`) |
+| `net7-l050-r41363264869` | Default `v0.43.0`–`v0.44.3`; replaced by net7rl012 before playing a generation | 0–5 · 2,238.2M | `O` | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019514 (gen-0–5 held-out; cross-scored against net6k4 below: −0.56% / −0.68% / −0.44% on gens 3 / 4 / 5) | 7.29 / 27.31 | **+6.8 ± 4.5** vs net6k4 | +5.1 ± 4.2 (inconclusive) | 3171 ± 27 (`v0.43.0`), 3146 ± 32 (`v0.44.0`), 3163 ± 33 (`v0.44.1`), 3166 ± 30 (`v0.44.2`) |
 | `net7rl012-l050-r42054816508` | Default from `v0.45.0`; passed its SPRT (#202) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019361 (its own labels; not comparable with net7's, cross-scored below) | 7.79 / 52.58 | **+16.3 ± 7.7** vs net7 | **+18.1 ± 8.1** | — |
 | `net7rl012345-l050-r42398995769` | **Dropped:** failed its SPRT against net7rl012 (#210) | 0–5 · 2,238.2M | `N7` on 0–2, `N7r` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019640 (its own labels; not comparable with net7rl012's, cross-scored below) | 8.22 / 35.56 | +1.9 ± 4.1 vs net7rl012 (inconclusive) | −5.2 ± 5.2 (H0) | — |
 | `net7rl012w768-l050-r42411319602` | **Dropped:** failed its SPRT against net7rl012 at a clock (#214) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → **768**) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019168** (same held-out set as net7rl012: 0.019361) | 7.64 / 41.77 | −9.0 ± 6.4 vs net7rl012 (H0) | **+28.9 ± 10.2** (H1) | — |
@@ -940,7 +940,9 @@ the fixed-node SPRT against the current default.
 6. ~~**Longer schedule at 512 on generations 0–3**~~: dropped, net5x120
    (+4.9 ± 3.9 timed, −1.2 ± 4.2 at fixed nodes, both inconclusive; #159).
 7. **The current loop.** Generation 4 (net 5) and generation 5 (net6k4) are
-   done; `datagen.toml` is at `generation = 6`, played by net7, not started.
+   done, and **generation 6 (net7rl012, 849.9M positions) is audited**
+   ([datasets.md](datasets.md#generation-6-net7rl012)); net8 on generations 0–6
+   is next. `datagen.toml` still says 6 and must be bumped before generation 7.
    - ~~**Output buckets**~~: done, net5b8 (8 buckets, +6.5 ± 4.4 timed,
      +12.4 ± 6.6 at fixed nodes; #162, #163, #164). Every net from here is
      bucketed.
