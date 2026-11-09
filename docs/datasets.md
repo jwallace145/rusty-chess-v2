@@ -81,25 +81,26 @@ Each cell is the label set a net used for that generation, and `—` means the
 generation wasn't used. Confirmed from each net's `training.json`: its
 `datasets` prefixes, and its `labels` map for nets trained after #190.
 
-| Net | Gen 0 | Gen 1 | Gen 2 | Gen 3 | Gen 4 | Gen 5 | Prepared set |
-|:--|:-:|:-:|:-:|:-:|:-:|:-:|:--|
-| `net1-l050-r41022503872` | `O` | — | — | — | — | — | `g0·O` |
-| `net2-l050-r41110004652` | `O` | `O` | — | — | — | — | `g0-1·O` |
-| `net2x80-l050-r41131366975` | `O` | `O` | — | — | — | — | `g0-1·O` |
-| `net2x80-l025-r41141703294` | `O` | `O` | — | — | — | — | `g0-1·O` |
-| `net2x80-l075-r41145466004` | `O` | `O` | — | — | — | — | `g0-1·O` |
-| `net3-l050-r41160495666` | `O` | `O` | `O` | — | — | — | `g0-2·O` |
-| `net4-l050-r41165115607` | `O` | `O` | `O` | — | — | — | `g0-2·O` |
-| `net4w512-l050-r41170687764` | `O` | `O` | `O` | — | — | — | `g0-2·O` |
-| `net5-l050-r41229287546` | `O` | `O` | `O` | `O` | — | — | `g0-3·O` |
-| `net5x120-l050-r41237487627` | `O` | `O` | `O` | `O` | — | — | `g0-3·O` |
-| `net5b8-l050-r41265636815` | `O` | `O` | `O` | `O` | — | — | `g0-3·O` |
-| `net6-l050-r41273387683` | `O` | `O` | `O` | `O` | `O` | — | `g0-4·O` |
-| `net6k4-l050-r41282883885` | `O` | `O` | `O` | `O` | `O` | — | `g0-4·O` |
-| `net7-l050-r41363264869` | `O` | `O` | `O` | `O` | `O` | `O` | `g0-5·O` |
-| `net7rl012-l050-r42054816508` | `N7` | `N7` | `N7` | `O` | `O` | `O` | `g0-5·N7(0-2)` |
-| `net7rl012345-l050-r42398995769` | `N7` | `N7` | `N7` | `N7r` | `N7r` | `N7r` | `g0-5·N7(0-2)·N7r(3-5)` |
-| `net7rl012w768-l050-r42411319602` | `N7` | `N7` | `N7` | `O` | `O` | `O` | `g0-5·N7(0-2)` |
+| Net | Gen 0 | Gen 1 | Gen 2 | Gen 3 | Gen 4 | Gen 5 | Gen 6 | Prepared set |
+|:--|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:--|
+| `net1-l050-r41022503872` | `O` | — | — | — | — | — | — | `g0·O` |
+| `net2-l050-r41110004652` | `O` | `O` | — | — | — | — | — | `g0-1·O` |
+| `net2x80-l050-r41131366975` | `O` | `O` | — | — | — | — | — | `g0-1·O` |
+| `net2x80-l025-r41141703294` | `O` | `O` | — | — | — | — | — | `g0-1·O` |
+| `net2x80-l075-r41145466004` | `O` | `O` | — | — | — | — | — | `g0-1·O` |
+| `net3-l050-r41160495666` | `O` | `O` | `O` | — | — | — | — | `g0-2·O` |
+| `net4-l050-r41165115607` | `O` | `O` | `O` | — | — | — | — | `g0-2·O` |
+| `net4w512-l050-r41170687764` | `O` | `O` | `O` | — | — | — | — | `g0-2·O` |
+| `net5-l050-r41229287546` | `O` | `O` | `O` | `O` | — | — | — | `g0-3·O` |
+| `net5x120-l050-r41237487627` | `O` | `O` | `O` | `O` | — | — | — | `g0-3·O` |
+| `net5b8-l050-r41265636815` | `O` | `O` | `O` | `O` | — | — | — | `g0-3·O` |
+| `net6-l050-r41273387683` | `O` | `O` | `O` | `O` | `O` | — | — | `g0-4·O` |
+| `net6k4-l050-r41282883885` | `O` | `O` | `O` | `O` | `O` | — | — | `g0-4·O` |
+| `net7-l050-r41363264869` | `O` | `O` | `O` | `O` | `O` | `O` | — | `g0-5·O` |
+| `net7rl012-l050-r42054816508` | `N7` | `N7` | `N7` | `O` | `O` | `O` | — | `g0-5·N7(0-2)` |
+| `net7rl012345-l050-r42398995769` | `N7` | `N7` | `N7` | `N7r` | `N7r` | `N7r` | — | `g0-5·N7(0-2)·N7r(3-5)` |
+| `net7rl012w768-l050-r42411319602` | `N7` | `N7` | `N7` | `O` | `O` | `O` | — | `g0-5·N7(0-2)` |
+| net8 (**planned, not trained**: [nets.md](nets.md#planned-net8-net7rl012s-recipe-on-generations-06)) | `N7` | `N7` | `N7` | `O` | `O` | `O` | `O` | `g0-6·N7(0-2)` |
 
 ### Prepared training sets
 
@@ -119,6 +120,7 @@ scored on identical data.** All used split seed 1, shuffle seed 1 and
 | `g0-5·O` | 2,238,186,465 / 110,741,698 | 1,336 / 72 | 94,149 | `f551e37e…d5f2` | `4dc5921e…b99e` |
 | `g0-5·N7(0-2)` | 2,238,186,465 / 110,741,698 | 1,336 / 72 | 94,149 | `9df1226c…07bd` | `ad1f1aa4…f8ef` |
 | `g0-5·N7(0-2)·N7r(3-5)` | 2,238,186,465 / 110,741,698 | 1,336 / 72 | 94,149 | `267501c5…182f` | `556b16d9…a14a` |
+| `g0-6·N7(0-2)` (**planned**) | Must sum to 3,198,796,784 | Must sum to 1,728; held-out ⊇ `g0-5·N7(0-2)`'s 72 | 128,202 | Not prepared yet | Not prepared yet |
 
 - **Naming:** `g<generations>·<label set>`. A mix names the relabelled
   generations in brackets: `g0-5·N7(0-2)` is generations 0–5, with `N7` on
