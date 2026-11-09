@@ -12,6 +12,12 @@
 
 * **nnue:** record the training of net8 and its held-out comparison with net7rl012 ([#236](https://github.com/jwallace145/rusty-chess-v2/issues/236)) ([ae5e2e9](https://github.com/jwallace145/rusty-chess-v2/commit/ae5e2e9373f61be2ec6a95f3244fdd26be9a1950))
 
+### Benchmarks
+
+* bench signature 970,013, instructions per node 4066, search 1.82M NPS, perft 291.57M NPS (pass (63)), fail-high first 87.4%, EBF 1.88, TT hit 52.5%
+* since v0.47.2: fail-high first -0.5 pt, EBF -0.08, instructions per node +0.6%, search NPS +26.8%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.47.2](https://github.com/jwallace145/rusty-chess-v2/compare/v0.47.1...v0.47.2) (2026-11-09)
 
 

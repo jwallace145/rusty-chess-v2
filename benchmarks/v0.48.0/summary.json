@@ -1,0 +1,27 @@
+{
+  "bench": {
+    "depth": 10,
+    "hash_mb": 16,
+    "nps": 1819911,
+    "positions": 50,
+    "signature": 970013
+  },
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "date": "2026-11-09",
+  "efficiency": {
+    "ebf": 1.876734989223429,
+    "fail_high_first": 0.8740287549709391,
+    "tt_hit": 0.5246844797705383
+  },
+  "instructions_per_node": 4066.4986520799207,
+  "perft": {
+    "failures": 0,
+    "max_depth": 7,
+    "nps": 291573660,
+    "positions": 63
+  },
+  "runner": "ubuntu-latest",
+  "target_cpu": "x86-64-v3",
+  "v": 1,
+  "version": "v0.48.0"
+}
