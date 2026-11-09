@@ -8,6 +8,12 @@
 * **datasets:** record generation 6, played by net7rl012 on spot, and its passing full audit ([#232](https://github.com/jwallace145/rusty-chess-v2/issues/232)) ([3ffeb5a](https://github.com/jwallace145/rusty-chess-v2/commit/3ffeb5a2b7570fa22646ec7506f775fd32d59690))
 * **nnue:** plan net8, net7rl012's recipe on generations 0-6 ([#234](https://github.com/jwallace145/rusty-chess-v2/issues/234)) ([3293c50](https://github.com/jwallace145/rusty-chess-v2/commit/3293c50f08b1ec990b70bba791d562ff69fbd55e))
 
+### Benchmarks
+
+* bench signature 997,279, instructions per node 4044, search 1.43M NPS, perft 202.96M NPS (pass (63)), fail-high first 87.9%, EBF 1.95, TT hit 51.4%
+* since v0.47.1: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.0%, search NPS −51.9%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.47.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.47.0...v0.47.1) (2026-11-08)
 
 
