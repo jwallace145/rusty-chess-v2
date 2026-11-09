@@ -100,7 +100,7 @@ generation wasn't used. Confirmed from each net's `training.json`: its
 | `net7rl012-l050-r42054816508` | `N7` | `N7` | `N7` | `O` | `O` | `O` | — | `g0-5·N7(0-2)` |
 | `net7rl012345-l050-r42398995769` | `N7` | `N7` | `N7` | `N7r` | `N7r` | `N7r` | — | `g0-5·N7(0-2)·N7r(3-5)` |
 | `net7rl012w768-l050-r42411319602` | `N7` | `N7` | `N7` | `O` | `O` | `O` | — | `g0-5·N7(0-2)` |
-| net8 (**planned, not trained**: [nets.md](nets.md#planned-net8-net7rl012s-recipe-on-generations-06)) | `N7` | `N7` | `N7` | `O` | `O` | `O` | `O` | `g0-6·N7(0-2)` |
+| `net8-l050-r42564788061` | `N7` | `N7` | `N7` | `O` | `O` | `O` | `O` | `g0-6·N7(0-2)` |
 
 ### Prepared training sets
 
@@ -120,7 +120,7 @@ scored on identical data.** All used split seed 1, shuffle seed 1 and
 | `g0-5·O` | 2,238,186,465 / 110,741,698 | 1,336 / 72 | 94,149 | `f551e37e…d5f2` | `4dc5921e…b99e` |
 | `g0-5·N7(0-2)` | 2,238,186,465 / 110,741,698 | 1,336 / 72 | 94,149 | `9df1226c…07bd` | `ad1f1aa4…f8ef` |
 | `g0-5·N7(0-2)·N7r(3-5)` | 2,238,186,465 / 110,741,698 | 1,336 / 72 | 94,149 | `267501c5…182f` | `556b16d9…a14a` |
-| `g0-6·N7(0-2)` (**planned**) | Must sum to 3,198,796,784 | Must sum to 1,728; held-out ⊇ `g0-5·N7(0-2)`'s 72 | 128,202 | Not prepared yet | Not prepared yet |
+| `g0-6·N7(0-2)` | 3,034,526,184 / 164,270,600 | 1,636 / 92 | 128,202 | `e8f78490…a7df` | `bf6d6dff…3488` |
 
 - **Naming:** `g<generations>·<label set>`. A mix names the relabelled
   generations in brackets: `g0-5·N7(0-2)` is generations 0–5, with `N7` on
