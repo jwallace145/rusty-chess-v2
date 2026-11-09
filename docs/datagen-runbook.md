@@ -145,10 +145,16 @@ screen -S datagen ci/datagen-manager.py run --generation 6 --target-positions 60
   shards in S3 are the whole record of progress. There is nothing to resume.
 - **Progress** is the generation's manifests in S3 times the mean positions a
   shard, sampled from 12 of them each poll (about 24,300; whole games fill a
-  shard to at most 25,000). The target counts only what is in S3, so a
-  campaign overshoots by up to N instances' last stretch, bounded by
-  `--minutes`; more data in a generation is fine. The exact count is the
-  audit's.
+  shard to at most 25,000). The exact count is the audit's.
+- **It stops near the target, not a run past it.** Each dispatch asks for
+  only the minutes the positions still needed should take, from the rate the
+  campaign's own finished runs measured (the workflow's 80M an instance-hour
+  until one has), a tenth over, between 30 and `--minutes`. And once S3 holds
+  the target it cancels the instances still running, keeping their complete
+  shards (each worker's shard in progress is lost); `--let-finish` lets them
+  run on instead. The first campaign (generation 6, 2026-11-08) lacked both: a
+  replacement launched at 516M of a 600M target for the full 280 minutes, and
+  the generation reached about 830M before the owner cancelled it by hand.
 - **What each outcome does:**
 
   | Outcome | Next |
