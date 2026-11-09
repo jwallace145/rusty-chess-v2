@@ -85,6 +85,20 @@ class Plan(unittest.TestCase):
     def test_estimate(self):
         self.assertEqual(m.estimate_positions(24_000, 24_300), 583_200_000)
 
+    def test_dispatches_are_sized_to_what_is_still_needed(self):
+        # 84M left at 80M an hour for one instance: 63 minutes, a tenth over; never under 30 or over the maximum.
+        self.assertEqual(m.size_minutes(84_000_000, 80_000_000, 1, 280), 70)
+        self.assertEqual(m.size_minutes(84_000_000, 80_000_000, 3, 280), 30)
+        self.assertEqual(m.size_minutes(600_000_000, 80_000_000, 3, 280), 165)
+        self.assertEqual(m.size_minutes(2_000_000_000, 80_000_000, 3, 280), 280)
+        self.assertEqual(m.size_minutes(0, 80_000_000, 3, 280), 30)
+
+    def test_the_rate_comes_from_finished_runs_only(self):
+        self.assertEqual(m.measured_rate([]), m.DEFAULT_RATE)
+        outcomes = [{'outcome': 'finished', 'positions': 314_061_753, 'hours': 4.694},
+                    {'outcome': 'interrupted', 'positions': 0, 'hours': 2.4}]
+        self.assertAlmostEqual(m.measured_rate(outcomes), 314_061_753 / 4.694)
+
 
 class AfterOutcome(unittest.TestCase):
     def res(self, outcome, shards=100):
@@ -100,6 +114,10 @@ class AfterOutcome(unittest.TestCase):
     def test_failures_and_cancels_pause(self):
         self.assertIsNotNone(m.after_outcome(self.res('failed'), 0)[0])
         self.assertIsNotNone(m.after_outcome(self.res('cancelled'), 0)[0])
+
+    def test_a_cancel_at_the_target_is_not_a_pause(self):
+        self.assertEqual(m.after_outcome(self.res('cancelled'), 0, at_target=True), (None, 0, 0))
+        self.assertIsNotNone(m.after_outcome(self.res('failed'), 0, at_target=True)[0])
 
     def test_three_empty_launches_pause(self):
         self.assertEqual(m.after_outcome(self.res('finished', 0), 1), (None, 0, 2))

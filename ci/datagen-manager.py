@@ -48,6 +48,8 @@ LAUNCHED = '== datagen:'
 DONE_SHARDS = re.compile(r'datagen-task: (\d+) shards, (\d+) positions in|datagen-task: interrupted; (\d+) complete shards')
 NO_PROGRESS_LIMIT = 3  # launched runs in a row that upload nothing before the campaign pauses
 DEFAULT_SHARD_POSITIONS = 24_300  # about: shards hold whole games up to shard_positions (25,000)
+DEFAULT_RATE = 80_000_000  # positions an instance-hour, the workflow's figure, until a run of this campaign measures it
+MIN_MINUTES = 30  # the shortest dispatch worth an instance's boot and build
 
 
 # ---- pure logic (unit tested in ci/test-datagen-manager.py) ----------------
@@ -87,6 +89,24 @@ def estimate_positions(shards, mean_per_shard):
     return int(round(shards * mean_per_shard))
 
 
+def size_minutes(remaining, rate, instances, max_minutes):
+    """Minutes to ask of `instances` launched together so they make about `remaining` positions
+    at `rate` positions an instance-hour, with a tenth over for the estimate's error, within
+    MIN_MINUTES..max_minutes. The last launches of a campaign are short, not the full stretch."""
+    if remaining <= 0 or instances <= 0 or rate <= 0:
+        return MIN_MINUTES
+    hours = remaining / (rate * instances)
+    return max(MIN_MINUTES, min(max_minutes, math.ceil(hours * 60 * 1.1)))
+
+
+def measured_rate(outcomes):
+    """Positions an instance-hour from this campaign's finished runs (interrupted ones don't report
+    positions), or the workflow's figure when none has finished."""
+    pos = sum(o['positions'] for o in outcomes if o['outcome'] == 'finished' and o.get('hours', 0) > 0)
+    hours = sum(o['hours'] for o in outcomes if o['outcome'] == 'finished' and o.get('hours', 0) > 0)
+    return pos / hours if pos and hours else DEFAULT_RATE
+
+
 def plan(est_positions, target, busy, n, paused, backoff_until, now, *, blocked, committed_hours, cap_hours,
          minutes, launches, max_launches):
     """How many instances to dispatch now, why the rest wait, and whether the campaign is done.
@@ -120,13 +140,14 @@ def plan(est_positions, target, busy, n, paused, backoff_until, now, *, blocked,
     return dispatch, why, False
 
 
-def after_outcome(result, no_progress):
-    """What a finished run means: (pause reason or None, retry delay in s, no-progress count)."""
+def after_outcome(result, no_progress, at_target=False):
+    """What a finished run means: (pause reason or None, retry delay in s, no-progress count).
+    A run cancelled once the target was reached is the manager's own doing, not a reason to pause."""
     o = result['outcome']
     if o == 'failed':
         return 'the task failed; read its log before relaunching', 0, no_progress
     if o == 'cancelled':
-        return 'its run was cancelled', 0, no_progress
+        return (None, 0, no_progress) if at_target else ('its run was cancelled', 0, no_progress)
     if o == 'no-capacity':
         return None, 600, no_progress
     no_progress = 0 if result['shards'] > 0 else no_progress + 1
@@ -172,6 +193,8 @@ class Campaign:
         self.dispatches = 0
         self.paused, self.backoff, self.no_progress = None, 0.0, 0
         self.main_moved = False
+        self.outcomes = []       # for the measured rate
+        self.target_reached = False
         self.mean_per_shard = DEFAULT_SHARD_POSITIONS
         self.restore()
 
@@ -192,6 +215,7 @@ class Campaign:
                 self.tracked.pop(e['run'], None)
                 self.used_hours += e.get('hours', 0)
                 self.launches += e.get('launched', False)
+                self.outcomes.append(e)
 
     def say(self, text, alert=False):
         print(f'{dt.datetime.now():%H:%M:%S} {text}', flush=True)
@@ -263,7 +287,8 @@ class Campaign:
                 hours = (end - start) / 3600 if res['launched'] and start and end else 0.0
             self.used_hours += hours
             self.launches += res['launched']
-            reason, delay, self.no_progress = after_outcome(res, self.no_progress)
+            reason, delay, self.no_progress = after_outcome(res, self.no_progress, self.target_reached)
+            self.outcomes.append({'hours': hours, **res})
             self.record('outcome', run=run, hours=round(hours, 3), shards_before=info['shards'], shards_after=shards_now, **res)
             self.say(f'run {run} {res["outcome"]}{" after launching" if res["launched"] else ""}: {res["shards"]} shards, '
                      f'{res["positions"]} positions ({hours:.2f} h)', alert=res['outcome'] != 'no-capacity')
@@ -278,11 +303,21 @@ class Campaign:
     def committed_hours(self, busy):
         return self.used_hours + busy * hard_hours(self.args.minutes)
 
-    def dispatch(self, shards_now):
-        a = self.args
+    def rate(self):
+        return measured_rate(self.outcomes)
+
+    def cancel_running(self, mine):
+        """The target is in S3: stop the instances still generating. Complete shards are kept; each
+        worker's shard in progress is lost, which is the price of not overshooting by a whole run."""
+        for run in sorted(mine):
+            sh(['gh', 'run', 'cancel', str(run), '--repo', REPO])
+            self.record('cancel-at-target', run=run)
+            self.say(f'target reached: cancelled run {run}; its complete shards are kept')
+
+    def dispatch(self, shards_now, minutes):
         since = time.time()
         out = sh(['gh', 'workflow', 'run', 'Datagen', '--repo', REPO, '--ref', 'main', '-f', 'instances=1',
-                  '-f', f'minutes={a.minutes}', '-f', 'target-cpu=native', '-f', 'upload=true', '-f', f'note={self.note}'], timeout=60)
+                  '-f', f'minutes={minutes}', '-f', 'target-cpu=native', '-f', 'upload=true', '-f', f'note={self.note}'], timeout=60)
         m = re.search(r'/actions/runs/(\d+)', out)
         run = int(m[1]) if m else None
         for _ in range(12):
@@ -297,8 +332,8 @@ class Campaign:
             raise RuntimeError('dispatched a run but found no run id for it')
         self.dispatches += 1
         self.tracked[run] = {'shards': shards_now, 'adopted': False}
-        self.record('dispatch', run=run, shards=shards_now, sha=self.sha, generation=self.gen, minutes=a.minutes)
-        self.say(f'dispatched run {run} ({shards_now} shards in S3 so far) https://github.com/{REPO}/actions/runs/{run}')
+        self.record('dispatch', run=run, shards=shards_now, sha=self.sha, generation=self.gen, minutes=minutes)
+        self.say(f'dispatched run {run} for {minutes} min ({shards_now} shards in S3 so far) https://github.com/{REPO}/actions/runs/{run}')
 
 
 def campaign_args(p):
@@ -328,7 +363,10 @@ def main():
     r.add_argument('--max-instance-hours', type=float, required=True,
                    help='budget: hours used plus each running instance\'s hard limit may not pass this')
     r.add_argument('--max-launches', type=int, default=30, help='instances started, at most')
-    r.add_argument('--minutes', type=int, default=280, help='minutes per instance (Datagen\'s input, at most 300)')
+    r.add_argument('--minutes', type=int, default=280, help='the most minutes an instance is asked for (Datagen\'s input, at most 300); '
+                   'each dispatch is sized to the positions still needed, down to 30')
+    r.add_argument('--let-finish', action='store_true', help='once the target is in S3, let running instances finish '
+                   'instead of cancelling them')
     r.add_argument('--poll', type=int, default=300, help='seconds between polls')
     r.add_argument('--dry-run', action='store_true', help='read and decide, never dispatch')
     r.add_argument('--yes', action='store_true', help='skip the confirmation')
@@ -431,11 +469,17 @@ def main():
                 c.say(f'complete: generation {c.gen} holds {shards} shards, about {est / 1e6:.1f}M positions. Audit it before '
                       f'training on it (ci/datagen-full-audit.sh).', alert=True)
                 return 0
+            if est >= args.target_positions and not c.target_reached:
+                c.target_reached = True
+                c.record('target-reached', shards=shards, est_positions=est)
+                if mine and not args.let_finish and not args.dry_run:
+                    c.cancel_running(mine)
+            minutes = size_minutes(args.target_positions - est, c.rate(), todo, args.minutes) if todo else 0
             for _ in range(todo):
                 if args.dry_run:
-                    why = f'would dispatch {todo} (dry run)'
+                    why = f'would dispatch {todo} for {minutes} min (dry run)'
                     break
-                c.dispatch(shards)
+                c.dispatch(shards, minutes)
                 busy += 1
             show(c, shards, est, args.target_positions, busy, why)
             if (stop or c.main_moved) and not busy:
