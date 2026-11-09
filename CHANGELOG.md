@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.47.2](https://github.com/jwallace145/rusty-chess-v2/compare/v0.47.1...v0.47.2) (2026-11-09)
+
+
+### Documentation
+
+* **datasets:** record generation 6, played by net7rl012 on spot, and its passing full audit ([#232](https://github.com/jwallace145/rusty-chess-v2/issues/232)) ([3ffeb5a](https://github.com/jwallace145/rusty-chess-v2/commit/3ffeb5a2b7570fa22646ec7506f775fd32d59690))
+* **nnue:** plan net8, net7rl012's recipe on generations 0-6 ([#234](https://github.com/jwallace145/rusty-chess-v2/issues/234)) ([3293c50](https://github.com/jwallace145/rusty-chess-v2/commit/3293c50f08b1ec990b70bba791d562ff69fbd55e))
+
 ## [0.47.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.47.0...v0.47.1) (2026-11-08)
 
 
