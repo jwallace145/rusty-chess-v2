@@ -70,9 +70,9 @@ impl EmbeddedNet {
 /// carrying every generation's net grew the binary with each one. A new
 /// default replaces the entry; the one it replaces moves to [`RETIRED_NETS`].
 pub const NETS: [EmbeddedNet; 1] = [EmbeddedNet {
-    id: "net7rl012-l050-r42054816508",
-    generation: 6,
-    bytes: include_bytes!("../nets/net7rl012-l050-r42054816508.nnue"),
+    id: "net8-l050-r42564788061",
+    generation: 7,
+    bytes: include_bytes!("../nets/net8-l050-r42564788061.nnue"),
 }];
 
 /// Where every trained net is kept, forever: `<NET_STORE>/<id>/net.nnue`,
@@ -93,7 +93,7 @@ pub struct RetiredNet {
 }
 
 /// Every generation's net before the default's, oldest first.
-pub const RETIRED_NETS: [RetiredNet; 5] = [
+pub const RETIRED_NETS: [RetiredNet; 6] = [
     RetiredNet {
         id: "net1-l050-r41022503872",
         generation: 1,
@@ -118,6 +118,11 @@ pub const RETIRED_NETS: [RetiredNet; 5] = [
         id: "net6k4-l050-r41282883885",
         generation: 5,
         sha256: "82a7f9869e6c2104c0858ab4f6d5a8e57ca943449254aad3ee384dfedd20df33",
+    },
+    RetiredNet {
+        id: "net7rl012-l050-r42054816508",
+        generation: 6,
+        sha256: "74af5b4645aa340d10f3c5e79d61fe4b0975d9dea0cf44b7e7024b9eea3f70ce",
     },
 ];
 
