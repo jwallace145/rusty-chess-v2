@@ -321,7 +321,8 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
 | `net4w512-l050-r41170687764` (**512 hidden**) | 3 | generations 0–2 (906M positions), 80 superbatches | 1203006 | retired |
 | `net5-l050-r41229287546` (512 hidden) | 4 | generations 0–3 (1.53B positions), 80 superbatches | 1101129 | retired |
 | `net6k4-l050-r41282883885` (512 hidden, 8 output buckets, **4 king buckets**) | 5 | generations 0–4 (2.03B positions), 80 superbatches | 1046838 | retired |
-| `net7rl012-l050-r42054816508` (512 hidden, 8 output buckets, 4 king buckets) | 6 | generations 0–5 (2.35B positions), generations 0–2 on label set `N7`, 80 superbatches | 976528 | **embedded, the default** |
+| `net7rl012-l050-r42054816508` (512 hidden, 8 output buckets, 4 king buckets) | 6 | generations 0–5 (2.35B positions), generations 0–2 on label set `N7`, 80 superbatches | 976528 | retired: played generation 6 |
+| `net8-l050-r42564788061` (512 hidden, 8 output buckets, 4 king buckets) | 7 | generations 0–6 (3.20B positions), generations 0–2 on label set `N7`, 80 superbatches | 970013 | **embedded, the default** |
 
 - **Using a retired net:** download its file and pass the path
   (`setoption name EvalFile value <file>`, `bench --eval-file <file>`), and
@@ -343,7 +344,7 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
 
 - **UCI:** `setoption name EvalFile value` takes:
   - `/path/to/net.nnue` to load a net file;
-  - the embedded net's id (`net7rl012-l050-r42054816508`) for the default; a
+  - the embedded net's id (`net8-l050-r42564788061`) for the default; a
     retired net's id names its file in the bucket instead;
   - `pesto` for PeSTO;
   - `<default>`, or an empty value, to return to the default net.
