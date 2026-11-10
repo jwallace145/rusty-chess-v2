@@ -57,7 +57,7 @@ jobs:
   timed:
     name: SPRT (timed)
     if: (contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick')) && vars.SPRT_RUNNER != 'github'
-    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.18.0
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.19.0
     with:
       project: rusty-chess
       script: ci/strength-task.sh
@@ -71,7 +71,7 @@ jobs:
   nodes:
     name: SPRT (fixed nodes)
     if: (contains(github.event.pull_request.labels.*.name, 'sprt') || contains(github.event.pull_request.labels.*.name, 'sprt-quick')) && vars.SPRT_RUNNER != 'github'
-    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.18.0
+    uses: jwallace145/jwall-engineering-infra/.github/workflows/remote-task.yml@v0.19.0
     with:
       project: rusty-chess
       script: ci/strength-task.sh
