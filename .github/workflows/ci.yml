@@ -83,6 +83,25 @@ jobs:
           subjectPatternError: |
             The subject "{subject}" must start with a lowercase letter.
 
+  nnue-diagrams:
+    name: NNUE diagrams
+    runs-on: ubuntu-latest
+    if: github.event.action != 'edited'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Re-renders every architecture snapshot with the pinned D2 build and
+      # compares it byte for byte with what is committed; also checks that
+      # every net in docs/nets.md has a snapshot and that the gallery's links
+      # resolve. Fails without rewriting anything.
+      - run: npm run nnue:diagrams:check
+
   # The code jobs skip on `edited`: a title or body edit cannot change what
   # they check, and a skipped job satisfies the required status check.
   fmt:

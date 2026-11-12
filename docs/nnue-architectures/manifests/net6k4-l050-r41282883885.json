@@ -1,0 +1,56 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net6k4-l050-r41282883885",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 4,
+    "king_bucket_layout": "KING_BUCKET_LAYOUT, files e–h mirrored",
+    "hidden_width": 512,
+    "activation": "SCReLU",
+    "output_buckets": 8,
+    "output_bucket_rule": "(pieces − 2) / 4",
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": 3163200,
+  "status": "retired",
+  "status_note": "Default v0.42.0–v0.42.1; played generation 5",
+  "generation": 5,
+  "default_releases": "v0.42.0–v0.42.1",
+  "training": {
+    "generations": "0–4",
+    "labels": "O",
+    "lambda": 0.5,
+    "superbatches": 80
+  },
+  "change": {
+    "from": "net6-l050-r41273387683",
+    "kind": "topology",
+    "summary": "4 mirrored king buckets select each perspective's input weights (trained with a factoriser, merged into the file) instead of one view"
+  },
+  "experiment": {
+    "pr": 175,
+    "baseline": "net6-l050-r41273387683",
+    "timed": "+21.7 ± 9.0",
+    "fixed_nodes": "+40.0 ± 12.4",
+    "verdict": "kept"
+  },
+  "ledger_anchor": "net6k4-l050-r41282883885",
+  "provenance": {
+    "architecture_source": [
+      "docs/nets.md#net6k4-l050-r41282883885 (Network row)",
+      "docs/nnue.md#architecture",
+      "docs/king-buckets.md#feature-indexing-must-match-bullet-exactly",
+      "docs/nnue.md#output-buckets",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net6k4-l050-r41282883885/training.json (in S3; not read for this manifest)",
+    "notes": null
+  }
+}

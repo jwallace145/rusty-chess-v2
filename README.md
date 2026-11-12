@@ -69,7 +69,8 @@ release, whose telemetry is attached to the GitHub release as assets. See
 
 Every release's numbers, with the full history, are in [docs/benchmarks.md](docs/benchmarks.md).
 Every NNUE net and every self-play dataset, with its data, parameters and
-results, is in [docs/nets.md](docs/nets.md) and [docs/datasets.md](docs/datasets.md).
+results, is in [docs/nets.md](docs/nets.md) and [docs/datasets.md](docs/datasets.md);
+a diagram of every net's architecture is in [docs/nnue-architectures/](docs/nnue-architectures/README.md).
 To watch the engine play other engines locally, see
 [tools/engine-battle/README.md](tools/engine-battle/README.md): EngineBattle,
 with Stockfish and Viridithas as opponents, for viewing rather than measuring.

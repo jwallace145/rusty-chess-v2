@@ -1,0 +1,54 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net5x120-l050-r41237487627",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 1,
+    "king_bucket_layout": null,
+    "hidden_width": 512,
+    "activation": "SCReLU",
+    "output_buckets": 1,
+    "output_bucket_rule": null,
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": null,
+  "status": "dropped",
+  "status_note": "Dropped (#159): 120 superbatches, inconclusive on both SPRT legs at the 10,000-game cap",
+  "generation": null,
+  "default_releases": null,
+  "training": {
+    "generations": "0–3",
+    "labels": "O",
+    "lambda": 0.5,
+    "superbatches": 120
+  },
+  "change": {
+    "from": "net5-l050-r41229287546",
+    "kind": "schedule",
+    "summary": "120 superbatches instead of 80, on net 5's data"
+  },
+  "experiment": {
+    "pr": 159,
+    "baseline": "net5-l050-r41229287546",
+    "timed": "+4.9 ± 3.9 (inconclusive)",
+    "fixed_nodes": "−1.2 ± 4.2 (inconclusive)",
+    "verdict": "inconclusive"
+  },
+  "ledger_anchor": "net5x120-l050-r41237487627",
+  "provenance": {
+    "architecture_source": [
+      "docs/nets.md#net5x120-l050-r41237487627 (Network row)",
+      "docs/nnue.md#architecture",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net5x120-l050-r41237487627/training.json (in S3; not read for this manifest)",
+    "notes": "The ledger records the file's SHA-256 but not its size."
+  }
+}

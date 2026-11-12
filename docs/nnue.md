@@ -25,6 +25,10 @@ available for comparisons. The data the nets are trained on is described in
 - **Output:** side-to-move perspective first, then the opponent's,
   concatenated into one weighted sum and scaled to centipawns.
 
+A diagram of this network for every net trained so far, generated from a
+manifest of each net's topology, is in
+[nnue-architectures/](nnue-architectures/README.md).
+
 ## Quantization
 
 | Constant | Value | Meaning |

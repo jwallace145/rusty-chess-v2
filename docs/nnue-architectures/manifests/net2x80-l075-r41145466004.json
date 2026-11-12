@@ -1,0 +1,54 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net2x80-l075-r41145466004",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 1,
+    "king_bucket_layout": null,
+    "hidden_width": 128,
+    "activation": "SCReLU",
+    "output_buckets": 1,
+    "output_bucket_rule": null,
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": null,
+  "status": "dropped",
+  "status_note": "Dropped (#140): λ 0.75 did not beat net2x80 in the λ sweep",
+  "generation": null,
+  "default_releases": null,
+  "training": {
+    "generations": "0–1",
+    "labels": "O",
+    "lambda": 0.75,
+    "superbatches": 80
+  },
+  "change": {
+    "from": "net2x80-l050-r41131366975",
+    "kind": "lambda",
+    "summary": "λ 0.75 instead of 0.5; everything else net2x80's"
+  },
+  "experiment": {
+    "pr": 140,
+    "baseline": "net2x80-l050-r41131366975",
+    "timed": "−3.2 ± 4.5 (H0)",
+    "fixed_nodes": "−4.1 ± 4.8 (H0)",
+    "verdict": "dropped"
+  },
+  "ledger_anchor": "The λ sweep: net2x80 at λ 0.25 and 0.75",
+  "provenance": {
+    "architecture_source": [
+      "docs/nets.md#The λ sweep: net2x80 at λ 0.25 and 0.75 (Network row)",
+      "docs/nnue.md#architecture",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net2x80-l075-r41145466004/training.json (in S3; not read for this manifest)",
+    "notes": null
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net4w512-l050-r41170687764",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 1,
+    "king_bucket_layout": null,
+    "hidden_width": 512,
+    "activation": "SCReLU",
+    "output_buckets": 1,
+    "output_bucket_rule": null,
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": 789568,
+  "status": "retired",
+  "status_note": "Default v0.36.0; played generation 3",
+  "generation": 3,
+  "default_releases": "v0.36.0",
+  "training": {
+    "generations": "0–2",
+    "labels": "O",
+    "lambda": 0.5,
+    "superbatches": 80
+  },
+  "change": {
+    "from": "net4-l050-r41165115607",
+    "kind": "topology",
+    "summary": "Hidden width 512 instead of 256"
+  },
+  "experiment": {
+    "pr": 152,
+    "baseline": "net4-l050-r41165115607",
+    "timed": "+44.3 ± 13.1",
+    "fixed_nodes": "+73.6 ± 15.9",
+    "verdict": "kept"
+  },
+  "ledger_anchor": "net4w512-l050-r41170687764",
+  "provenance": {
+    "architecture_source": [
+      "docs/nets.md#net4w512-l050-r41170687764 (Network row)",
+      "docs/nnue.md#architecture",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net4w512-l050-r41170687764/training.json (in S3; not read for this manifest)",
+    "notes": null
+  }
+}

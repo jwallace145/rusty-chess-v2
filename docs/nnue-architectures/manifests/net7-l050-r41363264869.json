@@ -1,0 +1,56 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net7-l050-r41363264869",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 4,
+    "king_bucket_layout": "KING_BUCKET_LAYOUT, files e–h mirrored",
+    "hidden_width": 512,
+    "activation": "SCReLU",
+    "output_buckets": 8,
+    "output_bucket_rule": "(pieces − 2) / 4",
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": 3163200,
+  "status": "superseded",
+  "status_note": "Default v0.43.0–v0.44.3; replaced by net7rl012 before playing a generation",
+  "generation": null,
+  "default_releases": "v0.43.0–v0.44.3",
+  "training": {
+    "generations": "0–5",
+    "labels": "O",
+    "lambda": 0.5,
+    "superbatches": 80
+  },
+  "change": {
+    "from": "net6k4-l050-r41282883885",
+    "kind": "data",
+    "summary": "Generation 5 (played by net6k4) added"
+  },
+  "experiment": {
+    "pr": 180,
+    "baseline": "net6k4-l050-r41282883885",
+    "timed": "+6.8 ± 4.5",
+    "fixed_nodes": "+5.1 ± 4.2 (inconclusive at the cap)",
+    "verdict": "kept"
+  },
+  "ledger_anchor": "net7-l050-r41363264869",
+  "provenance": {
+    "architecture_source": [
+      "docs/nets.md#net7-l050-r41363264869 (Network row)",
+      "docs/nnue.md#architecture",
+      "docs/king-buckets.md#feature-indexing-must-match-bullet-exactly",
+      "docs/nnue.md#output-buckets",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net7-l050-r41363264869/training.json (in S3; not read for this manifest)",
+    "notes": "Merged under the timed-only gate in force before #184."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net2-l050-r41110004652",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 1,
+    "king_bucket_layout": null,
+    "hidden_width": 128,
+    "activation": "SCReLU",
+    "output_buckets": 1,
+    "output_bucket_rule": null,
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": null,
+  "status": "superseded",
+  "status_note": "Default v0.30.0; replaced by net2x80 before playing a generation",
+  "generation": null,
+  "default_releases": "v0.30.0",
+  "training": {
+    "generations": "0–1",
+    "labels": "O",
+    "lambda": 0.5,
+    "superbatches": 40
+  },
+  "change": {
+    "from": "net1-l050-r41022503872",
+    "kind": "data",
+    "summary": "Generation 1 (played by net 1) added to generation 0; the network is net 1's"
+  },
+  "experiment": {
+    "pr": 129,
+    "baseline": "net1-l050-r41022503872",
+    "timed": "+112.8 ± 21.1",
+    "fixed_nodes": "+134.4 ± 22.7",
+    "verdict": "kept"
+  },
+  "ledger_anchor": "net2-l050-r41110004652",
+  "provenance": {
+    "architecture_source": [
+      "docs/nets.md#net2-l050-r41110004652 (Network row)",
+      "docs/nnue.md#architecture",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net2-l050-r41110004652/training.json (in S3; not read for this manifest)",
+    "notes": null
+  }
+}

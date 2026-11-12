@@ -1,0 +1,57 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net8-l050-r42564788061",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 4,
+    "king_bucket_layout": "KING_BUCKET_LAYOUT, files e–h mirrored",
+    "hidden_width": 512,
+    "activation": "SCReLU",
+    "output_buckets": 8,
+    "output_bucket_rule": "(pieces − 2) / 4",
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": 3163200,
+  "status": "default",
+  "status_note": "Default since v0.48.0; plays generation 7",
+  "generation": 7,
+  "default_releases": "v0.48.0",
+  "training": {
+    "generations": "0–6",
+    "labels": "N7 on 0–2, O on 3–6",
+    "lambda": 0.5,
+    "superbatches": 80
+  },
+  "change": {
+    "from": "net7rl012-l050-r42054816508",
+    "kind": "data",
+    "summary": "Generation 6 (played by net7rl012) added"
+  },
+  "experiment": {
+    "pr": 235,
+    "baseline": "net7rl012-l050-r42054816508",
+    "timed": "+14.1 ± 6.9",
+    "fixed_nodes": "+8.8 ± 5.3",
+    "verdict": "kept"
+  },
+  "ledger_anchor": "net8-l050-r42564788061",
+  "provenance": {
+    "architecture_source": [
+      "crates/search/nets/net8-l050-r42564788061.nnue (3,163,200 bytes, the embedded file)",
+      "docs/nets.md#net8-l050-r42564788061 (Network row)",
+      "docs/nnue.md#architecture",
+      "docs/king-buckets.md#feature-indexing-must-match-bullet-exactly",
+      "docs/nnue.md#output-buckets",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net8-l050-r42564788061/training.json (in S3; not read for this manifest)",
+    "notes": "The SPRT result is in #235; the ledger's Summary row still read 'SPRT pending' when this manifest was written."
+  }
+}
