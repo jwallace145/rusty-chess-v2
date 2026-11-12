@@ -35,7 +35,7 @@ relabelled net is a new snapshot, not a new architecture.
 [Diagram source](diagrams/net8-l050-r42564788061.d2) · [manifest](manifests/net8-l050-r42564788061.json) · [the ledger's record](../nets.md#net8-l050-r42564788061)
 
 <p align="center">
-  <a href="diagrams/net8-l050-r42564788061.svg"><img src="diagrams/net8-l050-r42564788061.svg" alt="Architecture of net8-l050-r42564788061: (768 × 4 → 512) × 2 → 8. Chess768 features, 4 mirrored king buckets select each perspective's input weights, two perspective accumulators of 512 sharing one weight set, SCReLU, 1024 activations into one of 8 output heads chosen by piece count, scaled to centipawns." width="720"></a>
+  <a href="diagrams/net8-l050-r42564788061.svg"><img src="diagrams/net8-l050-r42564788061.svg" alt="Architecture of net8-l050-r42564788061: (768 × 4 → 512) × 2 → 8. Chess768 features, 4 mirrored king buckets select each perspective's input weights, two perspective accumulators of 512 sharing one weight set, SCReLU, 1024 activations into one of 8 output heads chosen by piece count, scaled to centipawns."></a>
 </p>
 <!-- nnue-diagrams:current:end -->
 

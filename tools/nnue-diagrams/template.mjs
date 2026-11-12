@@ -38,7 +38,7 @@ export function d2String(s) {
 const fmt = (n) => n.toLocaleString("en-US");
 
 function classBlock(name, { fill, stroke, text }, extra = null) {
-  const style = [`fill: ${d2String(fill)}`, `stroke: ${d2String(stroke)}`, `font-color: ${d2String(text)}`, "stroke-width: 2", "border-radius: 10"];
+  const style = [`fill: ${d2String(fill)}`, `stroke: ${d2String(stroke)}`, `font-color: ${d2String(text)}`, "stroke-width: 2", "border-radius: 10", "font-size: 20"];
   if (extra !== null) style.push(extra);
   return `  ${name}: {\n    style: {\n${style.map((l) => `      ${l}`).join("\n")}\n    }\n  }`;
 }
@@ -77,9 +77,9 @@ export function d2Source(manifest) {
   push(classBlock("eval", PALETTE.eval, "bold: true"));
   push(classBlock("neutral", PALETTE.neutral));
   push(classBlock("muted", PALETTE.muted, "stroke-dash: 4"));
-  push(`  flow: { style: { stroke: ${d2String(PALETTE.edge)}; stroke-width: 2; font-color: ${d2String(PALETTE.edge)}; font-size: 14 } }`);
-  push(`  faint: { style: { stroke: ${d2String(PALETTE.edgeMuted)}; stroke-width: 2; stroke-dash: 4; font-color: ${d2String(PALETTE.edgeMuted)}; font-size: 14 } }`);
-  push(`  shared: { style: { stroke: ${d2String(PALETTE.transformer.stroke)}; stroke-width: 2; stroke-dash: 5; font-color: ${d2String(PALETTE.transformer.text)}; font-size: 14; bold: true } }`);
+  push(`  flow: { style: { stroke: ${d2String(PALETTE.edge)}; stroke-width: 2; font-color: ${d2String(PALETTE.edge)}; font-size: 16 } }`);
+  push(`  faint: { style: { stroke: ${d2String(PALETTE.edgeMuted)}; stroke-width: 2; stroke-dash: 4; font-color: ${d2String(PALETTE.edgeMuted)}; font-size: 16 } }`);
+  push(`  shared: { style: { stroke: ${d2String(PALETTE.transformer.stroke)}; stroke-width: 2; stroke-dash: 5; font-color: ${d2String(PALETTE.transformer.text)}; font-size: 16; bold: true } }`);
   push("}");
   push("");
 
@@ -87,12 +87,12 @@ export function d2Source(manifest) {
   push(`title: ${d2String(`${manifest.net_id}\n${manifest.signature}`)} {`);
   push("  shape: text");
   push("  near: top-center");
-  push(`  style: { font-size: 28; bold: true; font-color: ${d2String(PALETTE.neutral.text)} }`);
+  push(`  style: { font-size: 32; bold: true; font-color: ${d2String(PALETTE.neutral.text)} }`);
   push("}");
   push(`caption: ${d2String(`${manifest.featureTag}  ·  ${fmt(manifest.parameters)} parameters  ·  ${manifest.status_note}`)} {`);
   push("  shape: text");
   push("  near: bottom-center");
-  push(`  style: { font-size: 16; font-color: ${d2String(PALETTE.muted.text)}; italic: true }`);
+  push(`  style: { font-size: 18; font-color: ${d2String(PALETTE.muted.text)}; italic: true }`);
   push("}");
   push("");
 
@@ -104,7 +104,7 @@ export function d2Source(manifest) {
   if (K > 1) {
     push(`views: ${d2String(`Own-king view, one per perspective: ${K} king buckets`)} {`);
     push("  class: view");
-    push("  style.font-size: 18");
+    push("  style.font-size: 22");
     push(`  us: ${d2String(`Side to move's view\nits own king's bucket: ${t.king_bucket_layout}`)} { class: view }`);
     push(`  them: ${d2String(`Opponent's view\nits own king's bucket: ${t.king_bucket_layout}`)} { class: view }`);
     push("}");
@@ -114,7 +114,7 @@ export function d2Source(manifest) {
   // 3. The shared feature transformer: one weight set, two perspective accumulators.
   push(`ft: ${d2String("Feature transformer: two perspectives, one shared weight set")} {`);
   push("  class: transformer");
-  push("  style.font-size: 18");
+  push("  style.font-size: 22");
   const weightsLabel =
     K > 1
       ? `Shared weights W\n${F} × ${K} → ${H}: ${fmt(transformerWeights)} weights + ${H} biases\n${K} slices of ${F} × ${H}, one per king bucket`
@@ -137,7 +137,7 @@ export function d2Source(manifest) {
     push(`select: ${d2String(`Output bucket from the board's piece count (2–32)\n${t.output_bucket_rule}  →  one of ${B}`)} { class: head }`);
     push(`heads: ${d2String(`Bank of ${B} output heads, ${twoH} → 1 each`)} {`);
     push("  class: head");
-    push("  style.font-size: 18");
+    push("  style.font-size: 22");
     push(`  chosen: ${d2String(`The one selected head\n${twoH} → 1: ${fmt(twoH)} weights + bias`)} { class: head }`);
     push(`  rest: ${d2String(`${B - 1} other heads\nnot evaluated for this position`)} { class: muted }`);
     push("}");
