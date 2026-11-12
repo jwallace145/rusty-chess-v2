@@ -16,6 +16,7 @@ classes: {
       font-color: "#1E3A8A"
       stroke-width: 2
       border-radius: 10
+      font-size: 20
     }
   }
   view: {
@@ -25,6 +26,7 @@ classes: {
       font-color: "#4C1D95"
       stroke-width: 2
       border-radius: 10
+      font-size: 20
     }
   }
   transformer: {
@@ -34,6 +36,7 @@ classes: {
       font-color: "#164E63"
       stroke-width: 2
       border-radius: 10
+      font-size: 20
     }
   }
   weights: {
@@ -43,6 +46,7 @@ classes: {
       font-color: "#164E63"
       stroke-width: 2
       border-radius: 10
+      font-size: 20
       bold: true
     }
   }
@@ -53,6 +57,7 @@ classes: {
       font-color: "#14532D"
       stroke-width: 2
       border-radius: 10
+      font-size: 20
     }
   }
   head: {
@@ -62,6 +67,7 @@ classes: {
       font-color: "#78350F"
       stroke-width: 2
       border-radius: 10
+      font-size: 20
     }
   }
   eval: {
@@ -71,6 +77,7 @@ classes: {
       font-color: "#881337"
       stroke-width: 2
       border-radius: 10
+      font-size: 20
       bold: true
     }
   }
@@ -81,6 +88,7 @@ classes: {
       font-color: "#1E293B"
       stroke-width: 2
       border-radius: 10
+      font-size: 20
     }
   }
   muted: {
@@ -90,37 +98,38 @@ classes: {
       font-color: "#64748B"
       stroke-width: 2
       border-radius: 10
+      font-size: 20
       stroke-dash: 4
     }
   }
-  flow: { style: { stroke: "#334155"; stroke-width: 2; font-color: "#334155"; font-size: 14 } }
-  faint: { style: { stroke: "#94A3B8"; stroke-width: 2; stroke-dash: 4; font-color: "#94A3B8"; font-size: 14 } }
-  shared: { style: { stroke: "#0E7490"; stroke-width: 2; stroke-dash: 5; font-color: "#164E63"; font-size: 14; bold: true } }
+  flow: { style: { stroke: "#334155"; stroke-width: 2; font-color: "#334155"; font-size: 16 } }
+  faint: { style: { stroke: "#94A3B8"; stroke-width: 2; stroke-dash: 4; font-color: "#94A3B8"; font-size: 16 } }
+  shared: { style: { stroke: "#0E7490"; stroke-width: 2; stroke-dash: 5; font-color: "#164E63"; font-size: 16; bold: true } }
 }
 
 title: "net8-l050-r42564788061\n(768 × 4 → 512) × 2 → 8" {
   shape: text
   near: top-center
-  style: { font-size: 28; bold: true; font-color: "#1E293B" }
+  style: { font-size: 32; bold: true; font-color: "#1E293B" }
 }
 caption: "H512 · K4 · B8  ·  1,581,576 parameters  ·  Default since v0.48.0; plays generation 7" {
   shape: text
   near: bottom-center
-  style: { font-size: 16; font-color: "#64748B"; italic: true }
+  style: { font-size: 18; font-color: "#64748B"; italic: true }
 }
 
 board: "Board position\nChess768: 768 features per perspective\n2 colours × 6 piece kinds × 64 squares" { class: input }
 
 views: "Own-king view, one per perspective: 4 king buckets" {
   class: view
-  style.font-size: 18
+  style.font-size: 22
   us: "Side to move's view\nits own king's bucket: KING_BUCKET_LAYOUT, files e–h mirrored" { class: view }
   them: "Opponent's view\nits own king's bucket: KING_BUCKET_LAYOUT, files e–h mirrored" { class: view }
 }
 
 ft: "Feature transformer: two perspectives, one shared weight set" {
   class: transformer
-  style.font-size: 18
+  style.font-size: 22
   w: "Shared weights W\n768 × 4 → 512: 1,572,864 weights + 512 biases\n4 slices of 768 × 512, one per king bucket" { class: weights }
   us: "Side to move accumulator\n768 → 512" { class: transformer }
   them: "Opponent accumulator\n768 → 512" { class: transformer }
@@ -134,7 +143,7 @@ concat: "Concatenate: 1024 activations\n[side to move 512 | opponent 512]" { cla
 select: "Output bucket from the board's piece count (2–32)\n(pieces − 2) / 4  →  one of 8" { class: head }
 heads: "Bank of 8 output heads, 1024 → 1 each" {
   class: head
-  style.font-size: 18
+  style.font-size: 22
   chosen: "The one selected head\n1024 → 1: 1,024 weights + bias" { class: head }
   rest: "7 other heads\nnot evaluated for this position" { class: muted }
 }
