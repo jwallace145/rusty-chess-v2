@@ -1,0 +1,54 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net1-l050-r41022503872",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 1,
+    "king_bucket_layout": null,
+    "hidden_width": 128,
+    "activation": "SCReLU",
+    "output_buckets": 1,
+    "output_bucket_rule": null,
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": null,
+  "status": "retired",
+  "status_note": "Default v0.28.0–v0.29.0; played generation 1",
+  "generation": 1,
+  "default_releases": "v0.28.0–v0.29.0",
+  "training": {
+    "generations": "0",
+    "labels": "O",
+    "lambda": 0.5,
+    "superbatches": 40
+  },
+  "change": {
+    "from": null,
+    "kind": "first",
+    "summary": "The first net: bullet's reference (768 → 128) × 2 → 1 SCReLU network, trained on generation 0 (PeSTO's self-play)"
+  },
+  "experiment": {
+    "pr": 122,
+    "baseline": "PeSTO",
+    "timed": "+587.3 ± 82.7",
+    "fixed_nodes": "+563.4 ± 93.8",
+    "verdict": "kept"
+  },
+  "ledger_anchor": "net1-l050-r41022503872",
+  "provenance": {
+    "architecture_source": [
+      "docs/nets.md#net1-l050-r41022503872 (Network row)",
+      "docs/nnue.md#architecture",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net1-l050-r41022503872/training.json (in S3; not read for this manifest)",
+    "notes": "The ledger records no file size for this net; 197,378 bytes unpadded by the format (docs/nnue.md#file-format)."
+  }
+}

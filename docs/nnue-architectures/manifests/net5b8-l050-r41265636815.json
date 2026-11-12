@@ -1,0 +1,55 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net5b8-l050-r41265636815",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 1,
+    "king_bucket_layout": null,
+    "hidden_width": 512,
+    "activation": "SCReLU",
+    "output_buckets": 8,
+    "output_bucket_rule": "(pieces − 2) / 4",
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": 803904,
+  "status": "superseded",
+  "status_note": "Default v0.39.0–v0.39.2; replaced by net6 before playing a generation",
+  "generation": null,
+  "default_releases": "v0.39.0–v0.39.2",
+  "training": {
+    "generations": "0–3",
+    "labels": "O",
+    "lambda": 0.5,
+    "superbatches": 80
+  },
+  "change": {
+    "from": "net5-l050-r41229287546",
+    "kind": "topology",
+    "summary": "8 output heads, one chosen per position by its piece count, instead of a single head"
+  },
+  "experiment": {
+    "pr": 164,
+    "baseline": "net5-l050-r41229287546",
+    "timed": "+6.5 ± 4.4",
+    "fixed_nodes": "+12.4 ± 6.6",
+    "verdict": "kept"
+  },
+  "ledger_anchor": "net5b8-l050-r41265636815",
+  "provenance": {
+    "architecture_source": [
+      "docs/nets.md#net5b8-l050-r41265636815 (Network row)",
+      "docs/nnue.md#architecture",
+      "docs/nnue.md#output-buckets",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net5b8-l050-r41265636815/training.json (in S3; not read for this manifest)",
+    "notes": null
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net7rl012345-l050-r42398995769",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 4,
+    "king_bucket_layout": "KING_BUCKET_LAYOUT, files e–h mirrored",
+    "hidden_width": 512,
+    "activation": "SCReLU",
+    "output_buckets": 8,
+    "output_bucket_rule": "(pieces − 2) / 4",
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": 3163200,
+  "status": "dropped",
+  "status_note": "Dropped (#210): relabelling generations 3–5 (N7r) failed its SPRT against net7rl012",
+  "generation": null,
+  "default_releases": null,
+  "training": {
+    "generations": "0–5",
+    "labels": "N7 on 0–2, N7r on 3–5",
+    "lambda": 0.5,
+    "superbatches": 80
+  },
+  "change": {
+    "from": "net7rl012-l050-r42054816508",
+    "kind": "labels",
+    "summary": "Generations 3–5 relabelled by net7rl012 (label set N7r); network unchanged"
+  },
+  "experiment": {
+    "pr": 210,
+    "baseline": "net7rl012-l050-r42054816508",
+    "timed": "+1.9 ± 4.1 (inconclusive)",
+    "fixed_nodes": "−5.2 ± 5.2 (H0)",
+    "verdict": "dropped"
+  },
+  "ledger_anchor": "net7rl012345-l050-r42398995769",
+  "provenance": {
+    "architecture_source": [
+      "docs/nets.md#net7rl012345-l050-r42398995769 (Network row)",
+      "docs/nnue.md#architecture",
+      "docs/king-buckets.md#feature-indexing-must-match-bullet-exactly",
+      "docs/nnue.md#output-buckets",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net7rl012345-l050-r42398995769/training.json (in S3; not read for this manifest)",
+    "notes": null
+  }
+}

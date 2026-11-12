@@ -8,7 +8,10 @@ names are in [datasets.md](datasets.md); the architecture and file format in
 
 Each net's own record (`training.json`, the losses, the validation curve, the
 split, the log) is in `s3://jwall-engineering-rusty-chess-nnue/data/nets/<net id>/`.
-Net ids are `<name>-l<λ×100>-r<Train run id>`.
+Net ids are `<name>-l<λ×100>-r<Train run id>`. Each net's architecture is
+drawn in [nnue-architectures/](nnue-architectures/README.md), one snapshot
+per net id; the CI check there requires every net in the summary below to
+have one.
 
 The **Labels** column is the label set a net used for its generations. `O` means
 every generation's original labels; a mix names each part, such as `N7` on
