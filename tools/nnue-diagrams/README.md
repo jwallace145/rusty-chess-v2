@@ -14,7 +14,7 @@ npm run nnue:diagrams:list            # the snapshots in training order
 |:--|:--|
 | `manifest.mjs` | The manifest schema and its validation. Every topology field is required; nothing is defaulted. Derives the ledger's architecture notation, the parameter count and the file size the topology implies, which is checked against `file_bytes` when the manifest has one |
 | `template.mjs` | A manifest to D2 source: the forward pass as modules, two perspective accumulators reading one shared weight set, the own-king view when K > 1, SCReLU, the concatenation, the one head the piece count selects from the bank of B, the scaling to centipawns |
-| `render.mjs` | D2 source to SVG with `@terrastruct/d2`, D2's WebAssembly build, pinned to an exact version in `package.json`; the SVG is normalised so whitespace hooks can't make a fresh render look stale |
+| `render.mjs` | D2 source to SVG with `@terrastruct/d2`, D2's WebAssembly build, pinned to an exact version in `package.json`, at `scale: 1` so the outer `<svg>` carries its natural `width` and `height` (GitHub's file viewer shows a diagram without them as a thumbnail); the SVG is normalised so whitespace hooks can't make a fresh render look stale |
 | `gallery.mjs` | The generated blocks of `README.md` and `evolution.md`, between `<!-- nnue-diagrams:<block>:start -->` and `end` markers; the prose around them is hand-written |
 | `ledger.mjs` | Reads `docs/nets.md`'s Summary table and headings, the engine's `NETS` and `RETIRED_NETS`, and the embedded `.nnue` file |
 | `cli.mjs` | `generate`, `check`, `list` |

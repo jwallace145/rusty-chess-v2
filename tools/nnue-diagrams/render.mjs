@@ -72,11 +72,18 @@ export class Renderer {
     return this.d2.version();
   }
 
-  /** Renders one D2 source to normalised SVG. The layout engine and theme come from the source's `d2-config`. */
+  /**
+   * Renders one D2 source to normalised SVG. The layout engine and theme come
+   * from the source's `d2-config`. `scale: 1` makes D2 write the diagram's
+   * natural `width` and `height` on the outer `<svg>`: without them a browser
+   * has only the viewBox's aspect ratio, and GitHub's file viewer shrinks a
+   * tall diagram into a thumbnail-sized box.
+   */
   async render(source) {
-    const compiled = await this.d2.compile(source, {});
+    const compiled = await this.d2.compile(source, { scale: 1 });
     const svg = await this.d2.render(compiled.diagram, compiled.renderOptions);
     if (!svg.startsWith("<?xml") && !svg.startsWith("<svg")) throw new Error("D2 returned something that is not an SVG document");
+    if (!/^<\?xml[^>]*\?><svg [^>]*\bwidth="\d+" height="\d+"/.test(svg)) throw new Error("D2 did not write the SVG's natural width and height; the diagram would render tiny on GitHub");
     return normaliseSvg(svg);
   }
 

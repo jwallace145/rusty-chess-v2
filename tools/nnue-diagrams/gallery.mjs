@@ -81,7 +81,7 @@ ${t.hidden_width} hidden neurons per perspective, ${t.king_buckets} king bucket$
 [Diagram source](${sourcePath(m)}) · [manifest](${manifestPath(m)}) · [the ledger's record](${ledgerLink(m)})
 
 <p align="center">
-  <a href="${diagramPath(m)}"><img src="${diagramPath(m)}" alt="${escapeHtml(altText(m))}" width="720"></a>
+  <a href="${diagramPath(m)}"><img src="${diagramPath(m)}" alt="${escapeHtml(altText(m))}"></a>
 </p>`;
 }
 
