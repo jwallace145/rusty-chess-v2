@@ -44,6 +44,17 @@ const INFINITY: i32 = 32_000;
 /// Lab: no static evaluation at this ply (in check).
 const EVAL_NONE: i32 = 32_001;
 
+/// Lab: the evaluation as the search reads it (`EVAL_PCT`).
+#[inline]
+fn lab_eval(board: &Board) -> i32 {
+    let pct = lp(&lab::EVAL_PCT);
+    if pct == 100 {
+        board.evaluate()
+    } else {
+        board.evaluate() * pct / 100
+    }
+}
+
 /// Lab: the history bonus for a cutoff at `depth`.
 #[inline]
 fn hist_bonus(depth: u32) -> i32 {
@@ -545,7 +556,7 @@ impl Searcher {
             return self.quiescence(board, alpha, beta, ply);
         }
         if ply >= MAX_PLY - 1 {
-            return board.evaluate();
+            return lab_eval(board);
         }
         self.nodes += 1;
         stat!(self.stats, nodes);
@@ -609,7 +620,7 @@ impl Searcher {
         let node_prunable = prunable && excluded == Move::NULL;
         // The network's evaluation, then the structure's learned error
         // added (`corrhist`): pruning reads the corrected one.
-        let raw_eval = if prunable { board.evaluate() } else { 0 };
+        let raw_eval = if prunable { lab_eval(board) } else { 0 };
         let static_eval = if prunable {
             let corrected = self.corrhist.corrected(board.position(), raw_eval);
             stat!(self.stats, corr_reads);
@@ -629,7 +640,7 @@ impl Searcher {
         } else if prunable {
             static_eval
         } else {
-            self.corrhist.corrected(board.position(), board.evaluate())
+            self.corrhist.corrected(board.position(), lab_eval(board))
         };
         self.evals[ply] = eval_here;
         let improving = if in_check {
@@ -1296,11 +1307,11 @@ impl Searcher {
                 return -(MATE - ply as i32);
             }
             if ply >= MAX_PLY - 1 {
-                return board.evaluate();
+                return lab_eval(board);
             }
             -INFINITY
         } else {
-            let raw = board.evaluate();
+            let raw = lab_eval(board);
             let stand_pat = self.corrhist.corrected(board.position(), raw);
             stat!(self.stats, corr_reads);
             stat!(

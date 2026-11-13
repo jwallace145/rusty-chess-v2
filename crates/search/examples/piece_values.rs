@@ -9,15 +9,32 @@ use rusty_chess_core::types::{PieceKind, Square};
 use rusty_chess_search::board::Board;
 use rusty_chess_search::nnue::default_network;
 
+fn network() -> std::sync::Arc<rusty_chess_search::nnue::Network> {
+    static NET: std::sync::OnceLock<std::sync::Arc<rusty_chess_search::nnue::Network>> =
+        std::sync::OnceLock::new();
+    NET.get_or_init(|| match std::env::var("NET") {
+        Ok(path) => {
+            let bytes = std::fs::read(&path).expect("read the net file");
+            std::sync::Arc::new(
+                rusty_chess_search::nnue::Network::from_bytes(&bytes)
+                    .expect("a net the engine reads"),
+            )
+        }
+        Err(_) => default_network(),
+    })
+    .clone()
+}
+
 fn eval(fen: &str) -> Option<i32> {
     let pos = Position::from_fen(fen).ok()?;
     if pos.in_check() {
         return None;
     }
     let mut b = Board::from_position(pos);
-    // PESTO=1 measures the hand-written evaluation instead, for comparison.
+    // PESTO=1 measures the hand-written evaluation instead, for comparison;
+    // NET=<file> measures a net file instead of the embedded default.
     if std::env::var("PESTO").is_err() {
-        b.set_network(Some(default_network()));
+        b.set_network(Some(network()));
     }
     Some(b.evaluate())
 }

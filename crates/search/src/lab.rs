@@ -83,6 +83,11 @@ params! {
     SEE_CAP = 0,
     // Internal iterative reductions.
     IIR_DEPTH = 4,
+    // The evaluation as the search reads it, as a percentage of the net's
+    // output: 125 makes every evaluation-based margin a fifth tighter at
+    // once, 80 a quarter looser. A probe, not a feature: it also scales the
+    // scores the search reports.
+    EVAL_PCT = 100,
     // The LMR table, in hundredths: LMR_BASE / 100 + ln(depth) * ln(index) / (LMR_DIV / 100).
     LMR_BASE = 75,
     LMR_DIV = 225,
