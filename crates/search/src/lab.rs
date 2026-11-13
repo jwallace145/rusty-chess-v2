@@ -30,7 +30,7 @@ params! {
     // Reverse futility pruning.
     RFP_DEPTH = 6,
     RFP_MARGIN = 80,
-    RFP_IMPROVING = 0,
+    RFP_IMPROVING = 1,
     // Futility pruning of quiets.
     FP_DEPTH = 6,
     FP_BASE = 100,
