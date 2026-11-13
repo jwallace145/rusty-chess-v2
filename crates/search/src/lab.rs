@@ -18,9 +18,9 @@ macro_rules! params {
 
 params! {
     // Null-move pruning: R = NMP_BASE + depth / NMP_DIV + min((eval - beta) / NMP_EVAL_DIV, NMP_EVAL_MAX).
-    NMP_BASE = 2,
-    NMP_DIV = 4,
-    NMP_EVAL_DIV = 0,
+    NMP_BASE = 5,
+    NMP_DIV = 3,
+    NMP_EVAL_DIV = 200,
     NMP_EVAL_MAX = 3,
     NMP_MIN_DEPTH = 3,
     // Fractional form for tuning (used when NMP_A64 > 0):
