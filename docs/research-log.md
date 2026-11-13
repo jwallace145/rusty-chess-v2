@@ -380,6 +380,8 @@ fixed-node leg is two identical engines).
 | 3 | #249 | Futility pruning in quiescence, the victim valued at the net's scale | 970013 → 990066 | +3.6 ± 3.9 (inconclusive at 10,000 games) | **−10.8 ± 6.7** (H0, 3,290 games) | **Gate not met: dropped.** Recommended for closing |
 | 4 | #250, stacked on #246 | Null-move reduction's base 3 → 4 | 939252 → 925602 (against #246) | +1.5 ± 3.7 (inconclusive at 10,000 games) | Not played (its instance failed to launch) | **Gate not met: dropped.** Recommended for closing |
 
+| 5 | #252 | Futility pruning of captures in the main search, the victim valued at the net's scale | 970013 → 970114 | Pending | Pending | Pending |
+
 #### Experiment 1: adaptive null-move reduction (#246)
 
 Recorded on 2026-11-12 at 23:26 MST, before the `sprt` label was added.
@@ -601,6 +603,23 @@ measurable (interval −2.2 to +5.2); the only fixed-node evidence is match M2's
 what there was at 5+0.05, and match M7, which asked where the axis turns over,
 is withdrawn unrun: this answers it at a clock.
 
+#### Experiment 5: futility pruning of captures in the main search (#252)
+
+Recorded on 2026-11-13 at 01:34 MST, before the `sprt` label was added.
+
+| | |
+|:--|:--|
+| Question | The search prunes hopeless quiet moves at shallow depth and searches every capture. Does pruning captures that cannot bring the score back gain Elo, once what a capture can gain is counted in the evaluation's own units? |
+| The one change | In `negamax`'s move loop, at a null-window node not in check, a capture that is not the first move and not a promotion is skipped when `static eval + 300 + 200·depth + value(victim) ≤ alpha`, at depth ≤ 6, with the victim at 300, 775, 880, 1,100 and 1,680. `feat/capture-futility` at `cb6dfbc` against `main` at `0a45da0` |
+| Held the same | Futility pruning of quiets, late move pruning, SEE pruning, reductions, quiescence, the net |
+| Why this variant | The first form built: the margin is one measured pawn plus two thirds of one a ply, the depth limit is the quiet rule's, the values are the measured ones. One variant screened (three times at 40,000 nodes, once at 200,000) and one tested |
+| Screen (exploratory, on the instance) | Match M6: **+12.2, 99% interval +3.2 to +21.2**, 3,000 games at 200,000 nodes; the lab build that played it has the PR's signature, 970114. At 40,000 nodes: +15.1 ± 9.5, +16.7 ± 9.4 and, on top of experiment 3's rule, +9.9 ± 9.8 |
+| Bench, local | 970013 → 970114 (101 nodes more to depth 10); fail-high-first 0.8740 → 0.8740; EBF 1.877 → 1.898; both bars pass; 13,312 captures skipped |
+| Expectation | Fixed nodes: +5 to +15, from M6. Timed: about the same; the rule costs a table read and an addition a capture |
+| Gate | H1 in both legs. Anything else drops the change |
+| Risks named beforehand | Experiment 3 was the same idea in quiescence and lost at 200,000 nodes; this one has been screened there and read positive, which is a reason to test it and not a reason to expect it to pass. M6 is the best of nine matches read so far, so its +12.2 is inflated by that choice; the SPRT is a fresh sample. The values belong to this net |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 15 to 50 minutes: $1.70 to $5.80. No other SPRT is running; a match and the training run are, which leaves room under the account's quota |
+
 #### Match M1: experiment 1 at 10+0.1
 
 Recorded on 2026-11-12 at 23:41 MST, before the dispatch.
@@ -703,7 +722,13 @@ at `0a45da0`, bench 970,013):
 | M3, double singular extension | +5.2 | −4.0 to +14.4 | 92.7% | 3000 | 585 / 540 / 1875 | 35, 310, 770, 345, 40 | Under +8: recorded, no PR |
 | M5, negative singular extension | +6.4 | −3.7 to +16.4 | 94.9% | 3000 | 695 / 640 / 1665 | 45, 350, 665, 385, 55 | Under +8: recorded, no PR |
 | M4, ProbCut with a capture filter | −10.4 | −20.2 to −0.7 | 0.3% | 3000 | 600 / 690 / 1710 | 55, 380, 700, 330, 35 | Weaker, with a 99% interval below zero: **dropped** |
+| M6, capture futility in the main search | **+12.2** | +3.2 to +21.2 | 100.0% | 3000 | 685 / 580 / 1735 | 25, 295, 765, 380, 35 | **+8 or more: goes forward as experiment 5 (#252)** |
 <!-- matches:m3-m6 -->
+
+M6 ran as [43391890629](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43391890629)
+(`research/lab-capfut200`, `02ff8a9`, bench 970,114), dispatched at 08:16 UTC by
+the queue runner, the settings job passing at the first attempt; 3,000 games in
+660 s of play.
 
 #### Matches M7 to M10
 
@@ -868,6 +893,8 @@ The plan is in [nets.md](nets.md#net8x160-planned), recorded in `2160aea` at
 | Matches M4 and M5 | [43388091282](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388091282), [43388637501](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388637501) | $1.40 | About $1.50: the tasks ran 649 s and 620 s |
 
 | SPRT, experiment 4 (#250) | [43386646994](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386646994) | $2.30–5.80 | About $2.60: one instance for 45 minutes (the timed leg); the fixed-node leg launched nothing |
+
+| Match M6 | [43391890629](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43391890629) | $0.70 | About $0.80: the task ran 679 s |
 
 *(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
 
