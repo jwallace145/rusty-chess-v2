@@ -70,9 +70,9 @@ impl EmbeddedNet {
 /// carrying every generation's net grew the binary with each one. A new
 /// default replaces the entry; the one it replaces moves to [`RETIRED_NETS`].
 pub const NETS: [EmbeddedNet; 1] = [EmbeddedNet {
-    id: "net8-l050-r42564788061",
+    id: "net8x160-l050-r43390801430",
     generation: 7,
-    bytes: include_bytes!("../nets/net8-l050-r42564788061.nnue"),
+    bytes: include_bytes!("../nets/net8x160-l050-r43390801430.nnue"),
 }];
 
 /// Where every trained net is kept, forever: `<NET_STORE>/<id>/net.nnue`,
