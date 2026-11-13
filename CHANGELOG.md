@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.49.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.48.1...v0.49.0) (2026-11-13)
+
+
+### Features
+
+* **search:** adaptive null-move reduction, deeper with depth and with the margin over beta ([#246](https://github.com/jwallace145/rusty-chess-v2/issues/246)) ([cd51dee](https://github.com/jwallace145/rusty-chess-v2/commit/cd51deee9fefe22ceb1ec7c962040a0323481080))
+
+### Benchmarks
+
+* bench signature 939,252, instructions per node 4033, search 2.84M NPS, perft 356.12M NPS (pass (63)), fail-high first 87.7%, EBF 1.90, TT hit 52.2%
+* since v0.48.1: fail-high first +0.3 pt, EBF +0.02, instructions per node −0.8%, search NPS +56.2%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.48.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.48.0...v0.48.1) (2026-11-13)
 
 
