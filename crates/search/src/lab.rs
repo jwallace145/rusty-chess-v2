@@ -92,12 +92,12 @@ params! {
     CONT4 = 0,
     // ProbCut (0 = off): at depth >= PC_DEPTH, a capture whose search at
     // depth - 4 beats beta + PC_MARGIN ends the node.
-    PC_MARGIN = 0,
+    PC_MARGIN = 200,
     PC_DEPTH = 5,
     // ProbCut's capture filter: 0 = any capture that does not lose material;
     // n = the exchange must win (beta + margin - eval) / n in classical units
     // (3 converts the net's scale to the classical one).
-    PC_SEE_DIV = 0,
+    PC_SEE_DIV = 3,
     // Futility pruning of captures in the main search (0 = off): at depth <=
     // CAPFUT_DEPTH, skip a capture when eval + CAPFUT_BASE + CAPFUT * depth +
     // the victim's net-scale value <= alpha.
