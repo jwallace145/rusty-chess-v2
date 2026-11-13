@@ -183,6 +183,18 @@ go to their SPRT directly when the case is strong; (3) continuous margins are
 not screened one value at a time: they go to one SPSA run (below). The
 advance threshold (+8, or an early H1) is unchanged.
 
+**Screens withdrawn before they ran** (queued, then removed; nothing was
+played): `sc-rfp160` and `sc-rfp240` (reverse-futility margin 160 and 240),
+after `sc-rfp120` read −4.5; `sc-fp300` (futility 300 + 300), after `sc-fp200`
+read −0.4; `sc-asp70`, `s1-lmr-base100`, `s1-lmr-div200`, `s1-rfp-m100`,
+`s1-rfp-m65`, `s1-asp20`, `s1-lmp-d8` and `s1-rfp-d8`, single values of
+continuous constants that the SPSA run S1 tunes together instead;
+`s1-se-dbl20` and `s1-se-neg` (singular-extension variants), which act only
+at depths a 40,000-node search barely reaches; `s1-razor3`, `s1-hist1-8192`
+and `s1-tt-nopv`, the lowest-ranked, for time; `s2-tteval-down` and
+`s2-tteval-up` (the two halves of experiment 2's rule), deferred until its
+SPRT says whether they matter.
+
 ### The net's material scale
 
 **Measured on 2026-11-12 at 23:43 MST, after `s1-qs-fut150` lost 106 Elo**, a
@@ -232,6 +244,43 @@ The control reads PeSTO's table values, so the method measures what it says.
 - **Not measured:** how the scale has moved from net to net (it should be
   tracked, in [nets.md](nets.md), so a margin's drift is visible); the values in
   positions that are already unbalanced, where the output is flatter.
+
+### How the clock is spent at 5+0.05
+
+**Measured on 2026-11-12 at 23:56 MST,** as the premise check for H10 (time
+management), from the 1,713 games of experiment 1's timed leg (the `sprt-timed`
+artifact of run 43378687011; both engines, which share the time plan). Each
+move's time and depth are fastchess's PGN comments; the clock is rebuilt from
+5 s plus 0.05 s a move.
+
+| Own move | Moves | Mean time | Median time | Mean depth | Mean clock before the move | Time ÷ clock |
+|--:|--:|--:|--:|--:|--:|--:|
+| 1 | 3,426 | 294 ms | 265 ms | 15.2 | 5.00 s | 5.9% |
+| 5 | 3,426 | 303 ms | 271 ms | 15.9 | 3.94 s | 7.7% |
+| 10 | 3,426 | 239 ms | 213 ms | 15.5 | 2.81 s | 8.5% |
+| 20 | 3,322 | 144 ms | 127 ms | 15.4 | 1.42 s | 10.1% |
+| 30 | 3,005 | 97 ms | 85 ms | 16.5 | 0.71 s | 13.6% |
+| 40 | 2,457 | 72 ms | 63 ms | 17.6 | 0.35 s | 20.9% |
+| 50 | 1,883 | 58 ms | 53 ms | 19.1 | 0.18 s | 31.8% |
+| 60 | 1,355 | 51 ms | 48 ms | 19.5 | 0.13 s | 38.0% |
+
+Median game 104 plies; no time forfeits in 1,713 games; a side ends a game with
+a median of 0.20 s on its clock.
+
+**What it says.** The plan spends 6 to 9% of the clock a move from the start,
+about twice its nominal thirtieth (an iteration that starts under the soft
+budget runs on towards the hard one), so the clock is at 1.4 s by move 20 and
+the engine lives on the increment from about move 45, at 50 ms a move against
+300 ms in the opening.
+
+**What it doesn't say, and why H10 is not run.** That this is wrong. #59 already
+tested a slower burn at this control (182 ms a move in the first ten moves
+against 269) and scored −4.2 ± 10.8, then matched the clock use with a
+stability cut and scored −7.5 ± 11.3. The record's reading stands: at 5+0.05
+the front-loaded plan is at least as good as the alternatives tried, and a
+time-management change is a long-control question that 5+0.05 cannot answer.
+A time-management change also cannot pass the gate by construction (its
+fixed-node leg is two identical engines).
 
 ### Experiments
 
@@ -292,7 +341,7 @@ merge." The agent does not merge.
 
 #### Experiment 2: the table's score as the evaluation for whole-node pruning (#248)
 
-Recorded on 2026-11-12 at 23:53 MST, before the `sprt` label was added.
+Recorded on 2026-11-12 at 23:50 MST, before the `sprt` label was added.
 
 | | |
 |:--|:--|
@@ -326,6 +375,34 @@ Recorded on 2026-11-12 at 23:41 MST, before the dispatch.
 |:--|:--|:--|
 | [43380319041](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380319041) | 2026-11-13 06:40 | **Failed at instance setup, no games played:** `rustup` could not download `channel-rust-1.99.1.toml.sha256` from static.rust-lang.org, so the task never started; the instance (`i-02961d40797a3deda`) terminated itself after about three minutes. A network failure, not the workflow or the engine |
 | [43380894175](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380894175) | 06:45 | The same inputs again. Pending |
+
+#### Match M2: one more ply of null-move reduction, at 200,000 nodes
+
+Recorded on 2026-11-13 at 00:03 MST, before the dispatch. **Exploratory:** a
+screen on the standardized instance, under the amended rule for changes that
+act at depth.
+
+| | |
+|:--|:--|
+| Question | Experiment 1 moved the null-move reduction one step and gained +24 to +28. Is the best setting further along the same axis? |
+| What runs | `Match` from `main`: candidate `research/nmp-base4` (`daf0970`: `NULL_MOVE_REDUCTION` 4, nothing else) against `feat/null-move-adaptive-reduction` (`b54010f`, #246), 200,000 nodes a move, 3,000 games, hash 64 MB, 99% interval; one on-demand `c8a.16xlarge` |
+| Read beforehand | +8 or more: a PR stacked on #246, with its own plan and SPRT against #246's head. Between 0 and +8: recorded, no PR. Below 0: dropped |
+| Why not straight to an SPRT | It is the second value tried on one axis: a screen first keeps the SPRT a test of one pre-chosen variant |
+| Cost estimate | About 14 minutes of one instance: $0.80 |
+
+#### SPSA run S1: the margins and reduction constants together
+
+Recorded on 2026-11-13 at 00:03 MST, before the run. **Exploratory and local.**
+
+| | |
+|:--|:--|
+| Question | The roadmap's open item: re-tune what was tuned to PeSTO's scores. Is there a jointly better setting of the search's margins and reduction constants for net8, on top of #246? |
+| Method | SPSA (Spall): every iteration perturbs all parameters at once by ±c in a random direction, plays 12 game pairs between the two perturbed engines, and moves each parameter along its perturbation in proportion to wins less losses. Gains decay as a/(A + k)^0.602 and c/k^0.101 with A a tenth of the iterations; the end-of-run learning rate is 0.003. `lab/spsa.py` on `research/overnight-lab`, lab binary `lab5`, seed 20261113 |
+| Games | 40,000 nodes a move, the SPRT's openings and adjudication; 3,000 iterations of 24 games, 72,000 games, or until 05:15 MST, whichever comes first. The stopping rule is fixed here; the parameters at the stop are the result |
+| Base | `main` with #246's null-move reduction in a fractional form, `R = (192 + 22·depth)/64 + min((eval − beta)/200, 3)`, which has #246's bench signature (939252) |
+| Parameters (start; range; final perturbation) | Reverse futility margin (80; 40–150; 8) and depth (6; 3–10; 0.5). Futility base (100; 0–260; 14), margin (100; 40–200; 10) and depth (6; 3–10; 0.5). Late move pruning base (3; 1–8; 0.5), depth (4; 2–9; 0.5) and scale (100%; 40–170; 8). SEE quiet margin (64; 20–140; 8) and depth (8; 4–12; 0.5). LMR table base (0.75; 0.20–1.50; 0.08) and divisor (2.25; 1.50–3.30; 0.12), and its history divisor (512; 128–2,048; 48). Aspiration half-width (35; 8–80; 4). Null move: base (192/64; 96–330; 12), depth slope (22/64; 8–44; 2) and evaluation divisor (200; 80–400; 20) |
+| What the result becomes | The parameters at the stop, rounded, first play a fresh local screen against the base (2,000 games at 40,000 nodes, not the tuning games). At +8 or more they become one PR stacked on #246, gate H1 in both SPRT legs against #246's head. Below that, the run is recorded and no PR is opened |
+| Risks named beforehand | Tuned at 40,000 nodes, where depth-dependent constants (the LMR table, the null-move slope) are under-read or mis-read; 72,000 games is a short run for 17 parameters, so the result is a direction more than an optimum; one PR that moves many constants cannot say which one mattered |
 
 ### Cost and resources
 
