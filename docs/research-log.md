@@ -154,6 +154,8 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 | `c1-tteval-on-nmp` | `TT_EVAL=1` **with experiment 1's null-move form on both sides** (`NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200`) | 40,000 | 2,000 | +7.1 ± 9.7 | 92.5% | 520 / 479 / 1001 | 42, 222, 425, 275, 36 | 0.72 | Game cap. A stacking check, not a candidate: experiment 2's change reads about half its stand-alone screen on top of experiment 1 |
 | `s2-qsfut-net300` | `QS_FUT=300 QS_FUT_NET=1`: quiescence futility with a margin of 300 and the victim at the net's measured values (300, 775, 880, 1,100, 1,680) | 40,000 | 2,000 | **+12.7 ± 10.1** | 99.3% | 543 / 470 / 987 | 38, 229, 417, 254, 62 | 1.38 | Game cap. **Put forward: experiment 3 (#249)** |
 | `s3-probcut200` | `PC_MARGIN=200`: ProbCut at depth ≥ 5, any capture that does not lose material, its search at depth − 4 against beta + 200 | 40,000 | 2,000 | −15.7 ± 9.8 | 0.1% | 472 / 562 / 966 | 60, 254, 429, 230, 27 | −2.23 | Game cap. **Dropped as built.** A stricter capture filter (`PC_SEE_DIV=3`) is in the lab build but was not screened here: ProbCut acts at depth, so its test belongs on the instance at 200,000 nodes |
+| `s4-capfut200` | `CAPFUT=200`: futility pruning of captures in the main search at depth ≤ 6, when eval + 300 + 200·depth + the victim's net-scale value ≤ alpha | 40,000 | 2,000 | **+15.1 ± 9.5** | 99.9% | 571 / 484 / 945 | 34, 200, 455, 267, 44 | 1.79 | Game cap. Over the threshold; **held for a replication** under the rule added at 00:31 (`r1-capfut200`) |
+| `c2-capfut-on-qsfut` | `CAPFUT=200` **with experiment 3's quiescence rule on both sides** (`QS_FUT=300 QS_FUT_NET=1`) | 40,000 | 2,000 | +9.9 ± 9.8 | 97.7% | 545 / 488 / 967 | 42, 202, 469, 231, 56 | 1.07 | Game cap. A stacking check: the main-search rule still reads positive on top of the quiescence rule |
 <!-- screens:end -->
 
 The table is rendered from each screen's fastchess log by a script
@@ -187,6 +189,18 @@ extensions, reductions) are not judged at 40,000 nodes; they get a `Match` at
 go to their SPRT directly when the case is strong; (3) continuous margins are
 not screened one value at a time: they go to one SPSA run (below). The
 advance threshold (+8, or an early H1) is unchanged.
+
+**A second amendment to the screening rule, 00:32 MST: a screen must
+replicate.** Three screens have now been followed by a measurement at the
+SPRT's settings: +13.0 became +27.7 and +23.9 (experiment 1); +15.8 became +2.8
+at fixed nodes (experiment 2); +12.7 is reading about +3 timed after 2,500 games
+(experiment 3, still running). Part of that is depth, as the first amendment
+said. Part is selection: about twenty variants have been screened at ±10, and
+the ones put forward are the ones that read highest, which is where noise
+points up. From here a variant that reads +8 or more is screened again, fresh
+games, and goes forward only if the two screens pooled still read +8 or more.
+Experiments 1 to 3 were chosen under the earlier rule and are not re-judged by
+this one.
 
 **Screens withdrawn before they ran** (queued, then removed; nothing was
 played): `sc-rfp160` and `sc-rfp240` (reverse-futility margin 160 and 240),
@@ -293,9 +307,10 @@ fixed-node leg is two identical engines).
 |--:|:--|:--|:--|:--|:--|:--|
 | 1 | #246 | Null-move reduction `2 + depth/4` → `3 + depth/3 + min((eval − beta)/200, 3)` | 970013 → 939252 | **+23.9 ± 9.0** (H1, 1,706 games) | **+27.7 ± 9.7** (H1, 1,508 games) | **Gate met.** For the owner to merge |
 
-| 2 | #248 | Reverse futility and the null move read the table's score as the evaluation, where its bound allows | 970013 → 942699 | Pending | Pending | Pending. **Crosses the fail-high-first bar (0.853 against 0.87)**: the owner's decision whatever the SPRT says |
+| 2 | #248 | Reverse futility and the null move read the table's score as the evaluation, where its bound allows | 970013 → 942699 | **+16.5 ± 7.4** (H1, 2,714 games) | +2.8 ± 3.7 (inconclusive at 10,000 games) | **Gate not met: dropped by its plan.** A speed gain only the owner could merge over; it also crosses the fail-high-first bar (0.853 against 0.87) |
 
 | 3 | #249 | Futility pruning in quiescence, the victim valued at the net's scale | 970013 → 990066 | Pending | Pending | Pending |
+| 4 | #250, stacked on #246 | Null-move reduction's base 3 → 4 | 939252 → 925602 (against #246) | Pending | Pending | Pending |
 
 #### Experiment 1: adaptive null-move reduction (#246)
 
@@ -364,6 +379,41 @@ Recorded on 2026-11-12 at 23:50 MST, before the `sprt` label was added.
 | Risks named beforehand | A shallow table score trusted at a deeper node: wrong cutoffs that grow with depth, so a gain at 40,000 nodes that shrinks at 200,000; interaction with #246 (both make whole-node pruning cut more) |
 | Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80 |
 
+**Result** ([run 43381561111](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43381561111),
+#248, `fd1e41f` against `main` at `0a45da0`; elo0 0, elo1 5, α = β = 0.05; on
+demand, two `c8a.16xlarge`; one attempt; the plan's commit `e119227` at 06:50
+UTC, the label at 06:51):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **+16.5 ± 7.4** | 100.0% | 2714 | 609 / 480 / 1625 | 2.96 | 29, 254, 669, 369, 36 | H1 |
+| Fixed nodes, 200,000 per move | +2.8 ± 3.7 | 93.1% | 10000 | 2168 / 2087 / 5745 | 1.10 | 82, 1140, 2461, 1249, 68 | Inconclusive at the 5,000-round cap |
+
+CI bench (base `v0.48.1`): signature 970,013 → 942,699; speed per node
++0.9% ± 2.4%; time to depth −3.7% ± 2.3% (marked better); 4,014 instructions a
+node; fail-high-first 85.3% (87.4%) and EBF 1.92 (1.88), both marked worse; **the
+performance gate failed** on `efficiency.min_fail_high_first`, as the plan said
+it would.
+
+**The recorded gate is not met:** the fixed-node leg did not accept H1, so the
+change is dropped, as the plan said. The comment's reading: "no smarter per
+node, but faster: a speed gain at a clock, which fails the gate (both tests must
+pass); the owner may merge over it for a speed change." #248 is left open as a
+draft for that decision, which would also need the bar's exception; the agent
+does not recommend merging it as it stands.
+
+**Reading it.**
+- **Per node it is worth little:** +2.8, interval −0.9 to +6.5. The screen's
+  +15.8 at 40,000 nodes did not carry to 200,000: the risk the plan named, and
+  the reverse of experiment 1.
+- **At a clock it gained, by more than its speed explains.** 3.7% less time to
+  a depth is a few Elo, not sixteen. The legs differ by 13.7 Elo with a standard
+  error of about 4.2, so the difference is not noise, and nothing here explains
+  it. Untested: that the rule is worth more in the long searches of a timed
+  game's first moves (about 300 ms, several times the fixed-node budget).
+- **Not tested:** the half of the rule that only lowers the evaluation, which
+  keeps fail-high-first over its bar on the bench (0.872).
+
 #### Experiment 3: futility pruning in quiescence, at the net's piece values (#249)
 
 Recorded on 2026-11-13 at 00:12 MST, before the `sprt` label was added.
@@ -380,6 +430,23 @@ Recorded on 2026-11-13 at 00:12 MST, before the `sprt` label was added.
 | Gate | H1 in both legs. Anything else drops the change |
 | Risks named beforehand | The values are a property of this net and will drift with the next; endgames, where the published rule is usually switched off, and this one is not; a quiescence rule acts at the leaves of every search, so the 40,000-node screen should carry over better than experiment 2's did |
 | Cost estimate | Two on-demand `c8a.16xlarge` for 15 to 50 minutes: $1.70 to $5.80. One leg waits for experiment 2's fixed-node leg to free its instance slot |
+
+#### Experiment 4: the null-move reduction's base from 3 to 4, stacked on #246 (#250)
+
+Recorded on 2026-11-13 at 00:32 MST, before the `sprt` label was added.
+
+| | |
+|:--|:--|
+| Question | Experiment 1 moved the null-move reduction one step and gained. Is the best setting a further ply along the same axis? |
+| The one change | `NULL_MOVE_REDUCTION` 3 → 4, so `R = 4 + depth/3 + min((eval − beta)/200, 3)`. `feat/null-move-reduction-base-4` at `25b1716`, **against #246's head `b54010f`**: the PR's base branch is #246's, so the SPRT's base is too. It depends on #246 |
+| Held the same | The depth and evaluation divisors, the evaluation term's cap, null-move pruning's conditions, everything else |
+| Why this variant | The next whole ply on the axis. It is the second value tried on this axis (3, then 4); no other was screened |
+| Screen (exploratory, on the instance) | Match M2: +8.1, 99% interval −1.0 to +17.3, in 3,000 games at 200,000 nodes, the same edit as `research/nmp-base4` (`daf0970`) |
+| Bench, local | 939252 → 925602 against #246 (−1.5% nodes to depth 10); fail-high-first 0.8773 → 0.8791; EBF 1.896 → 1.878; both bars pass |
+| Expectation | Fixed nodes: +3 to +12. Timed: about the same. Near `elo1`, so a real gain of this size can still end at the cap without a verdict |
+| Gate | H1 in both legs against #246's head. Anything else drops the change |
+| Risks named beforehand | The screen's interval includes zero; zugzwang exposure grows with the reduction and there is no verification search; a gain at 5+0.05 that a longer control gives back |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 20 to 50 minutes: $2.30 to $5.80 |
 
 #### Match M1: experiment 1 at 10+0.1
 
@@ -433,7 +500,19 @@ act at depth.
 | Run | Started (UTC) | Outcome |
 |:--|:--|:--|
 | [43383364015](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43383364015) | 2026-11-13 07:06 | **Failed in the settings job, before any instance:** `rustc` crashed inside the `serde_derive` proc macro while building `match-report` on the GitHub-hosted runner ("could not compile `rusty-chess-search`"). The same job had passed twice 25 minutes earlier, so this reads as a runner or build-cache fault, not the branch. No cost |
-| [43384379664](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43384379664) | 07:15 | The same inputs again; the settings job passed. Pending |
+| [43384379664](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43384379664) | 07:15 | The same inputs again. Completed: 3,000 games in 600 s of play |
+
+**Result** (run 43384379664's report; `daf0970`, bench 925,602, against
+`b54010f`, bench 939,252; 200,000 nodes a move, hash 64 MB):
+
+| Elo (candidate − baseline) | 99% interval | LOS | Games | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) |
+|--:|:-:|--:|--:|:-:|:--|
+| +8.1 | −1.0 to +17.3 | 98.9% | 3000 | 640 / 570 / 1790 | 25, 315, 770, 345, 45 |
+
+**By the rule written beforehand** (+8 or more: a stacked PR with its own SPRT)
+it goes forward, by a tenth of an Elo, as experiment 4. The report's own
+reading is "no significant difference" at 99%: this is a screen, and the SPRT
+is the test.
 
 #### SPSA run S1: the margins and reduction constants together
 
@@ -470,6 +549,10 @@ about a direction rather than an optimum is larger.
 
 | Match M1, first attempt | [43380319041](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380319041) | $1.20 | About $0.20: one instance for about three minutes, then the failed setup |
 | Match M1, second attempt | [43380894175](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380894175) | $1.20 | About $1.15: the task ran 1,130 s, about 20 minutes with launch and teardown |
+
+| SPRT, experiment 2 (#248) | [43381561111](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43381561111) | $1.20–5.80 | About $2.75: the legs' jobs took 13 min 51 s and 34 min 0 s |
+| Match M2, first attempt | [43383364015](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43383364015) | $0.80 | Nothing: it failed before launching an instance |
+| Match M2, second attempt | [43384379664](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43384379664) | $0.80 | About $0.70: the task ran 619 s, about 12 minutes with launch and teardown |
 
 *(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
 
