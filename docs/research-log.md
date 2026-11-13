@@ -140,14 +140,20 @@ left for the owner, with the mechanism measured from the `stats` counters.
 Exploratory, local, fixed nodes; candidate against the default parameters.
 `LLR` is fastchess's at [0, 5]; "stop" says how the screen ended.
 
-| Screen | Options | Nodes/move | Games | Elo ± 95% | LOS | Pentanomial (LL, LD, WL+DD, WD, WW) | LLR | Stop |
-|:--|:--|--:|--:|--:|--:|:--|--:|:--|
-| `s1-nmp-a` | `NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200` | 40,000 | 2,000 | **+13.0 ± 9.4** | 99.7% | 29, 211, 462, 252, 46 | 1.54 | Game cap. Put forward: experiment 1 |
-| `s1-imp-rfp` | `RFP_IMPROVING=1`: one ply less reverse-futility margin when improving | 40,000 | 2,000 | −9.9 ± 10.6 | 3.4% | 73, 233, 434, 198, 62 | −1.38 | Game cap. **Dropped** |
-| `s1-lmr-cut` | `LMR_CUT=1`: one more ply of reduction at expected cut nodes | 40,000 | 1,796 of 2,000 seen | −11.8 ± 10.5 | not kept | not kept | −1.52 | **Log lost** (see the incident below); the last reading the agent saw. Re-queued as `s1-lmr-cut-rerun` |
-| `s1-imp-lmr` | `LMR_IMPROVING=1`: one more ply of reduction when not improving | 40,000 | 2,000 | −5.9 ± 10.0 | 12.3% | 36, 281, 423, 201, 59 | −0.95 | Game cap. **Dropped** |
+<!-- screens:begin -->
+| Screen | Options (against the defaults unless noted) | Nodes/move | Games | Elo ± 95% | LOS | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) | LLR | How it ended, and the decision |
+|:--|:--|--:|--:|--:|--:|:-:|:--|--:|:--|
+| `s1-nmp-a` | `NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200`: null-move R = 3 + depth/3 + min((eval − beta)/200, 3) | 40,000 | 2,000 | **+13.0 ± 9.4** | 99.7% | 547 / 472 / 981 | 29, 211, 462, 252, 46 | 1.54 | Game cap. **Put forward: experiment 1 (#246)** |
+| `s1-imp-rfp` | `RFP_IMPROVING=1`: one ply less reverse-futility margin when improving | 40,000 | 2,000 | −9.9 ± 10.6 | 3.4% | 516 / 573 / 911 | 73, 233, 434, 198, 62 | −1.38 | Game cap. **Dropped** |
+| `s1-lmr-cut` | `LMR_CUT=1`: one more ply of reduction at expected cut nodes | 40,000 | 1,796 of 2,000 seen | −11.8 ± 10.5 | not kept | not kept | not kept | −1.52 | **Log lost** (the incident below): the last reading the agent saw. Re-queued as `s1-lmr-cut-rerun` |
+| `s1-imp-lmr` | `LMR_IMPROVING=1`: one more ply of reduction when not improving | 40,000 | 2,000 | −5.9 ± 10.0 | 12.3% | 449 / 483 / 1068 | 36, 281, 423, 201, 59 | −0.95 | Game cap. **Dropped** |
+| `s1-qs-fut150` | `QS_FUT=150`: skip a quiescence capture when stand pat + 150 + the victim's classical value ≤ alpha | 40,000 | 556 | −106.3 ± 21.2 | 0.0% | 82 / 247 / 227 | 48, 108, 87, 31, 4 | −2.95 | H0 by early stop. **Dropped as built, and the reason is a finding**: the rule added classical piece values (100 to 900) to an evaluation whose pawn is worth about 300 (see "The net's material scale") |
+| `s1-tt-eval` | `TT_EVAL=1`: the table's score as the evaluation for reverse futility and the null move, where its bound allows | 40,000 | 2,000 | **+15.8 ± 10.1** | 99.9% | 556 / 465 / 979 | 44, 202, 432, 263, 59 | 1.77 | Game cap. **Put forward: experiment 2 (#248)** |
+<!-- screens:end -->
 
-*(more rows as the screens finish)*
+The table is rendered from each screen's fastchess log by a script
+(`lab/render_screens.py` on `research/overnight-lab`); more rows follow as
+screens finish.
 
 **Incident, 23:33 MST: a screen's log was destroyed by the agent.** The runner
 script (`screen.sh`) was edited in place while `s1-lmr-cut` was playing. Bash
@@ -177,11 +183,63 @@ go to their SPRT directly when the case is strong; (3) continuous margins are
 not screened one value at a time: they go to one SPSA run (below). The
 advance threshold (+8, or an early H1) is unchanged.
 
+### The net's material scale
+
+**Measured on 2026-11-12 at 23:43 MST, after `s1-qs-fut150` lost 106 Elo**, a
+result too bad to be the heuristic itself.
+
+**The question.** What is a piece worth to net8, in the units the search's
+margins are written in?
+
+**Method.** `crates/search/examples/piece_values.rs` on `research/overnight-lab`:
+for each position, each non-king piece is removed in turn and the static
+evaluation (the raw network, side to move's view) re-read; the change, signed
+for the piece's owner, is that piece's value there. Positions in check are
+skipped; castling rights are dropped in the modified position. Two sets: the 50
+bench positions (all phases) and the 300 SPRT openings. A local measurement.
+**Control:** the same program on PeSTO, whose piece values are known.
+
+| Piece | PeSTO, bench | PeSTO, openings | **net8, bench** (mean, 10th–90th percentile) | **net8, openings** | net8 ÷ PeSTO |
+|:--|--:|--:|:--|:--|:--|
+| Pawn | 86 | 77 | **336** (174–518) | **263** (145–373) | 3.4–3.9× |
+| Knight | 331 | 319 | **843** (730–1,034) | **708** (619–801) | 2.2–2.5× |
+| Bishop | 350 | 351 | **943** (820–1,187) | **818** (714–922) | 2.3–2.7× |
+| Rook | 472 | 457 | **1,249** (947–1,870) | **955** (854–1,050) | 2.1–2.6× |
+| Queen | 1,001 | 1,011 | **1,866** (1,468–2,540) | **1,500** (1,346–1,634) | 1.5–1.9× |
+
+The control reads PeSTO's table values, so the method measures what it says.
+
+**What it says.**
+- **net8's pawn is worth about 300 evaluation units, not 100.** The net is
+  trained on `λ·result + (1 − λ)·sigmoid(score / 400)`, so its output is on the
+  scale where 400 units is one unit of log-odds of winning, and between engines
+  this strong a clean pawn is worth far more than a quarter of that. Large
+  pieces read less than 3× only because the output saturates.
+- **Every evaluation-based margin in `search.rs` is therefore about 3.5× tighter
+  in pawns than when it was tested under PeSTO:** reverse futility's 80 a ply
+  was 0.9 pawns a ply and is now about 0.27; futility's 100 + 100 a ply was 1.1
+  + 1.1 pawns and is about 0.33 + 0.33; the aspiration window's ±35 was 0.4
+  pawns and is 0.12; the correction history's cap of 128 is 0.4 pawns. Nothing
+  re-tested them as the scale moved, generation by generation.
+- **It does not say which way to move them.** Tighter margins in pawns are what
+  a much more accurate evaluation should allow, and the net's units are close
+  to the internal units strong engines publish margins in. The screens that
+  tightened further lost (`s1-imp-rfp` −9.9, `s1-imp-lmr` −5.9). The `sc-*`
+  screens below ask the other direction.
+- **Any rule that mixes the evaluation with classical piece values is wrong by
+  3×.** That is what `s1-qs-fut150` did. Static exchange evaluation is safe: it
+  compares classical values only with each other.
+- **Not measured:** how the scale has moved from net to net (it should be
+  tracked, in [nets.md](nets.md), so a margin's drift is visible); the values in
+  positions that are already unbalanced, where the output is flatter.
+
 ### Experiments
 
 | # | PR | The one change | Bench before → after | Timed SPRT | Fixed-node SPRT | Verdict |
 |--:|:--|:--|:--|:--|:--|:--|
 | 1 | #246 | Null-move reduction `2 + depth/4` → `3 + depth/3 + min((eval − beta)/200, 3)` | 970013 → 939252 | **+23.9 ± 9.0** (H1, 1,706 games) | **+27.7 ± 9.7** (H1, 1,508 games) | **Gate met.** For the owner to merge |
+
+| 2 | #248 | Reverse futility and the null move read the table's score as the evaluation, where its bound allows | 970013 → 942699 | Pending | Pending | Pending. **Crosses the fail-high-first bar (0.853 against 0.87)**: the owner's decision whatever the SPRT says |
 
 #### Experiment 1: adaptive null-move reduction (#246)
 
@@ -232,6 +290,24 @@ merge." The agent does not merge.
   (self-play against the base overstates gains); a second variant (none was
   tried, by design).
 
+#### Experiment 2: the table's score as the evaluation for whole-node pruning (#248)
+
+Recorded on 2026-11-12 at 23:53 MST, before the `sprt` label was added.
+
+| | |
+|:--|:--|
+| Question | A node that reaches reverse futility or the null move with a table entry has been searched before, to less depth. Is that search's score a better basis for the two decisions than the static evaluation? |
+| The one change | `pruning_eval`: an exact table score replaces the corrected static evaluation, a lower bound only raises it, an upper bound only lowers it, a mate score never does; used in reverse futility's condition and return value and in the null move's `eval ≥ beta`. `feat/tt-score-as-pruning-eval` at `fd1e41f` against `main` at `0a45da0` |
+| Held the same | Both rules' margins and conditions; futility pruning of single moves and the correction history, which keep the static evaluation; the null-move reduction (this branch does not contain #246); everything else |
+| Why this variant | The standard form, with both directions of the bound rule, written down as H6 before any screen. One variant screened, one tested |
+| Screen (exploratory) | `s1-tt-eval`: +15.8 ± 10.1 in 2,000 games at 40,000 nodes; the lab build with `L_TT_EVAL=1` has the PR's signature, 942699 |
+| Bench, local | 970013 → 942699 (−2.8% nodes to depth 10); EBF 1.877 → 1.918 (bar 2.0, passes); **fail-high-first 0.8740 → 0.8532, under the bar of 0.87** |
+| The bar | Not lowered, as decided before any run. The counters say why it fell: reverse-futility cutoffs +19,653, cutoffs by the table move −17,792, first-move cutoffs −14,926, later-move cutoffs +625 (16,471 → 17,096). The nodes removed are the ones that cut off on the table move, the mechanism `perf-targets.toml` records for reverse futility itself (#53). CI's `Bench` check fails on the PR; the PR gives the exception's wording for the owner to add or refuse |
+| Expectation | Fixed nodes: +5 to +15. Timed: about the same; the change costs a few comparisons a node |
+| Gate | H1 in both legs. Anything else drops the change. With H1 in both, merging still needs the owner's decision on the bar |
+| Risks named beforehand | A shallow table score trusted at a deeper node: wrong cutoffs that grow with depth, so a gain at 40,000 nodes that shrinks at 200,000; interaction with #246 (both make whole-node pruning cut more) |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80 |
+
 #### Match M1: experiment 1 at 10+0.1
 
 Recorded on 2026-11-12 at 23:41 MST, before the dispatch.
@@ -244,11 +320,20 @@ Recorded on 2026-11-12 at 23:41 MST, before the dispatch.
 | Read beforehand | Positive with a 99% interval clear of zero: the gain holds. An interval that includes zero: a flag on the PR, and a reason for a longer match before merging. Negative: reported on the PR as a reason not to merge yet |
 | Cost estimate | About 20 minutes of one instance at $3.45 an hour: $1.20 |
 
+**Attempts.**
+
+| Run | Started (UTC) | Outcome |
+|:--|:--|:--|
+| [43380319041](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380319041) | 2026-11-13 06:40 | **Failed at instance setup, no games played:** `rustup` could not download `channel-rust-1.99.1.toml.sha256` from static.rust-lang.org, so the task never started; the instance (`i-02961d40797a3deda`) terminated itself after about three minutes. A network failure, not the workflow or the engine |
+| [43380894175](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380894175) | 06:45 | The same inputs again. Pending |
+
 ### Cost and resources
 
 | Workload | Run | Estimate before | Actual (estimate from run time) |
 |:--|:--|--:|--:|
 | SPRT, experiment 1 (#246) | [43378687011](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43378687011) | $2.30–5.80 | About $0.95: the two legs' jobs took 9 min 21 s and 6 min 49 s |
+
+| Match M1, first attempt | [43380319041](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380319041) | $1.20 | About $0.20: one instance for about three minutes, then the failed setup |
 
 *(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
 
