@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="branding/logo.png" alt="rusty-chess logo" width="280"><br>
+  <sub>Logo © the artist, used under licence. All rights reserved; not covered by the MIT licence (<a href="branding/LICENSE.md">details</a>).</sub>
+</p>
+
 # rusty-chess-v2
 
 A single-threaded UCI chess engine in Rust whose classical search is
@@ -23,6 +28,7 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 | `trainer` | Trains NNUE nets with bullet (CUDA or Metal); a separate Cargo project so the engine never needs a GPU toolkit ([docs/training.md](docs/training.md)). |
 | `tests/` | UCI smoke tests, the perft suite `perft.epd`, mate-in-N positions. |
 | `perf-targets.toml` | The performance bars `perf-gate` enforces; they only go up. |
+| `branding/` | The project logo, its derived avatar, favicon and social preview images, and the script that makes them ([branding/README.md](branding/README.md)). |
 | `benches/` | Criterion microbenchmarks for the binary; crates keep their own under `crates/*/benches`. |
 
 ## Building and running
@@ -92,4 +98,9 @@ To play it or watch it on Lichess, see [lichess/README.md](lichess/README.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+The code is MIT licensed; see [LICENSE](LICENSE).
+
+The logo and every other file in [`branding/`](branding/) are **excluded** from
+the MIT licence. The artwork is copyright © the artist, used by this project
+under licence, with all rights reserved. Forks and redistributions must remove
+it. See [branding/LICENSE.md](branding/LICENSE.md).
