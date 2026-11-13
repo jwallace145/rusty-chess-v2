@@ -143,14 +143,40 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 | Screen | Options | Nodes/move | Games | Elo ± 95% | LOS | Pentanomial (LL, LD, WL+DD, WD, WW) | LLR | Stop |
 |:--|:--|--:|--:|--:|--:|:--|--:|:--|
 | `s1-nmp-a` | `NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200` | 40,000 | 2,000 | **+13.0 ± 9.4** | 99.7% | 29, 211, 462, 252, 46 | 1.54 | Game cap. Put forward: experiment 1 |
+| `s1-imp-rfp` | `RFP_IMPROVING=1`: one ply less reverse-futility margin when improving | 40,000 | 2,000 | −9.9 ± 10.6 | 3.4% | 73, 233, 434, 198, 62 | −1.38 | Game cap. **Dropped** |
+| `s1-lmr-cut` | `LMR_CUT=1`: one more ply of reduction at expected cut nodes | 40,000 | 1,796 of 2,000 seen | −11.8 ± 10.5 | not kept | not kept | −1.52 | **Log lost** (see the incident below); the last reading the agent saw. Re-queued as `s1-lmr-cut-rerun` |
+| `s1-imp-lmr` | `LMR_IMPROVING=1`: one more ply of reduction when not improving | 40,000 | 2,000 | −5.9 ± 10.0 | 12.3% | not kept | −1.07 | Game cap. **Dropped** |
 
 *(more rows as the screens finish)*
+
+**Incident, 23:33 MST: a screen's log was destroyed by the agent.** The runner
+script (`screen.sh`) was edited in place while `s1-lmr-cut` was playing. Bash
+reads a script as it runs, so the running copy resumed in the middle of the
+new text, ran a fragment that truncated the screen's `fc.log`, and wrote no
+summary line. The reading in the table is the last the agent polled from the
+live log, at 1,796 games; it cannot be checked now. The script is now one
+function that is read whole before it runs, is only ever replaced with `mv`,
+and writes each run to its own timestamped log. The screen is re-run for the
+record. `s1-imp-lmr`'s pentanomial counts were lost to the same edit's format
+change (its Elo, LOS, W / L / D and LLR are from its log, which is intact).
+
+**Amendment to the screening rule, 23:40 MST, after experiment 1's SPRT and
+before any later screen was chosen for a PR.** The null-move screen read +13.0
+at 40,000 nodes; the SPRT read +27.7 at 200,000 and +23.9 timed. A change whose
+effect grows with depth is under-read by a shallow screen. So: (1) stage 1
+stays at 40,000 nodes for changes that act near the leaves (pruning margins,
+quiescence, move ordering); (2) changes that act only at depth (singular
+extensions, reductions) are not judged at 40,000 nodes; they get a `Match` at
+200,000 nodes on the standardized instance (about $1, 3,000 games, ±9 Elo), or
+go to their SPRT directly when the case is strong; (3) continuous margins are
+not screened one value at a time: they go to one SPSA run (below). The
+advance threshold (+8, or an early H1) is unchanged.
 
 ### Experiments
 
 | # | PR | The one change | Bench before → after | Timed SPRT | Fixed-node SPRT | Verdict |
 |--:|:--|:--|:--|:--|:--|:--|
-| 1 | #246 | Null-move reduction `2 + depth/4` → `3 + depth/3 + min((eval − beta)/200, 3)` | 970013 → 939252 | Pending | Pending | Pending |
+| 1 | #246 | Null-move reduction `2 + depth/4` → `3 + depth/3 + min((eval − beta)/200, 3)` | 970013 → 939252 | **+23.9 ± 9.0** (H1, 1,706 games) | **+27.7 ± 9.7** (H1, 1,508 games) | **Gate met.** For the owner to merge |
 
 #### Experiment 1: adaptive null-move reduction (#246)
 
@@ -169,12 +195,57 @@ Recorded on 2026-11-12 at 23:26 MST, before the `sprt` label was added.
 | Risks named beforehand | Zugzwang at depth (no verification search); a gain at 40,000 nodes that shrinks at 200,000 and at a clock, where the reductions are larger in plies |
 | Cost estimate | Two on-demand `c8a.16xlarge` for 20 to 50 minutes: $2.30 to $5.80 |
 
+**Result** ([run 43378687011](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43378687011),
+#246, `b54010f` against `main` at `0a45da0`; elo0 0, elo1 5, α = β = 0.05; on
+demand, two `c8a.16xlarge`; one attempt; the plan's commit `779b4ae` at 06:25
+UTC, the label at 06:26):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **+23.9 ± 9.0** | 100.0% | 1706 | 394 / 277 / 1035 | 2.96 | 4, 153, 452, 210, 34 | H1 |
+| Fixed nodes, 200,000 per move | **+27.7 ± 9.7** | 100.0% | 1508 | 346 / 226 / 936 | 2.96 | 9, 112, 420, 176, 37 | H1 |
+
+CI bench (base `v0.48.1`): signature 970,013 → 939,252; speed per node
+−2.0% ± 11.4% and time to depth −0.6% ± 11.1% (a noisy runner; neither figure
+says anything at that width); 4,033 instructions a node; fail-high-first 87.7%
+(87.4%); EBF 1.90 (1.88, marked worse, inside the bar of 2); the performance
+gate passed. Every CI check on #246 passed.
+
+**The recorded gate is met:** H1 in both legs, one variant, chosen before the
+run. The comment's reading: "smarter per node, and worth its cost at a clock:
+merge." The agent does not merge.
+
+**Reading it.**
+- **The gain is the largest for a search change since Phase 4b,** and both
+  legs agree, as a change that saves nodes at no cost per node should.
+- **The screen under-read it by half** (+13.0 at 40,000 nodes): the deeper
+  reductions are worth more plies the deeper the search. See the amendment to
+  the screening rule above.
+- **Not measured:** a time control longer than 5+0.05, where deeper null-move
+  reductions meet more zugzwang-prone endgames and the engine has no
+  verification search (match M1, below, asks); strength against other engines
+  (self-play against the base overstates gains); a second variant (none was
+  tried, by design).
+
+#### Match M1: experiment 1 at 10+0.1
+
+Recorded on 2026-11-12 at 23:41 MST, before the dispatch.
+
+| | |
+|:--|:--|
+| Question | Does #246's gain hold at twice the SPRT's time control? A null-move reduction this deep is the kind of change that can win at 5+0.05 and give some back at a longer control |
+| What runs | The `Match` workflow from `main`: candidate `feat/null-move-adaptive-reduction` (`b54010f`) against `main` (`0a45da0`), 10+0.1, 2,000 games, hash 64 MB, 99% interval; one on-demand `c8a.16xlarge` (the `match` profile) |
+| A measurement, not a gate | The SPRT above is the gate and it is met. This informs the owner's merge decision |
+| Read beforehand | Positive with a 99% interval clear of zero: the gain holds. An interval that includes zero: a flag on the PR, and a reason for a longer match before merging. Negative: reported on the PR as a reason not to merge yet |
+| Cost estimate | About 20 minutes of one instance at $3.45 an hour: $1.20 |
+
 ### Cost and resources
 
 | Workload | Run | Estimate before | Actual (estimate from run time) |
 |:--|:--|--:|--:|
+| SPRT, experiment 1 (#246) | [43378687011](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43378687011) | $2.30–5.80 | About $0.95: the two legs' jobs took 9 min 21 s and 6 min 49 s |
 
-*(filled as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg)*
+*(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
 
 ### Not verified, and open
 
