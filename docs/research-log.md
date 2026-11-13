@@ -145,7 +145,7 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 | `s1-nmp-a` | `NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200` | 40,000 | 2,000 | **+13.0 ± 9.4** | 99.7% | 29, 211, 462, 252, 46 | 1.54 | Game cap. Put forward: experiment 1 |
 | `s1-imp-rfp` | `RFP_IMPROVING=1`: one ply less reverse-futility margin when improving | 40,000 | 2,000 | −9.9 ± 10.6 | 3.4% | 73, 233, 434, 198, 62 | −1.38 | Game cap. **Dropped** |
 | `s1-lmr-cut` | `LMR_CUT=1`: one more ply of reduction at expected cut nodes | 40,000 | 1,796 of 2,000 seen | −11.8 ± 10.5 | not kept | not kept | −1.52 | **Log lost** (see the incident below); the last reading the agent saw. Re-queued as `s1-lmr-cut-rerun` |
-| `s1-imp-lmr` | `LMR_IMPROVING=1`: one more ply of reduction when not improving | 40,000 | 2,000 | −5.9 ± 10.0 | 12.3% | not kept | −1.07 | Game cap. **Dropped** |
+| `s1-imp-lmr` | `LMR_IMPROVING=1`: one more ply of reduction when not improving | 40,000 | 2,000 | −5.9 ± 10.0 | 12.3% | 36, 281, 423, 201, 59 | −0.95 | Game cap. **Dropped** |
 
 *(more rows as the screens finish)*
 
@@ -157,8 +157,13 @@ summary line. The reading in the table is the last the agent polled from the
 live log, at 1,796 games; it cannot be checked now. The script is now one
 function that is read whole before it runs, is only ever replaced with `mv`,
 and writes each run to its own timestamped log. The screen is re-run for the
-record. `s1-imp-lmr`'s pentanomial counts were lost to the same edit's format
-change (its Elo, LOS, W / L / D and LLR are from its log, which is intact).
+record.
+
+**Correction, 23:44 MST.** The first push of the `s1-imp-lmr` row (`8584ef4`)
+gave its LLR as −1.07 and its pentanomial counts as "not kept". Both were
+written from memory and were wrong: the screen's log is intact and reads LLR
+−0.95 and 36, 281, 423, 201, 59. From here on every row of this table is
+rendered from the run's fastchess log by a script, not typed.
 
 **Amendment to the screening rule, 23:40 MST, after experiment 1's SPRT and
 before any later screen was chosen for a PR.** The null-move screen read +13.0
