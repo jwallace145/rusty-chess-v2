@@ -22,7 +22,7 @@ use crate::corrhist::CorrectionHistory;
 use crate::history::{CaptureHistory, Continuation, History, PieceTo};
 use crate::killers::Killers;
 use crate::lab::{self, get as lp};
-use crate::movepick::MovePicker;
+use crate::movepick::{MovePicker, Stage};
 use crate::see::{SEE_VALUE, see_ge};
 use crate::stat;
 use crate::stats::{MAX_PLY, SearchStats, effective_branching_factor};
@@ -643,12 +643,17 @@ impl Searcher {
         };
         // Lab: the table score as a better estimate where its bound allows.
         let mut pruning_eval = static_eval;
-        if lp(&lab::TT_EVAL) != 0 && prunable && excluded == Move::NULL {
+        let tt_eval_mode = lp(&lab::TT_EVAL);
+        if tt_eval_mode != 0 && prunable && excluded == Move::NULL {
             if let Some(hit) = tt_hit {
                 let usable = match hit.bound {
                     Bound::Exact => true,
                     Bound::Lower => hit.score > static_eval,
                     Bound::Upper => hit.score < static_eval,
+                } && match tt_eval_mode {
+                    2 => hit.score < static_eval,
+                    3 => hit.score > static_eval,
+                    _ => true,
                 };
                 if usable && !is_mate_score(hit.score) {
                     pruning_eval = hit.score;
@@ -706,8 +711,12 @@ impl Searcher {
             } else {
                 0
             };
-            let reduction =
-                lp(&lab::NMP_BASE) as u32 + depth / lp(&lab::NMP_DIV) as u32 + eval_term;
+            let a64 = lp(&lab::NMP_A64);
+            let reduction = if a64 > 0 {
+                ((a64 + lp(&lab::NMP_B64) * depth as i32) / 64).max(0) as u32 + eval_term
+            } else {
+                lp(&lab::NMP_BASE) as u32 + depth / lp(&lab::NMP_DIV) as u32 + eval_term
+            };
             let undo = board.make_null_move();
             self.moved[ply] = PieceTo::NONE;
             self.dext[ply + 1] = self.dext[ply];
@@ -728,6 +737,56 @@ impl Searcher {
                 stat!(self.stats, null_move_cutoffs);
                 // A mate found after a null move is not a real mate.
                 return if is_mate_score(score) { beta } else { score };
+            }
+        }
+
+        // Lab: ProbCut. A capture whose reduced search clears beta by a
+        // margin ends the node.
+        let pc_margin = lp(&lab::PC_MARGIN);
+        if pc_margin > 0 && node_prunable && !pv_node && depth >= lp(&lab::PC_DEPTH) as u32 {
+            let pc_beta = beta + pc_margin;
+            let refuted = tt_hit.is_some_and(|h| h.depth as u32 + 3 >= depth && h.score < pc_beta);
+            if !refuted && !is_mate_score(pc_beta) {
+                let mut caps = MoveList::new();
+                generate_captures(board.position(), &mut caps);
+                let mut cap_scores = [0i32; rusty_chess_core::movegen::MAX_MOVES];
+                score_moves(board, &caps, &mut cap_scores);
+                for i in 0..caps.len() {
+                    let m = pick_next(&mut caps, &mut cap_scores, i);
+                    let see_div = lp(&lab::PC_SEE_DIV);
+                    let threshold = if see_div > 0 {
+                        ((pc_beta - static_eval) / see_div).max(0)
+                    } else {
+                        0
+                    };
+                    if !see_ge(board.position(), m, threshold) {
+                        continue;
+                    }
+                    self.moved[ply] = PieceTo::of(board.position(), m);
+                    self.dext[ply + 1] = self.dext[ply];
+                    let undo = board.make_move(m);
+                    let mut value = -self.quiescence(board, -pc_beta, -pc_beta + 1, ply + 1);
+                    if value >= pc_beta && !self.aborted {
+                        value = -self.negamax(
+                            board,
+                            depth - 4,
+                            -pc_beta,
+                            -pc_beta + 1,
+                            ply + 1,
+                            true,
+                            !cut_node,
+                        );
+                    }
+                    board.unmake_move(m, undo);
+                    if self.aborted {
+                        return 0;
+                    }
+                    if value >= pc_beta {
+                        self.tt
+                            .store(key, m, value, (depth - 3) as u8, Bound::Lower, ply);
+                        return value;
+                    }
+                }
             }
         }
 
@@ -826,7 +885,9 @@ impl Searcher {
         let mut quiets_tried = [Move::NULL; 64];
         let mut quiets_count = 0usize;
         let lmp_limit = {
-            let base = lp(&lab::LMP_BASE) as usize + (depth * depth) as usize;
+            let base = (lp(&lab::LMP_BASE) as usize + (depth * depth) as usize)
+                * lp(&lab::LMP_PCT).max(1) as usize
+                / 100;
             if lp(&lab::LMP_IMPROVING) != 0 && !improving {
                 base / 2
             } else {
@@ -913,6 +974,31 @@ impl Searcher {
                 index += 1;
                 continue;
             }
+            // Lab: futility pruning of captures, the victim at the net's scale.
+            let capfut = lp(&lab::CAPFUT);
+            if capfut > 0
+                && !quiet
+                && prunable
+                && !pv_node
+                && index > 0
+                && depth as i32 <= lp(&lab::CAPFUT_DEPTH)
+                && m.promotion().is_none()
+                && !is_mate_score(best)
+            {
+                const NET_VALUE: [i32; 6] = [300, 775, 880, 1100, 1680, 0];
+                let victim = if m.is_en_passant() {
+                    NET_VALUE[0]
+                } else {
+                    board
+                        .position()
+                        .piece_at(m.to())
+                        .map_or(0, |p| NET_VALUE[p.kind.index()])
+                };
+                if static_eval + lp(&lab::CAPFUT_BASE) + capfut * depth as i32 + victim <= alpha {
+                    index += 1;
+                    continue;
+                }
+            }
             // Lab: SEE pruning of captures.
             let see_cap = lp(&lab::SEE_CAP);
             if see_cap > 0
@@ -994,6 +1080,15 @@ impl Searcher {
                         r += 1;
                     }
                     r.clamp(0, new_depth as i32) as u32
+                } else if lp(&lab::LMR_NOISY) > 0
+                    && !quiet
+                    && picker.stage() == Stage::BadCaptures
+                    && index >= LMR_MIN_INDEX
+                    && depth >= LMR_MIN_DEPTH
+                    && !in_check
+                    && !board.position().in_check()
+                {
+                    (lp(&lab::LMR_NOISY) as u32).min(new_depth)
                 } else {
                     0
                 };
@@ -1245,13 +1340,19 @@ impl Searcher {
             // Evasions are never skipped: in check every move is searched.
             // Lab: quiescence futility.
             if qs_fut > 0 && !in_check && m.promotion().is_none() {
+                const NET_VALUE: [i32; 6] = [300, 775, 880, 1100, 1680, 0];
+                let table = if lp(&lab::QS_FUT_NET) != 0 {
+                    &NET_VALUE
+                } else {
+                    &SEE_VALUE
+                };
                 let victim = if m.is_en_passant() {
-                    SEE_VALUE[0]
+                    table[0]
                 } else {
                     board
                         .position()
                         .piece_at(m.to())
-                        .map_or(0, |p| SEE_VALUE[p.kind.index()])
+                        .map_or(0, |p| table[p.kind.index()])
                 };
                 let fut = stand_pat_val + qs_fut + victim;
                 if fut <= alpha {

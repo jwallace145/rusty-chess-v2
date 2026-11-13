@@ -23,6 +23,10 @@ params! {
     NMP_EVAL_DIV = 0,
     NMP_EVAL_MAX = 3,
     NMP_MIN_DEPTH = 3,
+    // Fractional form for tuning (used when NMP_A64 > 0):
+    // R = (NMP_A64 + NMP_B64 * depth) / 64 + the evaluation term.
+    NMP_A64 = 0,
+    NMP_B64 = 21,
     // Reverse futility pruning.
     RFP_DEPTH = 6,
     RFP_MARGIN = 80,
@@ -36,6 +40,8 @@ params! {
     LMP_DEPTH = 4,
     LMP_BASE = 3,
     LMP_IMPROVING = 0,
+    // The late-move-pruning threshold as a percentage of LMP_BASE + depth^2.
+    LMP_PCT = 100,
     // Late move reductions.
     LMR_HIST_DIV = 512,
     LMR_PV = 0,
@@ -46,6 +52,9 @@ params! {
     RAZOR_MARGIN = 250,
     // Quiescence futility (0 = off): skip a capture when stand pat + margin + victim <= alpha.
     QS_FUT = 0,
+    // The victim's value in that rule: 0 = the classical SEE values, 1 = the
+    // net's measured values (300, 775, 880, 1100, 1680).
+    QS_FUT_NET = 0,
     // Singular extensions.
     SE_MIN_DEPTH = 8,
     SE_MARGIN = 2,
@@ -54,6 +63,8 @@ params! {
     SE_NEG = 0,
     // Transposition table.
     TT_NO_PV_CUT = 0,
+    // 1 = the table score replaces the evaluation in either direction, 2 =
+    // only where it lowers it (prune less), 3 = only where it raises it.
     TT_EVAL = 0,
     // Aspiration window half-width.
     ASP_DELTA = 35,
@@ -79,6 +90,22 @@ params! {
     CAPHIST = 0,
     // Continuation history four plies back (0 = off).
     CONT4 = 0,
+    // ProbCut (0 = off): at depth >= PC_DEPTH, a capture whose search at
+    // depth - 4 beats beta + PC_MARGIN ends the node.
+    PC_MARGIN = 0,
+    PC_DEPTH = 5,
+    // ProbCut's capture filter: 0 = any capture that does not lose material;
+    // n = the exchange must win (beta + margin - eval) / n in classical units
+    // (3 converts the net's scale to the classical one).
+    PC_SEE_DIV = 0,
+    // Futility pruning of captures in the main search (0 = off): at depth <=
+    // CAPFUT_DEPTH, skip a capture when eval + CAPFUT_BASE + CAPFUT * depth +
+    // the victim's net-scale value <= alpha.
+    CAPFUT = 0,
+    CAPFUT_BASE = 300,
+    CAPFUT_DEPTH = 6,
+    // Late move reduction of losing captures, in plies (0 = off).
+    LMR_NOISY = 0,
 }
 
 /// The value of `p`.
