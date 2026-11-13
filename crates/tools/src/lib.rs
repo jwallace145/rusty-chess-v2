@@ -12,6 +12,7 @@ pub mod perft;
 pub mod rating;
 pub mod relabel;
 pub mod report;
+pub mod scale;
 pub mod speed;
 pub mod sprt;
 pub mod stats;

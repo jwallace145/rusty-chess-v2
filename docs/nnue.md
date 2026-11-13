@@ -364,6 +364,24 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
   - `datagen-audit` re-searches a dataset with the evaluation its manifests
     name.
 
+## The evaluation's units
+
+The network's output is scaled to "centipawns" by `SCALE`, but a pawn is not
+worth 100 of them: the net is trained on win probability, and what a pawn is
+worth in those units depends on the training data. net8x160's evaluation moves
+by about 270 when a pawn comes off the board, 700 for a knight and 1,400 for a
+queen, and the pawn's figure has grown from net to net
+([nets.md](nets.md#the-evaluations-scale-by-net)).
+
+- **Measuring it:** `nnue-scale --fens tests/openings/openings.epd` (in
+  `crates/tools`) for the embedded net, `--net <file>` for any net file,
+  `--pesto` for the hand-written evaluation, which reads its own table values
+  and is the check on the method.
+- **Why it matters:** every evaluation-based margin in the search is written in
+  these units, and so is anything that adds a piece's value to an evaluation.
+  Static exchange evaluation is separate: it compares classical piece values
+  only with each other.
+
 ## Speed
 
 Both hot paths are plain Rust written in a shape the compiler vectorizes;

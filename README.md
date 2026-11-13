@@ -24,7 +24,7 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 | `src/` | The `rusty-chess` binary (root package): UCI protocol, `bench` and `perft` subcommands. |
 | `crates/core` | Board, bitboards, magics, move generation, Zobrist hashing, make/unmake. No dependencies. |
 | `crates/search` | Search, transposition table, move picker, evaluation (the embedded NNUE net, and PeSTO), `SearchStats` counters and the JSON lines telemetry writer. |
-| `crates/tools` | Perft suite runner, bench and stats diffing, SPRT and match reports, `datagen`, the self-play data generator for NNUE ([docs/datagen.md](docs/datagen.md)), and `datagen-audit`, which checks a dataset before training ([docs/datagen-runbook.md](docs/datagen-runbook.md)). |
+| `crates/tools` | Perft suite runner, bench and stats diffing, SPRT and match reports, `datagen`, the self-play data generator for NNUE ([docs/datagen.md](docs/datagen.md)), `datagen-audit`, which checks a dataset before training ([docs/datagen-runbook.md](docs/datagen-runbook.md)), and `nnue-scale`, which measures what a net values each piece at ([docs/nnue.md](docs/nnue.md#the-evaluations-units)). |
 | `trainer` | Trains NNUE nets with bullet (CUDA or Metal); a separate Cargo project so the engine never needs a GPU toolkit ([docs/training.md](docs/training.md)). |
 | `tests/` | UCI smoke tests, the perft suite `perft.epd`, mate-in-N positions. |
 | `perf-targets.toml` | The performance bars `perf-gate` enforces; they only go up. |
