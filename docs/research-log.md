@@ -149,6 +149,8 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 | `s1-imp-lmr` | `LMR_IMPROVING=1`: one more ply of reduction when not improving | 40,000 | 2,000 | −5.9 ± 10.0 | 12.3% | 449 / 483 / 1068 | 36, 281, 423, 201, 59 | −0.95 | Game cap. **Dropped** |
 | `s1-qs-fut150` | `QS_FUT=150`: skip a quiescence capture when stand pat + 150 + the victim's classical value ≤ alpha | 40,000 | 556 | −106.3 ± 21.2 | 0.0% | 82 / 247 / 227 | 48, 108, 87, 31, 4 | −2.95 | H0 by early stop. **Dropped as built, and the reason is a finding**: the rule added classical piece values (100 to 900) to an evaluation whose pawn is worth about 300 (see "The net's material scale") |
 | `s1-tt-eval` | `TT_EVAL=1`: the table's score as the evaluation for reverse futility and the null move, where its bound allows | 40,000 | 2,000 | **+15.8 ± 10.1** | 99.9% | 556 / 465 / 979 | 44, 202, 432, 263, 59 | 1.77 | Game cap. **Put forward: experiment 2 (#248)** |
+| `sc-rfp120` | `RFP_MARGIN=120`: reverse-futility margin 80 → 120 a ply (wider, towards the net's scale) | 40,000 | 2,000 | −4.5 ± 10.6 | 20.2% | 516 / 542 / 942 | 71, 237, 387, 257, 48 | −0.74 | Game cap. **Dropped**; the wider values queued behind it were withdrawn |
+| `sc-fp200` | `FP_BASE=200 FP_MARGIN=200`: futility 100 + 100 a ply → 200 + 200 | 40,000 | 2,000 | −0.3 ± 9.8 | 47.2% | 516 / 518 / 966 | 54, 215, 452, 237, 42 | −0.25 | Game cap. **Dropped**: no difference |
 <!-- screens:end -->
 
 The table is rendered from each screen's fastchess log by a script
@@ -290,6 +292,8 @@ fixed-node leg is two identical engines).
 
 | 2 | #248 | Reverse futility and the null move read the table's score as the evaluation, where its bound allows | 970013 → 942699 | Pending | Pending | Pending. **Crosses the fail-high-first bar (0.853 against 0.87)**: the owner's decision whatever the SPRT says |
 
+| 3 | #249 | Futility pruning in quiescence, the victim valued at the net's scale | 970013 → 990066 | Pending | Pending | Pending |
+
 #### Experiment 1: adaptive null-move reduction (#246)
 
 Recorded on 2026-11-12 at 23:26 MST, before the `sprt` label was added.
@@ -357,6 +361,23 @@ Recorded on 2026-11-12 at 23:50 MST, before the `sprt` label was added.
 | Risks named beforehand | A shallow table score trusted at a deeper node: wrong cutoffs that grow with depth, so a gain at 40,000 nodes that shrinks at 200,000; interaction with #246 (both make whole-node pruning cut more) |
 | Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80 |
 
+#### Experiment 3: futility pruning in quiescence, at the net's piece values (#249)
+
+Recorded on 2026-11-13 at 00:12 MST, before the `sprt` label was added.
+
+| | |
+|:--|:--|
+| Question | Half the search's nodes are quiescence nodes. Does skipping captures that cannot bring the score back to alpha gain Elo, once what a capture can gain is counted in the evaluation's own units? |
+| The one change | In `quiescence`, out of check and not for a promotion, a capture is skipped when `stand pat + 300 + value(victim) ≤ alpha`, with the victim valued at 300, 775, 880, 1,100 and 1,680 (pawn to queen), the measured values in "The net's material scale". The skipped capture's reach becomes the node's bound. `feat/quiescence-futility` at `a6b722c` against `main` at `0a45da0` |
+| Held the same | The stand pat, SEE pruning of losing captures, the table probe and stores, evasions in check, the main search, the net |
+| Why this variant | The published rule (H4), with both of its numbers read off the measurement rather than tuned: the margin is one measured pawn, the values are the measured ones. A first form with the classical values and a margin of 150 was screened before the measurement and lost 106 Elo (`s1-qs-fut150`); that failure is what prompted the measurement. So two forms were screened and one, chosen by the measurement, is tested |
+| Screen (exploratory) | `s2-qsfut-net300`: +12.7 ± 10.1 in 2,000 games at 40,000 nodes; the lab build with these options has the PR's signature, 990066 |
+| Bench, local | 970013 → 990066 (+2.1% nodes to depth 10: the main search grew 5.8%, quiescence shrank 1.6%); fail-high-first 0.8740 → 0.8752; EBF 1.877 → 1.849; both bars pass; 69,881 captures skipped |
+| Expectation | Fixed nodes: +5 to +12. Timed: about the same; the rule costs a table read and an addition a capture |
+| Gate | H1 in both legs. Anything else drops the change |
+| Risks named beforehand | The values are a property of this net and will drift with the next; endgames, where the published rule is usually switched off, and this one is not; a quiescence rule acts at the leaves of every search, so the 40,000-node screen should carry over better than experiment 2's did |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 15 to 50 minutes: $1.70 to $5.80. One leg waits for experiment 2's fixed-node leg to free its instance slot |
+
 #### Match M1: experiment 1 at 10+0.1
 
 Recorded on 2026-11-12 at 23:41 MST, before the dispatch.
@@ -374,11 +395,25 @@ Recorded on 2026-11-12 at 23:41 MST, before the dispatch.
 | Run | Started (UTC) | Outcome |
 |:--|:--|:--|
 | [43380319041](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380319041) | 2026-11-13 06:40 | **Failed at instance setup, no games played:** `rustup` could not download `channel-rust-1.99.1.toml.sha256` from static.rust-lang.org, so the task never started; the instance (`i-02961d40797a3deda`) terminated itself after about three minutes. A network failure, not the workflow or the engine |
-| [43380894175](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380894175) | 06:45 | The same inputs again. Pending |
+| [43380894175](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380894175) | 06:45 | The same inputs again. Completed: 2,000 games in 1,111 s of play |
+
+**Result** (run 43380894175's report; `b54010f`, bench 939,252, against `main` at
+`0a45da0`, bench 970,013; 10+0.1, hash 64 MB, 60 games at once on an AMD EPYC
+9R45, fastchess `v1.8.2-alpha`):
+
+| Elo (candidate − baseline) | 99% interval | LOS | Games | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) |
+|--:|:-:|--:|--:|:-:|:--|
+| **+29.4** | +18.8 to +40.1 | 100.0% | 2000 | 442 / 273 / 1285 | 7, 155, 534, 270, 34 |
+
+**Reading it, by the rule written beforehand:** positive with a 99% interval
+clear of zero, so the gain holds at twice the SPRT's time control, and is no
+smaller there (+23.9 ± 9.0 at 5+0.05). The zugzwang risk named in experiment
+1's plan did not show at this control. Not measured: anything longer than
+10+0.1, and other engines.
 
 #### Match M2: one more ply of null-move reduction, at 200,000 nodes
 
-Recorded on 2026-11-13 at 00:03 MST, before the dispatch. **Exploratory:** a
+Recorded on 2026-11-13 at 00:01 MST, before the dispatch. **Exploratory:** a
 screen on the standardized instance, under the amended rule for changes that
 act at depth.
 
@@ -392,7 +427,7 @@ act at depth.
 
 #### SPSA run S1: the margins and reduction constants together
 
-Recorded on 2026-11-13 at 00:03 MST, before the run. **Exploratory and local.**
+Recorded on 2026-11-13 at 00:01 MST, before the run. **Exploratory and local.**
 
 | | |
 |:--|:--|
@@ -411,6 +446,7 @@ Recorded on 2026-11-13 at 00:03 MST, before the run. **Exploratory and local.**
 | SPRT, experiment 1 (#246) | [43378687011](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43378687011) | $2.30–5.80 | About $0.95: the two legs' jobs took 9 min 21 s and 6 min 49 s |
 
 | Match M1, first attempt | [43380319041](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380319041) | $1.20 | About $0.20: one instance for about three minutes, then the failed setup |
+| Match M1, second attempt | [43380894175](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380894175) | $1.20 | About $1.15: the task ran 1,130 s, about 20 minutes with launch and teardown |
 
 *(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
 
