@@ -106,7 +106,7 @@ otherwise: 80 superbatches were 5.5 passes over net 5's data and are 2.6 over
 net8's, and the ledger's own advice is to revisit length when the data grows a
 lot. It costs a `Train` run and an SPRT and uses the GPU instance, which was
 idle, so it does not take from the search experiments. Its plan and record are
-in [nets.md](nets.md#net8x160-planned).
+in [nets.md](nets.md#net8x160-l050-r43390801430).
 
 ### Method
 
@@ -1039,6 +1039,49 @@ rest stay as they are, and the fresh screen (also at 100,000 nodes) is of that
 reduced set. Fewer games at more nodes is a noisier run; the risk named above
 about a direction rather than an optimum is larger.
 
+**Result.** Stopped by its timer at 05:15 MST after **955 of 1,500
+iterations, 22,920 games** (5,017 wins for the "plus" side, 5,047 for the
+"minus", 12,856 draws, as it should be for a symmetric perturbation). Where
+each parameter ended, and how far that is in units of its final perturbation:
+
+| Parameter | Start | End | Moved |
+|:--|--:|--:|--:|
+| Late move pruning scale, % | 100 | 111.4 | **+1.43** |
+| LMR table divisor (×100) | 225 | 208.4 | **−1.38** |
+| Null-move evaluation divisor | 200 | 178.6 | **−1.07** |
+| SEE quiet margin | 64 | 71.9 | +0.98 |
+| Late move pruning base | 3 | 3.41 | +0.82 |
+| Futility margin | 100 | 108.1 | +0.81 |
+| LMR table base (×100) | 75 | 80.9 | +0.73 |
+| Aspiration half-width | 35 | 32.1 | −0.72 |
+| LMR history divisor | 512 | 479.0 | −0.69 |
+| SEE depth | 8 | 8.31 | +0.61 |
+| Null-move depth slope (×64) | 22 | 23.0 | +0.52 |
+| Futility base | 100 | 106.5 | +0.46 |
+| Reverse futility margin | 80 | 82.2 | +0.27 |
+| Null-move base (×64) | 192 | 193.8 | +0.15 |
+| Reverse futility depth | 6 | 5.93 | −0.14 |
+| Futility depth | 6 | 6.05 | +0.11 |
+| Late move pruning depth | 4 | 3.96 | −0.09 |
+
+**By the rule added in the amendment, three parameters change** (the ones the
+run moved by at least their final perturbation): late move pruning 11% later,
+the LMR divisor 2.25 → 2.08 (more reduction), the null-move evaluation divisor
+200 → 179. **The fresh screen of that reduced set** against the run's base
+(`v1-spsa-s1-reduced`: `lab6`, 100,000 nodes, 2,000 games, both sides with the
+base's null-move form): **+1.6 ± 9.0**, LOS 63.4%, W / L / D 406 / 397 / 1197,
+pentanomial 30, 222, 488, 229, 31. **Under +8, so by the plan the run is
+recorded and no PR is opened.** It was not taken to the instance.
+
+**Reading it.** Nothing moved far: the largest move is 1.4 final perturbations
+in 22,920 games, and the set that moved is worth nothing measurable. With
+matches M16 and M17 (the margins as a set are flat to ±25%) this says the same
+thing twice: at net8's scale the search's constants are near enough to where
+they should be that a night of games cannot find a better setting. The two
+gains the session did find were structural (a different null-move formula, a
+new distinction in LMR), not a better value of an existing constant. Not
+tested: the run's parameters at the SPRT's budget; a longer run.
+
 **The run.** Started at 00:39:05 MST on `lab6` (`research/overnight-lab` at
 `b13d894`), 100,000 nodes, 12 pairs an iteration. Stopped by its stop file
 after 11 iterations and resumed from its saved state at 00:42 with 12 games at
@@ -1072,12 +1115,19 @@ fixed-node leg is recorded as not played.
 
 #### Training T1: net8x160
 
-The plan is in [nets.md](nets.md#net8x160-planned), recorded in `2160aea` at
+The plan is in [nets.md](nets.md#net8x160-l050-r43390801430), recorded in `2160aea` at
 08:07:36 UTC, before the dispatch at 08:07:49.
 
 | Run | Started (UTC) | Outcome |
 |:--|:--|:--|
-| [43390801430](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43390801430) | 2026-11-13 08:07 | Net id `net8x160-l050-r43390801430`. An on-demand `g6.xlarge` (`i-0573b746d7245e4b6`, us-east-1b) launched at the first try, at 08:08:36. Pending |
+| [43390801430](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43390801430) | 2026-11-13 08:07 | Net id `net8x160-l050-r43390801430`. An on-demand `g6.xlarge` (`i-0573b746d7245e4b6`, us-east-1b) launched at the first try, at 08:08:36. **Trained** in 7,118 s; the job ended at 10:09:08 |
+
+**Result of the training** (the net's `training.json`; the full record is in
+[nets.md](nets.md#net8x160-l050-r43390801430)): the data's SHA-256s equal
+net8's, the engine check passed (mean 7.28 cp), and the held-out loss is
+**0.019921 against net8's 0.020037 on identical records, −0.58%**, a little
+better than the plan's 0.2 to 0.5%. Its SPRT is #256, a draft that embeds the
+net; the gate is H1 in both legs against net8.
 
 ### Cost and resources
 
@@ -1108,6 +1158,8 @@ The plan is in [nets.md](nets.md#net8x160-planned), recorded in `2160aea` at
 | Matches M11 and M8 | [43398918563](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43398918563), [43400673040](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43400673040) | $1.40 | About $1.45: the tasks ran 619 s and 649 s |
 | SPRT, experiment 6 (#254) | [43401686917](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43401686917) | $1.20–5.80 | About $2.30: the legs' jobs took 15 min 25 s and 24 min 3 s |
 | Match M18 | [43402595891](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43402595891) | $2.70 | About $2.60: the task ran 2,630 s |
+
+| Training T1, net8x160 | [43390801430](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43390801430) | $2.20 | About $1.85: the job ran 2 h 1 min on a `g6.xlarge` |
 
 *(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
 

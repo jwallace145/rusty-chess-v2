@@ -129,12 +129,15 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
-## net8x160 (planned)
+## net8x160-l050-r43390801430
 
-net8's data and settings with **twice the schedule**: 160 superbatches. The plan
-was recorded on 2026-11-13 at 01:07 MST, before the `Train` dispatch, during the
-overnight research session ([research-log.md](research-log.md)); nothing here
-says the net is stronger.
+net8's data and settings with **twice the schedule**: 160 superbatches.
+**Trained; its SPRT is #256, so nothing here says it's stronger.** The plan
+below was recorded on 2026-11-13 at 01:07 MST (`2160aea`, 08:07:36 UTC), before
+the `Train` dispatch (08:07:49), during the overnight research session
+([research-log.md](research-log.md)), and is unchanged. The net has no row in
+the summary yet: a row needs an architecture snapshot, and a snapshot's
+manifest needs the SPRT's verdict (#256 says why).
 
 | | |
 |:--|:--|
@@ -153,6 +156,53 @@ gh workflow run Train --ref main -f net-id=net8x160 -f generations=0,1,2,3,4,5,6
   -f labels=0=net7-l050-r41363264869-n5000,1=net7-l050-r41363264869-n5000,2=net7-l050-r41363264869-n5000 \
   -f hidden=512 -f output-buckets=8 -f king-buckets=4 -f wdl=0.5 -f superbatches=160
 ```
+
+| | |
+|:--|:--|
+| Data | As net8: generations 0–6, 3,034,526,184 training / 164,270,600 held-out records (128,202 shards); 92 held-out workers. Prepared set `g0-6·N7(0-2)`, `train.data` `e8f78490…a7df` and `val.data` `bf6d6dff…3488`, both equal to net8's |
+| Network | (768 × 4 → 512) × 2 → 8, as net8; 3,163,200 bytes; sha256 `8ea67605…556c` (the file in S3 matches `training.json`) |
+| Schedule | 160 superbatches (16.0B positions, 5.3 passes), LR 0.001, ×0.1 after 72 and 144 (`lr_step` 72) |
+| Training | `Train` run [43390801430](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43390801430), from `v0.48.1` (`0a45da0`): on-demand `g6.xlarge` `i-0573b746d7245e4b6`, us-east-1b, NVIDIA L4, bullet `da426a4`. Prepare 1,553 s, 7,118 s to trained (net8: 1,519 and 5,140; the plan estimated 8,761). The job ran 2 h 1 min; about $1.85, an estimate at the rate net8's $1.30 implies |
+| Loss | Training loss 0.0696 → 0.0196 |
+| Validation | **0.019921**, best at superbatch 160, against net8's 0.020037 on the identical held-out set: **−0.58%**. Training sample 0.019619 at 160 |
+| Engine check | 256 held-out positions: mean **7.28 cp**, max 31.34 (bar 20 on the mean; none beyond max(50 cp, 5%)) |
+
+**Attempts:** one. The plan's command, from `0a45da0`, got an instance at the
+first try, at 08:08:36 UTC on 2026-11-13.
+
+**The plan's checks:**
+- **The one change:** `superbatches` 160 and `lr_step` 72 in `training.json`'s
+  `schedule`; λ, the learning rate and its factor equal net8's.
+- **Same data:** the `train.data` and `val.data` SHA-256s, the record counts,
+  `labels`, `datasets` and `val_workers` equal net8's.
+- **Engine check:** `check_passed: true`.
+
+**The held-out curve against net8's,** on the identical held-out records (each
+net's `training.json`; net8x160's superbatches are twice net8's at each stage):
+
+| Stage | net8 at | Held-out loss | net8x160 at | Held-out loss |
+|:--|--:|--:|--:|--:|
+| Early in the first learning rate | 12 | .021029 | 24 | .020917 |
+| End of the first learning rate | 36 | .020862 | 72 | .020806 |
+| After the first drop | 40 | .020333 | 80 | .020194 |
+| Middle of the second | 56 | .020161 | 112 | .020045 |
+| End of the second | 72 | .020101 | 144 | .020007 |
+| Final | 80 | **.020037** | 160 | **.019921** |
+
+**What it showed:** a lower loss at every matched stage and 0.58% lower at the
+end, a little more than the plan's 0.2 to 0.5%. The longer first phase gives
+0.27% by its end and the second phase adds the rest. For scale: net2x80's
+−0.36% was +21 Elo, net5x120's −0.17% was not resolved in 10,000 games, and
+net7rl012w768's −1.00% was +28.9 at fixed nodes. That isn't a strength result.
+
+**Bench** (local, at `0a45da0` with this net embedded): signature 990172 (net8:
+970013), identical run to run, in the `stats` build and when `main`'s binary
+loads the file with `--eval-file`; fail-high-first 0.8754 (0.8740); EBF 1.767
+(1.877). The CI bench comment on #256 is the record.
+
+**Not measured:** noise (one training run); the `Train` artifact's copy of the
+net (only the S3 copy was hashed); the net's scale
+([the table below](#the-evaluations-scale-by-net) is on #253's branch).
 
 ## net8-l050-r42564788061
 
