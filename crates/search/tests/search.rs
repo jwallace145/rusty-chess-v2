@@ -308,6 +308,38 @@ fn null_move_pruning_cuts_nodes_but_never_in_check_or_pawn_endings() {
 }
 
 #[test]
+fn the_null_move_reduction_grows_with_depth_and_with_the_margin_over_beta() {
+    use rusty_chess_search::search::null_move_reduction;
+    // Deeper nodes are reduced at least as much, at any margin.
+    for margin in [0, 150, 400, 5_000] {
+        for d in 3..40 {
+            assert!(
+                null_move_reduction(d + 1, margin) >= null_move_reduction(d, margin),
+                "depth {d}, margin {margin}"
+            );
+        }
+    }
+    // A larger margin over beta reduces at least as much, and the margin's
+    // share is capped: a won position is not reduced without bound.
+    for d in [3, 6, 12, 24] {
+        let at_beta = null_move_reduction(d, 0);
+        assert!(null_move_reduction(d, 199) == at_beta, "depth {d}");
+        assert!(null_move_reduction(d, 200) == at_beta + 1, "depth {d}");
+        assert!(null_move_reduction(d, 600) == at_beta + 3, "depth {d}");
+        assert_eq!(
+            null_move_reduction(d, 600),
+            null_move_reduction(d, 30_000),
+            "depth {d}: the margin's share is capped"
+        );
+        // Never called below beta, but a negative margin must not underflow.
+        assert_eq!(null_move_reduction(d, -500), at_beta, "depth {d}");
+    }
+    // The shallowest null move still searches: depth 3 less 1 + R is 0, a
+    // quiescence search, never a negative depth.
+    assert_eq!(null_move_reduction(3, 0), 4);
+}
+
+#[test]
 fn reverse_futility_pruning_prunes_but_keeps_mates_and_mate_threats() {
     // Mates stay exact through the pruned depths.
     for (fen, best, mate) in [

@@ -53,8 +53,28 @@ const ASPIRATION_MIN_DEPTH: u32 = 4;
 /// Null-move pruning needs at least this much depth to be worth a try.
 const NULL_MOVE_MIN_DEPTH: u32 = 3;
 
-/// Base depth reduction of the null-move search; `depth / 4` is added.
-const NULL_MOVE_REDUCTION: u32 = 2;
+/// Base depth reduction of the null-move search.
+const NULL_MOVE_REDUCTION: u32 = 3;
+
+/// The null-move reduction grows by one ply per this many plies of depth.
+const NULL_MOVE_DEPTH_DIVISOR: u32 = 3;
+
+/// The null-move reduction grows by one ply per this many centipawns by
+/// which the static evaluation clears beta, up to `NULL_MOVE_EVAL_MAX` plies.
+const NULL_MOVE_EVAL_DIVISOR: i32 = 200;
+const NULL_MOVE_EVAL_MAX: u32 = 3;
+
+/// The depth reduction of the null-move search at `depth`, when the static
+/// evaluation clears beta by `margin` centipawns: adaptive null-move pruning.
+/// The deeper the node and the further the evaluation is above beta, the
+/// less the null search needs to see to confirm the fail-high. The first
+/// form, `2 + depth / 4` whatever the margin, dates from the hand-written
+/// evaluation (#47), whose "above beta" meant much less.
+#[inline]
+pub fn null_move_reduction(depth: u32, margin: i32) -> u32 {
+    let by_eval = (margin.max(0) / NULL_MOVE_EVAL_DIVISOR) as u32;
+    NULL_MOVE_REDUCTION + depth / NULL_MOVE_DEPTH_DIVISOR + by_eval.min(NULL_MOVE_EVAL_MAX)
+}
 
 /// Reverse futility pruning applies up to this depth.
 const RFP_MAX_DEPTH: u32 = 6;
@@ -611,7 +631,7 @@ impl Searcher {
                 .has_non_pawn_material(board.position().side_to_move())
             && static_eval >= beta
         {
-            let reduction = NULL_MOVE_REDUCTION + depth / 4;
+            let reduction = null_move_reduction(depth, static_eval - beta);
             let undo = board.make_null_move();
             self.moved[ply] = PieceTo::NONE;
             let score = -self.negamax(
