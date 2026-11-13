@@ -101,7 +101,7 @@ params! {
     // Futility pruning of captures in the main search (0 = off): at depth <=
     // CAPFUT_DEPTH, skip a capture when eval + CAPFUT_BASE + CAPFUT * depth +
     // the victim's net-scale value <= alpha.
-    CAPFUT = 0,
+    CAPFUT = 200,
     CAPFUT_BASE = 300,
     CAPFUT_DEPTH = 6,
     // Late move reduction of losing captures, in plies (0 = off).
