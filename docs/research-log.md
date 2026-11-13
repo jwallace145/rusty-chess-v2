@@ -763,6 +763,10 @@ clock: do not merge; worth a `perf` pass to make it cheaper and a re-test."
   they are added as a fixed-size measurement instead (match M18, below) and
   read together with these.
 
+**Played again against `v0.51.0`** after the session's three gains had merged:
+see [Experiment 5 again](#experiment-5-again-capture-futility-against-v0510-252). The results above are the first run's and
+match M18's, and are not changed by it.
+
 #### Experiment 6: more late-move reduction at expected cut nodes (#254)
 
 Recorded on 2026-11-13 at 02:28 MST, before the `sprt` label was added.
@@ -1667,3 +1671,29 @@ made before its run (`779b4ae`, `e972072`, `2160aea`, `36efe7b`, `02283a5` and
 the rest) stay in its history under the same names. `docs/nets.md` is `main`'s
 copy, which #256 landed, with the second run's result added; the gallery
 manifest quotes that run now.
+
+### Experiment 5 again: capture futility against `v0.51.0` (#252)
+
+The owner merged this log (#247, `363e172`, 18:29:19 UTC) and asked for #252 to
+be rebased. #252 is the change the session left undecided: H1 at fixed nodes
+(+17.7 ± 7.9) and a timed leg that reached its cap at +4.9 ± 3.8 (LOS 99.4%,
+LLR 2.61); pooled with match M18's 10,000 further timed games it reads +4.0,
+95% interval +1.3 to +6.7. The rebase's push plays its SPRT again, now against an engine
+that has all three of the session's gains.
+
+Recorded on 2026-11-13 at 11:34 MST (18:34 UTC), before the rebased
+branch was pushed.
+
+| | |
+|:--|:--|
+| Question | Does futility pruning of captures still gain, per node and at a clock, in `v0.51.0`: with the adaptive null-move reduction (#246), one more ply of late-move reduction at expected cut nodes (#254) and net8x160 (#256)? |
+| The one change from the first run | The base: `main` at `363e172` (`v0.51.0` and this log's docs) for `0a45da0` (`v0.48.1`). The patch is the first run's: `feat/capture-futility` at `1aa1655`, rebased without conflict from `cb6dfbc`, and `git range-diff` reports the two commits equal |
+| Held the same | The SPRT's settings (elo0 0, elo1 5, α = β = 0.05; 5+0.05 and 200,000 nodes a move; the same openings and cap), the instance type and market, and every constant of the patch |
+| Left as it was, though its premise moved | `CAPTURE_VALUE`, what a capture is worth to the evaluation, was measured on net8 (300, 775, 880, 1,100, 1,680 for pawn to queen). The default is net8x160 now, whose knight, bishop, rook and queen read 2% to 7% smaller on the SPRT openings and whose pawn reads 2% larger ([nets.md](nets.md#net8x160-l050-r43390801430)). The table was not re-measured: that would be a second variable, and a table that is too large only prunes less |
+| Bench, local | 919304 → 878901 (−4.4% nodes to depth 10: the main search 3.1% smaller, quiescence 5.6% smaller; against `v0.48.1` the tree's size did not change, 970013 → 970114); fail-high-first 0.8778 → 0.8802 (bar 0.87); EBF 1.861 → 1.847 (bar 2.0); both bars pass; 11,825 captures skipped. The base's figures are the release's own record (`benchmarks/v0.51.0/`); they are counts, the same on any machine |
+| Expectation | Fixed nodes: H1 again, somewhere near the first run's reading. Timed: about +4, as the 20,000 timed games already played say. At +4.0 the test reaches H1 before its cap about four times in ten (a normal approximation from the first run's own LLR, 2.61 at +4.9 after 10,000 games), so the likeliest single outcome is the first run's again |
+| Gate | H1 in both legs, against this base. Nothing carries over from the first run or from M18 |
+| What each outcome means | **H1 in both:** the gate is met for the engine as it is now. **H0 in either:** the change loses on this engine and is recommended for closing. **Timed inconclusive again:** the check fails. A third timed sample of about the same size would say the gain at a clock is real and under the test's `elo1`, and whether to merge at a high LOS is the owner's decision under AGENTS.md. This run's own interval is what is reported; it is not pooled with the earlier games into a verdict, which were played against a different engine |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80, likely near the top, since the timed leg is expected to run long. Asked for by the owner; the session and the re-tests since stand at about $39.80, so this one takes the total past the $40 the agent had set for the session. No SPRT or match is running, and no instance but the Lichess bot's (`describe-instances`, 18:34 UTC) |
+
+Local checks on `1aa1655` before the push: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings` (exit 0), `cargo test --workspace --locked` (271 passed) and with `--features stats` (272 passed), `npm test` (59 pass); the signature is 878901 in two runs and in the `stats` build.
