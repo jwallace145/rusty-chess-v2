@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.52.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.51.0...v0.52.0) (2026-11-13)
+
+
+### Features
+
+* **tools:** nnue-scale, what an evaluation values each piece at, and the scale of every net ([#253](https://github.com/jwallace145/rusty-chess-v2/issues/253)) ([b38dbad](https://github.com/jwallace145/rusty-chess-v2/commit/b38dbadf63907159bbae1aebcbb612328812a4ea))
+
+
+### Documentation
+
+* **research:** record [#252](https://github.com/jwallace145/rusty-chess-v2/issues/252)'s second SPRT, against v0.51.0 ([#260](https://github.com/jwallace145/rusty-chess-v2/issues/260)) ([537891a](https://github.com/jwallace145/rusty-chess-v2/commit/537891ae8dc7198e9a9b04b565a82c7fba8030f4))
+* **research:** record the 2026-11-12 overnight research session ([#247](https://github.com/jwallace145/rusty-chess-v2/issues/247)) ([363e172](https://github.com/jwallace145/rusty-chess-v2/commit/363e172dfb60e668f1154b3a8c400eabf47c6cea))
+
+### Benchmarks
+
+* bench signature 919,304, instructions per node 4016, search 1.97M NPS, perft 288.23M NPS (pass (63)), fail-high first 87.8%, EBF 1.86, TT hit 55.7%
+* since v0.51.0: fail-high first +0.0 pt, EBF +0.00, instructions per node +0.0%, search NPS +6.9%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.51.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.50.0...v0.51.0) (2026-11-13)
 
 
