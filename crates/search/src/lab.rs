@@ -87,7 +87,7 @@ params! {
     LMR_BASE = 75,
     LMR_DIV = 225,
     // Capture history (0 = off): added to a capture's ordering score divided by this.
-    CAPHIST = 0,
+    CAPHIST = 8,
     // Continuation history four plies back (0 = off).
     CONT4 = 0,
     // ProbCut (0 = off): at depth >= PC_DEPTH, a capture whose search at
