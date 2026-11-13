@@ -39,7 +39,8 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
 | `net7rl012-l050-r42054816508` | Default `v0.45.0`–`v0.47.2`; passed its SPRT (#202); **plays generation 6** | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019361 (its own labels; not comparable with net7's, cross-scored below) | 7.79 / 52.58 | **+16.3 ± 7.7** vs net7 | **+18.1 ± 8.1** | 3150 ± 32 (`v0.45.0`), 3171 ± 32 (`v0.45.1`), 3159 ± 29 (`v0.46.0`), 3173 ± 30 (`v0.46.1`), 3160 ± 31 (`v0.46.2`), 3200 ± 34 (`v0.47.0`), 3160 ± 30 (`v0.47.1`), 3189 ± 33 (`v0.47.2`) |
 | `net7rl012345-l050-r42398995769` | **Dropped:** failed its SPRT against net7rl012 (#210) | 0–5 · 2,238.2M | `N7` on 0–2, `N7r` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019640 (its own labels; not comparable with net7rl012's, cross-scored below) | 8.22 / 35.56 | +1.9 ± 4.1 vs net7rl012 (inconclusive) | −5.2 ± 5.2 (H0) | — |
 | `net7rl012w768-l050-r42411319602` | **Dropped:** failed its SPRT against net7rl012 at a clock (#214) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → **768**) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019168** (same held-out set as net7rl012: 0.019361) | 7.64 / 41.77 | −9.0 ± 6.4 vs net7rl012 (H0) | **+28.9 ± 10.2** (H1) | — |
-| `net8-l050-r42564788061` | Default from `v0.48.0`; passed its SPRT (#235) | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.020037 (its own held-out set, which adds generation 6's workers; cross-scored below) | 7.03 / 34.05 | **+14.1 ± 6.9** vs net7rl012 | **+8.8 ± 5.3** | 3172 ± 29 (`v0.48.0`), 3178 ± 33 (`v0.48.1`), 3181 ± 30 (`v0.49.0`) |
+| `net8-l050-r42564788061` | Default `v0.48.0`–`v0.50.0`; passed its SPRT (#235); replaced by net8x160 before playing a generation | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.020037 (its own held-out set, which adds generation 6's workers; cross-scored below) | 7.03 / 34.05 | **+14.1 ± 6.9** vs net7rl012 | **+8.8 ± 5.3** | 3172 ± 29 (`v0.48.0`), 3178 ± 33 (`v0.48.1`), 3181 ± 30 (`v0.49.0`), 3219 ± 32 (`v0.50.0`) |
+| `net8x160-l050-r43390801430` | Default from `v0.51.0`; passed its SPRT (#256) | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | **160** | **0.019921** (same held-out set as net8: 0.020037) | 7.28 / 31.34 | **+12.3 ± 6.4** vs net8 in `v0.50.0`'s search, the run it merged on (**+11.6 ± 6.1** in `v0.48.1`'s) | **+30.8 ± 10.8** (**+8.2 ± 5.1** in `v0.48.1`'s) | — |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -133,14 +134,14 @@ this asks whether it was under-trained.
 
 net8's data and settings with **twice the schedule**: 160 superbatches.
 **It beat net8 in both SPRT legs (+11.6 ± 6.1 timed, +8.2 ± 5.1 at fixed
-nodes; #256), so the gate below is met. It is not the default: #256 is an open
-draft, and merging it is the owner's decision.** The plan below was recorded on
-2026-11-13 at 01:07 MST (`2160aea`, 08:07:36 UTC), before the `Train` dispatch
-(08:07:49), during the overnight research session
-([research-log.md](research-log.md)), and is unchanged. The net has no row in
-the summary yet: a row needs an architecture snapshot, and a snapshot's
-manifest names the release the net became the default in, which exists only
-once #256 merges (#256 lists what it needs).
+nodes; #256) and is the default from `v0.51.0`,** replacing net8 before net8
+played a generation. That SPRT was played in `v0.48.1`'s search. #256 was then
+rebased onto `v0.50.0`, which has two search changes more (#246, #254), and its
+SPRT was played again before it could merge: the second run is at the end of
+this section. The plan below was recorded on 2026-11-13 at 01:07 MST
+(`2160aea`, 08:07:36 UTC), before the `Train` dispatch (08:07:49), during the
+overnight research session ([research-log.md](research-log.md)), and is
+unchanged.
 
 | | |
 |:--|:--|
@@ -217,12 +218,12 @@ demand, two `c8a.16xlarge` in us-east-1a; one attempt):
 | Timed, 5+0.05 | **+11.6 ± 6.1** | 100.0% | 3910 | 881 / 750 / 2279 | 2.96 | 34, 392, 995, 477, 57 | H1 |
 | Fixed nodes, 200,000 per move | **+8.2 ± 5.1** | 99.9% | 6250 | 1462 / 1314 / 3474 | 2.95 | 43, 781, 1409, 769, 123 | H1 |
 
-**The recorded gate is met:** H1 in both legs. The comment's reading: "smarter
-per node, and worth its cost at a clock: merge." Not merged: #256 is a draft
-that waits for the owner and for its gallery entries. Self-play against the
-previous net, which overstates gains, and one training run. Tested against
+**The recorded gate was met:** H1 in both legs. The comment's reading: "smarter
+per node, and worth its cost at a clock: merge." Self-play against the
+previous net, which overstates gains, and one training run. Played against
 `main` at `0a45da0`, so without the two search changes that passed their own
-SPRTs the same night (#246, #254); how the three add is not measured.
+SPRTs the same night (#246, #254). Both merged before this net did, which is
+why the SPRT was played a second time, below.
 
 **Scale** (local; `nnue-scale` built from #253's branch at `5197197`, on the
 300 SPRT openings; measured on 2026-11-13 at about 06:35 MST, after the record
@@ -245,11 +246,53 @@ where they did under net8.
 net (only the S3 copy was hashed). The net's scale was listed here as not
 measured when this section was first written; it is above now.
 
+**The second SPRT, in `v0.50.0`'s search.** The owner merged #246 and #254 and
+released each (`v0.49.0`, `v0.50.0`), then asked for #256 to be rebased so the
+net ships in `v0.51.0`. A rebase is a push, and a push plays the SPRT again.
+The plan, recorded on 2026-11-13 at 10:36 MST (17:36 UTC), before the
+rebased branch was pushed:
+
+| | |
+|:--|:--|
+| Question | Does net8x160 still beat net8 when both play in `v0.50.0`'s search, which has the adaptive null-move reduction (#246) and one more ply of late-move reduction at expected cut nodes (#254)? A net's gain is measured in the search it was tested with |
+| The one change from the first run | The base: `main` at `4451cfe` (`v0.50.0`) for `0a45da0` (`v0.48.1`). The net is the same file (SHA-256 `8ea67605…556c`). The commit that embeds it is the first run's, rebased without conflict (`git range-diff` reports the two equal); a second commit adds the gallery and ledger entries and changes no engine code |
+| Held the same | The SPRT's settings (elo0 0, elo1 5, α = β = 0.05; 5+0.05 and 200,000 nodes a move; the same openings and cap), the instance type and market |
+| Bench, local | 958984 → 919304 (−4.1% nodes to depth 10: the main search 0.5% smaller, quiescence 7.3% smaller); fail-high-first 0.8756 → 0.8778 (bar 0.87); EBF 1.846 → 1.861 (bar 2.0); both bars pass. The base's figures are the release's own record (`benchmarks/v0.50.0/`); they are counts, the same on any machine |
+| Expectation | Positive, +5 to +10 in both legs. The first run's readings stopped at H1, which reads high, so the lower half is the likelier, and a leg reaching the cap without a verdict is a real possibility |
+| Gate | H1 in both legs, against this base. The first run's pass does not carry over: the net is judged in the engine it would ship in |
+| What each outcome means | **H1 in both:** the net is the default from `v0.51.0`, as this section says. **H0 in either:** #256 is closed and the net is recorded as dropped in this search, whatever it did in the earlier one. **Inconclusive in either:** the check fails, and whether to merge at a high LOS is the owner's decision under AGENTS.md |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80 |
+
+**Result** ([run 43474643514](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43474643514),
+#256, `35fbdc9` against `main` at `4451cfe`; elo0 0, elo1 5, α = β = 0.05; on
+demand, two `c8a.16xlarge` in us-east-1b; one attempt). Added here after #256
+merged: it could not be written in that pull request, where adding it was a
+push and a push plays the SPRT again.
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **+12.3 ± 6.4** | 100.0% | 3890 | 898 / 760 / 2232 | 2.95 | 51, 396, 921, 518, 59 | H1 |
+| Fixed nodes, 200,000 per move | **+30.8 ± 10.8** | 100.0% | 1516 | 398 / 264 / 854 | 2.95 | 15, 140, 341, 220, 42 | H1 |
+
+**Bench** (#256's CI comment, base `v0.50.0`): signature 958,984 → 919,304; speed per node +2.5% ± 2.0%; time to depth −6.4% ± 1.8% (marked better); 4,016 instructions a node (4,035 for `v0.50.0`); fail-high-first 87.8% (87.6%); EBF 1.86 (1.85); perft pass; the performance gate passed.
+
+**The recorded gate is met:** H1 in both legs. The comment's reading:
+"Gate: pass: smarter per node, and worth its cost at a clock: merge." The owner merged #256 on 2026-11-13 as `e80876f`, whose tree is the tested commit's, and released it as `v0.51.0` (`458fd7b`), whose recorded bench signature is 919304.
+
+**Reading it.**
+- **The net beats net8 in the search it would ship in, on both legs:** +12.3 ± 6.4 at a clock and +30.8 ± 10.8 per node.
+- **At a clock it reads as it did in `v0.48.1`'s search** (+11.6 ± 6.1 then; 0.7 higher now, against an error of about ±8.8 for the difference of two such readings). The two search changes neither took from the net's gain there nor added to it.
+- **At fixed nodes it reads far higher than before:** +8.2 ± 5.1 then, 22.6 higher now, against an error of about ±11.9 for the difference. A leg that stops after 1,516 games reads high, and this is one run, so the size is not established. It may be that a search which leans harder on the evaluation (the null-move reduction now grows with the evaluation's margin over beta) is served more by a better one; that was not tested.
+- **The two legs disagree again,** by 18.5 against an error of about ±12.6 for their difference, as they did for #248 and #252. Not explained here either: the net does not make a node dearer (the CI bench reads speed per node +2.5% ± 2.0%, and time to depth 6.4% shorter).
+- **Against the plan's expectation** of +5 to +10 in both legs: the timed leg is just above it and the fixed-node leg far above.
+- **Still not measured:** the three changes together as one match against `v0.48.1` (adding three SPRTs adds readings that each stopped at H1, which reads high); a ladder rating of this net (`v0.51.0`'s run was in progress when this was added); a second training run; anything but self-play against the previous net.
+
 ## net8-l050-r42564788061
 
 net7rl012's recipe on generations 0–6. **It beat net7rl012 in both SPRT legs
-(+14.1 ± 6.9 timed, +8.8 ± 5.3 at fixed nodes; #235) and is the default since
-`v0.48.0`.** The plan below was recorded before any result existed, in #234, and
+(+14.1 ± 6.9 timed, +8.8 ± 5.3 at fixed nodes; #235) and was the default in
+`v0.48.0`–`v0.50.0`,** until [net8x160](#net8x160-l050-r43390801430), the same
+recipe at twice the schedule, replaced it before it played a generation. The plan below was recorded before any result existed, in #234, and
 is unchanged. The SPRT was added to this section on 2026-11-12: #236 recorded the
 training before the SPRT had run, and nothing recorded the result afterwards
 ([audit log](#audit-log)).
@@ -346,7 +389,7 @@ two `c8a.16xlarge` in us-east-1a; one attempt, as #235 records it):
 
 **The recorded gate is met:** H1 in both legs. The comment's reading: "smarter per
 node, and worth its cost at a clock: merge." Merged as `37068b2` and released in
-`v0.48.0`, whose ladder run read 3172 ± 29 (`v0.48.1`, the same engine: 3178 ± 33; `v0.49.0`, the same net under #246's search change: 3181 ± 30). Self-play against the previous net,
+`v0.48.0`, whose ladder run read 3172 ± 29 (`v0.48.1`, the same engine: 3178 ± 33; `v0.49.0`, the same net under #246's search change: 3181 ± 30; `v0.50.0`, under #254's too: 3219 ± 32). Self-play against the previous net,
 which overstates gains, and one training run.
 
 ## net7rl012w768-l050-r42411319602
@@ -1149,7 +1192,7 @@ differ.
 | **Relabelling the newer generations didn't pay** | net7rl012345 against net7rl012: only generations 3–5's scores changed, to net7rl012's (61.4% of the records), +1.9 ± 4.1 timed (inconclusive at 10,000 games) and −5.2 ± 5.2 at fixed nodes, H0 (#210). Their original labellers, net4w512 to net6k4, were much closer to net7rl012 than PeSTO to net2x80 were to net7; `N7r` agrees with the originals on sign 96.1–96.5% of the time, against 93.0–95.7% for `N7`. One result, one training run | Relabelling pays most where the labeller gains most over the original. Don't relabel generations whose labeller is close to the current net; test width and other capacity next |
 | **The largest generation paid again** | net8 against net7rl012: only generation 6 added (+36% data, 849.9M positions played by net7rl012 with the correction history), **+14.1 ± 6.9** timed and **+8.8 ± 5.3** at fixed nodes (#235), against +6.8 for generation 5's +16% | The series by share of data added holds: +71% gave +21.9, +36% +14.1, +32% +14.5, +16% +6.8. A generation near 600M on 3.2B (+19%) should be expected to give about +7, close to what `elo1` 5 can resolve |
 | **768 wide is smarter but too slow at a clock** | net7rl012w768 against net7rl012 on identical data: held-out −1.00%, **+28.9 ± 10.2** at fixed nodes but **−9.0 ± 6.4** timed (#214), at 13.9% ± 6.9% slower per node and 20.9% longer to depth. 512 kept +44 of +74 at a clock | Width now costs more at 5+0.05 than it adds. Make the wide path cheaper (accumulator updates, a refresh cache) before going wider, and re-test this net after |
-| **At 3.0B positions, twice the schedule paid** | net8x160 (160 superbatches) against net8 (80) on identical data: held-out −0.58%, SPRT **+11.6 ± 6.1** timed and **+8.2 ± 5.1** at fixed nodes (#256), at the same cost per node. 80 superbatches were 5.5 passes over net 5's 1.47B positions, where 120 added nothing (net5x120), and 2.6 passes over net8's 3.03B. One result, one training run | Size the schedule in passes over the data, not in superbatches: about 5 passes. A net on generations 0–7 should be trained at that length from the start, and its schedule checked again when the data next grows by half |
+| **At 3.0B positions, twice the schedule paid** | net8x160 (160 superbatches) against net8 (80) on identical data: held-out −0.58%, SPRT **+11.6 ± 6.1** timed and **+8.2 ± 5.1** at fixed nodes in `v0.48.1`'s search and **+12.3 ± 6.4** and **+30.8 ± 10.8** in `v0.50.0`'s (#256), at the same cost per node. 80 superbatches were 5.5 passes over net 5's 1.47B positions, where 120 added nothing (net5x120), and 2.6 passes over net8's 3.03B. One result, one training run | Size the schedule in passes over the data, not in superbatches: about 5 passes. A net on generations 0–7 should be trained at that length from the start, and its schedule checked again when the data next grows by half |
 
 ## Next experiments
 
@@ -1202,8 +1245,8 @@ the fixed-node SPRT against the current default.
      follow-up.
    - **Schedule length at 3.0B positions:** [net8x160](#net8x160-l050-r43390801430),
      net8's recipe at 160 superbatches, **passed both SPRT legs against net8**
-     (+11.6 ± 6.1 timed, +8.2 ± 5.1 at fixed nodes; #256, an open draft for
-     the owner). Item 6's result was for 1.47B positions; the schedule goes by
+     (+11.6 ± 6.1 timed, +8.2 ± 5.1 at fixed nodes; #256) and is the default
+     from `v0.51.0`. Item 6's result was for 1.47B positions; the schedule goes by
      passes over the data.
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
@@ -1296,3 +1339,28 @@ in net8's summary row and section from the release notes (`Rating` run
 [43453142633](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43453142633);
 four rungs of 100 games against Stockfish 19, as the others). The net is the
 one `v0.48.1` embeds; the engine differs by #246, a search change.
+
+**2026-11-13,** with #256, which makes net8x160 the default:
+
+| Check | Result |
+|:--|:--|
+| net8x160's Summary row against its section | Added: the data, the schedule, the held-out loss and the engine check are the section's, which are `training.json`'s; the SPRT cells are the first run's (run 43434302426) |
+| The embedded file against the ledger | `crates/search/nets/net8x160-l050-r43390801430.nnue`: 3,163,200 bytes, SHA-256 `8ea67605…556c`, as the section's Network row says (`shasum -a 256` on the file in this branch, 2026-11-13) |
+| net8's status | Default in `v0.48.0`–`v0.50.0`; it played no generation (datasets.md lists generations 0–6 and no seventh), so it is in neither `NETS` nor `RETIRED_NETS`, like net7 before it |
+| The gallery | A manifest and diagram for net8x160, net8's manifest moved to "superseded"; `npm run nnue:diagrams:check` passes |
+
+**Not checked:** `v0.50.0`'s rating, whose run was in progress; the second
+SPRT's result, which did not exist when this was committed (see net8x160's
+section); net8x160's `training.json` again (the section's figures were taken
+from it on 2026-11-13 and not re-read).
+
+**2026-11-13,** after #256 merged (`e80876f`, released as `v0.51.0`):
+
+| Check | Result |
+|:--|:--|
+| net8x160's second SPRT against #256's sticky SPRT comment and the run's `sprt.md` reports | Added to its section and its Summary row, rendered by script from the reports: +12.3 ± 6.4 timed (3890 games) and +30.8 ± 10.8 at fixed nodes (1516 games), both H1, against `main@4451cfe` |
+| The merged commit against the tested one | `git rev-parse` gives the same tree for `e80876f` and `35fbdc9`, and `benchmarks/v0.51.0/summary.json` records the signature 919304, the SPRT engine's |
+| The gallery | net8x160's manifest now quotes the second run, the one it merged on, and names the first in its notes; `npm run nnue:diagrams:check` passes |
+| `v0.50.0`'s rating against its release notes | Added to net8's row and section: 3219 ± 32 (`Rating` run [43472083980](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43472083980); four rungs of 100 games against Stockfish 19, as the others). It is the last release that carries net8 |
+
+**Not checked:** `v0.51.0`'s rating, whose run was in progress.

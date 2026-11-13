@@ -30,12 +30,12 @@ relabelled net is a new snapshot, not a new architecture.
 ## The current default
 
 <!-- nnue-diagrams:current:start -->
-**`net8-l050-r42564788061`** — `(768 × 4 → 512) × 2 → 8` (H512 · K4 · B8), Default since v0.48.0; plays generation 7.
+**`net8x160-l050-r43390801430`** — `(768 × 4 → 512) × 2 → 8` (H512 · K4 · B8), Default since v0.51.0; plays generation 7.
 512 hidden neurons per perspective, 4 king buckets, 8 output heads; 1,581,576 parameters.
-[Diagram source](diagrams/net8-l050-r42564788061.d2) · [manifest](manifests/net8-l050-r42564788061.json) · [the ledger's record](../nets.md#net8-l050-r42564788061)
+[Diagram source](diagrams/net8x160-l050-r43390801430.d2) · [manifest](manifests/net8x160-l050-r43390801430.json) · [the ledger's record](../nets.md#net8x160-l050-r43390801430)
 
 <p align="center">
-  <a href="diagrams/net8-l050-r42564788061.svg"><img src="diagrams/net8-l050-r42564788061.svg" alt="Architecture of net8-l050-r42564788061: (768 × 4 → 512) × 2 → 8. Chess768 features, 4 mirrored king buckets select each perspective's input weights, two perspective accumulators of 512 sharing one weight set, SCReLU, 1024 activations into one of 8 output heads chosen by piece count, scaled to centipawns."></a>
+  <a href="diagrams/net8x160-l050-r43390801430.svg"><img src="diagrams/net8x160-l050-r43390801430.svg" alt="Architecture of net8x160-l050-r43390801430: (768 × 4 → 512) × 2 → 8. Chess768 features, 4 mirrored king buckets select each perspective's input weights, two perspective accumulators of 512 sharing one weight set, SCReLU, 1024 activations into one of 8 output heads chosen by piece count, scaled to centipawns."></a>
 </p>
 <!-- nnue-diagrams:current:end -->
 
@@ -67,7 +67,8 @@ comment, both legs, as recorded in [nets.md](../nets.md).
 | 15 | `net7rl012-l050-r42054816508` | `(768 × 4 → 512) × 2 → 8` | Labels: Generations 0–2 relabelled by net7 (label set N7); positions, results and network unchanged (from `net7`) | Retired: Default v0.45.0–v0.47.2; played generation 6 | #202 vs net7: +16.3 ± 7.7 timed, +18.1 ± 8.1 at fixed nodes (kept) | [diagram](diagrams/net7rl012-l050-r42054816508.svg) · [source](diagrams/net7rl012-l050-r42054816508.d2) · [manifest](manifests/net7rl012-l050-r42054816508.json) · [ledger](../nets.md#net7rl012-l050-r42054816508) |
 | 16 | `net7rl012345-l050-r42398995769` | `(768 × 4 → 512) × 2 → 8` | Labels: Generations 3–5 relabelled by net7rl012 (label set N7r); network unchanged (from `net7rl012`) | Dropped (#210): relabelling generations 3–5 (N7r) failed its SPRT against net7rl012 | #210 vs net7rl012: +1.9 ± 4.1 (inconclusive) timed, −5.2 ± 5.2 (H0) at fixed nodes (dropped) | [diagram](diagrams/net7rl012345-l050-r42398995769.svg) · [source](diagrams/net7rl012345-l050-r42398995769.d2) · [manifest](manifests/net7rl012345-l050-r42398995769.json) · [ledger](../nets.md#net7rl012345-l050-r42398995769) |
 | 17 | `net7rl012w768-l050-r42411319602` | `(768 × 4 → 768) × 2 → 8` | **Topology**: Hidden width 768 instead of 512, on net7rl012's data and labels (from `net7rl012`) | Dropped (#214): smarter per node but slower, so it lost the timed SPRT against net7rl012 | #214 vs net7rl012: −9.0 ± 6.4 (H0) timed, +28.9 ± 10.2 (H1) at fixed nodes (dropped) | [diagram](diagrams/net7rl012w768-l050-r42411319602.svg) · [source](diagrams/net7rl012w768-l050-r42411319602.d2) · [manifest](manifests/net7rl012w768-l050-r42411319602.json) · [ledger](../nets.md#net7rl012w768-l050-r42411319602) |
-| 18 | `net8-l050-r42564788061` | `(768 × 4 → 512) × 2 → 8` | Data: Generation 6 (played by net7rl012) added (from `net7rl012`) | Default since v0.48.0; plays generation 7 | #235 vs net7rl012: +14.1 ± 6.9 timed, +8.8 ± 5.3 at fixed nodes (kept) | [diagram](diagrams/net8-l050-r42564788061.svg) · [source](diagrams/net8-l050-r42564788061.d2) · [manifest](manifests/net8-l050-r42564788061.json) · [ledger](../nets.md#net8-l050-r42564788061) |
+| 18 | `net8-l050-r42564788061` | `(768 × 4 → 512) × 2 → 8` | Data: Generation 6 (played by net7rl012) added (from `net7rl012`) | Superseded: Default v0.48.0–v0.50.0; replaced by net8x160 before playing a generation | #235 vs net7rl012: +14.1 ± 6.9 timed, +8.8 ± 5.3 at fixed nodes (kept) | [diagram](diagrams/net8-l050-r42564788061.svg) · [source](diagrams/net8-l050-r42564788061.d2) · [manifest](manifests/net8-l050-r42564788061.json) · [ledger](../nets.md#net8-l050-r42564788061) |
+| 19 | `net8x160-l050-r43390801430` | `(768 × 4 → 512) × 2 → 8` | Schedule: 160 superbatches instead of 80, on net8's data and labels (from `net8`) | Default since v0.51.0; plays generation 7 | #256 vs net8: +12.3 ± 6.4 timed, +30.8 ± 10.8 at fixed nodes (kept) | [diagram](diagrams/net8x160-l050-r43390801430.svg) · [source](diagrams/net8x160-l050-r43390801430.d2) · [manifest](manifests/net8x160-l050-r43390801430.json) · [ledger](../nets.md#net8x160-l050-r43390801430) |
 <!-- nnue-diagrams:timeline:end -->
 
 ## Gallery
@@ -174,8 +175,15 @@ Click a thumbnail for the full diagram.
     </td>
     <td align="center" valign="top" width="33%">
       <a href="diagrams/net8-l050-r42564788061.svg"><img src="diagrams/net8-l050-r42564788061.svg" alt="Architecture of net8-l050-r42564788061: (768 × 4 → 512) × 2 → 8. Chess768 features, 4 mirrored king buckets select each perspective's input weights, two perspective accumulators of 512 sharing one weight set, SCReLU, 1024 activations into one of 8 output heads chosen by piece count, scaled to centipawns." width="240"></a><br>
-      <sub><code>net8-l050-r42564788061</code><br>(768 × 4 → 512) × 2 → 8 · default<br>
+      <sub><code>net8-l050-r42564788061</code><br>(768 × 4 → 512) × 2 → 8 · superseded<br>
       <a href="diagrams/net8-l050-r42564788061.d2">source</a> · <a href="manifests/net8-l050-r42564788061.json">manifest</a> · <a href="../nets.md#net8-l050-r42564788061">ledger</a></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="diagrams/net8x160-l050-r43390801430.svg"><img src="diagrams/net8x160-l050-r43390801430.svg" alt="Architecture of net8x160-l050-r43390801430: (768 × 4 → 512) × 2 → 8. Chess768 features, 4 mirrored king buckets select each perspective's input weights, two perspective accumulators of 512 sharing one weight set, SCReLU, 1024 activations into one of 8 output heads chosen by piece count, scaled to centipawns." width="240"></a><br>
+      <sub><code>net8x160-l050-r43390801430</code><br>(768 × 4 → 512) × 2 → 8 · default<br>
+      <a href="diagrams/net8x160-l050-r43390801430.d2">source</a> · <a href="manifests/net8x160-l050-r43390801430.json">manifest</a> · <a href="../nets.md#net8x160-l050-r43390801430">ledger</a></sub>
     </td>
   </tr>
 </table>

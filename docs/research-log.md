@@ -84,7 +84,7 @@ summarises: each plan as it was written before its run, then the result.
 | #247 | This log, the net8 ledger correction, net8x160's record, the roadmap | Ready for review | Merge after review |
 
 **Since the session ended:** the owner merged #246 and released it as `v0.49.0`
-(2026-11-13), and #254 was rebased onto it and passed its SPRT again, H1 in both legs: **+8.1 ± 4.9** timed and **+7.6 ± 4.7** at fixed nodes; the owner then merged it (`059caa3`). #256 was rebased onto `v0.50.0` in turn and passed its SPRT again, H1 in both legs: **+12.3 ± 6.4** timed and **+30.8 ± 10.8** at fixed nodes. The
+(2026-11-13), and #254 was rebased onto it and passed its SPRT again, H1 in both legs: **+8.1 ± 4.9** timed and **+7.6 ± 4.7** at fixed nodes; the owner then merged it (`059caa3`). #256 was rebased onto `v0.50.0` in turn and passed its SPRT again, H1 in both legs: **+12.3 ± 6.4** timed and **+30.8 ± 10.8** at fixed nodes; the owner merged it too (`e80876f`). The
 table above is the state at the session's end; what followed is in
 [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246).
 
@@ -485,7 +485,7 @@ fixed-node leg is two identical engines).
 | 6, second run (after the session) | #254, rebased onto #246 | The same patch, against `v0.49.0` | 939252 → 958984 | **+8.1 ± 4.9** (H1, 6,124 games) | **+7.6 ± 4.7** (H1, 6,482 games) | **Gate met again,** on top of #246. Merged by the owner on 2026-11-13 (`059caa3`). [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246) |
 | 7 | #255 | Continuation history four plies back, in quiet ordering and the LMR history term | 970013 → 1025352 | +2.1 ± 3.8 (inconclusive at 10,000 games) | −1.2 ± 4.0 (inconclusive at 10,000 games) | **Gate not met: dropped.** Recommended for closing |
 | T1 | #256 | The embedded net: net8 → net8x160, net8's recipe with 160 superbatches for 80 | 970013 → 990172 | **+11.6 ± 6.1** (H1, 3,910 games) | **+8.2 ± 5.1** (H1, 6,250 games) | **Gate met.** A draft that needs its gallery entries; for the owner to merge |
-| T1, second run (after the session) | #256, rebased onto #246 and #254 | The same net, against net8 in `v0.50.0`'s search | 958984 → 919304 | **+12.3 ± 6.4** (H1, 3,890 games) | **+30.8 ± 10.8** (H1, 1,516 games) | **Gate met again,** in `v0.50.0`'s search. For the owner to merge. [Follow-up 2026-11-13](#training-t1s-net-again-net8x160-against-net8-in-v0500s-search-256) |
+| T1, second run (after the session) | #256, rebased onto #246 and #254 | The same net, against net8 in `v0.50.0`'s search | 958984 → 919304 | **+12.3 ± 6.4** (H1, 3,890 games) | **+30.8 ± 10.8** (H1, 1,516 games) | **Gate met again,** in `v0.50.0`'s search. Merged by the owner on 2026-11-13 (`e80876f`). [Follow-up 2026-11-13](#training-t1s-net-again-net8x160-against-net8-in-v0500s-search-256) |
 
 #### Experiment 1: adaptive null-move reduction (#246)
 
@@ -1559,6 +1559,7 @@ the owner's release workflow; figures from the release notes):
 |:--|:--|--:|
 | `v0.48.1` | The session's baseline | 3178 ± 33 |
 | `v0.49.0` | The same, with #246 | 3181 ± 30 |
+| `v0.50.0` (added when its run finished) | With #246 and #254 | 3219 ± 32 |
 
 - **The ladder neither shows #246's gain nor contradicts it.** The two
   readings differ by +3, and the difference of two such readings carries an
@@ -1572,6 +1573,16 @@ the owner's release workflow; figures from the release notes):
   several thousand games a release to resolve 25 Elo.
 - **Not a result of this session:** the run is the release's, started by the
   owner's merge. It is recorded in [nets.md](nets.md) with the other releases.
+- **`v0.50.0`, added when its run finished** (`Rating` run
+  [43472083980](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43472083980),
+  18:19 UTC): 3219 ± 32 for the engine with both search changes, still under
+  net8. That is +41 over `v0.48.1`, with an error of about ±46 for the
+  difference (+38 over `v0.49.0`, ±44). It is in the direction of the two
+  gains and about their size (their SPRTs add to +32.0 timed and +35.3 at fixed
+  nodes), and the interval still includes zero: consistent with the self-play
+  results, not a confirmation of them. The rungs moved unevenly (the 3100 and
+  3190 rungs read 3264 and 3246 where `v0.49.0`'s read 3189 and 3176, and the
+  2950 rung read lower, 3150 for 3175), which is what 100 games a rung gives.
 
 ### Training T1's net again: net8x160 against net8 in `v0.50.0`'s search (#256)
 
@@ -1647,3 +1658,12 @@ Every CI check on `35fbdc9` passed, `NNUE diagrams` and `Commit messages` among 
 about $3.45 an hour a leg; an estimate from run time, not a bill). With the
 session's $35.30 and #254's second run, about $39.80 in all. Both
 instances terminated (17:44:24 and 17:56:42 UTC).
+
+**Merged.** The owner merged #256 at 18:14:22 UTC as `e80876f` and released it as `v0.51.0` (`458fd7b`, 18:21:05 UTC). The merged commit's tree is the tested commit's (`git rev-parse` gives the same tree for `e80876f` and `35fbdc9`), and the release's recorded bench signature is 919304, so the engine released is the one that played. All three of the session's gains are on `main` now: #246 in `v0.49.0`, #254 in `v0.50.0` and the net in `v0.51.0`.
+
+**This branch after the merge.** `main` was merged into it rather than the
+branch rebased, so that the commits this log cites as the record of a plan
+made before its run (`779b4ae`, `e972072`, `2160aea`, `36efe7b`, `02283a5` and
+the rest) stay in its history under the same names. `docs/nets.md` is `main`'s
+copy, which #256 landed, with the second run's result added; the gallery
+manifest quotes that run now.

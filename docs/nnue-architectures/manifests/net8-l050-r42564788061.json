@@ -19,10 +19,10 @@
     }
   },
   "file_bytes": 3163200,
-  "status": "default",
-  "status_note": "Default since v0.48.0; plays generation 7",
-  "generation": 7,
-  "default_releases": "v0.48.0",
+  "status": "superseded",
+  "status_note": "Default v0.48.0–v0.50.0; replaced by net8x160 before playing a generation",
+  "generation": null,
+  "default_releases": "v0.48.0–v0.50.0",
   "training": {
     "generations": "0–6",
     "labels": "N7 on 0–2, O on 3–6",
@@ -44,7 +44,6 @@
   "ledger_anchor": "net8-l050-r42564788061",
   "provenance": {
     "architecture_source": [
-      "crates/search/nets/net8-l050-r42564788061.nnue (3,163,200 bytes, the embedded file)",
       "docs/nets.md#net8-l050-r42564788061 (Network row)",
       "docs/nnue.md#architecture",
       "docs/king-buckets.md#feature-indexing-must-match-bullet-exactly",
@@ -52,6 +51,6 @@
       "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
     ],
     "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net8-l050-r42564788061/training.json (in S3; not read for this manifest)",
-    "notes": "The SPRT result is in #235; the ledger's Summary row still read 'SPRT pending' when this manifest was written."
+    "notes": "The SPRT result is in #235. The file (3,163,200 bytes) was the embedded one in v0.48.0–v0.50.0 and stays in the bucket."
   }
 }

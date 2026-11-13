@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.51.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.50.0...v0.51.0) (2026-11-13)
+
+
+### Features
+
+* **nnue:** embed net8x160, net8's recipe at twice the schedule, as the default ([#256](https://github.com/jwallace145/rusty-chess-v2/issues/256)) ([e80876f](https://github.com/jwallace145/rusty-chess-v2/commit/e80876fa36f09d5d7c18a91f36e903fd5cf19f0d))
+
+### Benchmarks
+
+* bench signature 919,304, instructions per node 4016, search 1.84M NPS, perft 289.76M NPS (pass (63)), fail-high first 87.8%, EBF 1.86, TT hit 55.7%
+* since v0.50.0: fail-high first +0.2 pt, EBF +0.02, instructions per node −0.5%, search NPS +26.4%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
+## [0.50.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.49.0...v0.50.0) (2026-11-13)
+
+
+### Features
+
+* **search:** one more ply of late-move reduction at expected cut nodes ([#254](https://github.com/jwallace145/rusty-chess-v2/issues/254)) ([059caa3](https://github.com/jwallace145/rusty-chess-v2/commit/059caa34e1c201f406d3c0c48198b5368d805c83))
+
+### Benchmarks
+
+* bench signature 958,984, instructions per node 4035, search 1.46M NPS, perft 200.28M NPS (pass (63)), fail-high first 87.6%, EBF 1.85, TT hit 55.4%
+* since v0.49.0: fail-high first -0.2 pt, EBF -0.05, instructions per node +0.0%, search NPS −48.6%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
+## [0.49.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.48.1...v0.49.0) (2026-11-13)
+
+
+### Features
+
+* **search:** adaptive null-move reduction, deeper with depth and with the margin over beta ([#246](https://github.com/jwallace145/rusty-chess-v2/issues/246)) ([cd51dee](https://github.com/jwallace145/rusty-chess-v2/commit/cd51deee9fefe22ceb1ec7c962040a0323481080))
+
+### Benchmarks
+
+* bench signature 939,252, instructions per node 4033, search 2.84M NPS, perft 356.12M NPS (pass (63)), fail-high first 87.7%, EBF 1.90, TT hit 52.2%
+* since v0.48.1: fail-high first +0.3 pt, EBF +0.02, instructions per node −0.8%, search NPS +56.2%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.48.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.48.0...v0.48.1) (2026-11-13)
 
 
