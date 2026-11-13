@@ -338,7 +338,7 @@ fixed-node leg is two identical engines).
 | 2 | #248 | Reverse futility and the null move read the table's score as the evaluation, where its bound allows | 970013 → 942699 | **+16.5 ± 7.4** (H1, 2,714 games) | +2.8 ± 3.7 (inconclusive at 10,000 games) | **Gate not met: dropped by its plan.** A speed gain only the owner could merge over; it also crosses the fail-high-first bar (0.853 against 0.87) |
 
 | 3 | #249 | Futility pruning in quiescence, the victim valued at the net's scale | 970013 → 990066 | +3.6 ± 3.9 (inconclusive at 10,000 games) | **−10.8 ± 6.7** (H0, 3,290 games) | **Gate not met: dropped.** Recommended for closing |
-| 4 | #250, stacked on #246 | Null-move reduction's base 3 → 4 | 939252 → 925602 (against #246) | Pending | Pending | Pending |
+| 4 | #250, stacked on #246 | Null-move reduction's base 3 → 4 | 939252 → 925602 (against #246) | +1.5 ± 3.7 (inconclusive at 10,000 games) | Not played (its instance failed to launch) | **Gate not met: dropped.** Recommended for closing |
 
 #### Experiment 1: adaptive null-move reduction (#246)
 
@@ -533,6 +533,34 @@ Recorded on 2026-11-13 at 00:32 MST, before the `sprt` label was added.
 | Risks named beforehand | The screen's interval includes zero; zugzwang exposure grows with the reduction and there is no verification search; a gain at 5+0.05 that a longer control gives back |
 | Cost estimate | Two on-demand `c8a.16xlarge` for 20 to 50 minutes: $2.30 to $5.80 |
 
+**Result** ([run 43386646994](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386646994),
+#250, `25b1716` against #246's head `b54010f`; elo0 0, elo1 5, α = β = 0.05; on
+demand; one attempt; the plan's commit `7962c1b` at 07:32:37 UTC, the label at
+07:33:50):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | +1.5 ± 3.7 | 79.0% | 10000 | 1939 / 1895 / 6166 | 0.13 | 103, 1050, 2648, 1098, 101 | Inconclusive at the 5,000-round cap |
+| Fixed nodes, 200,000 per move | — | — | 0 | — | — | — | Not played: the launch incident below |
+
+The timed figures are from the leg's `sprt.md` and `sprt.log` in the
+`sprt-timed` artifact. **The sticky comment on #250 does not show them:** it
+reads "Gate: no result … re-run the SPRT", "Did not finish; see the job log"
+for the timed leg and "No capacity" for the fixed-node one. The timed leg did
+finish, at the cap; the comment job seems not to find a lone leg's log when the
+other leg left no artifact (not investigated).
+
+**The recorded gate is not met:** the timed leg did not accept H1, so the change
+is dropped. By the rule written during the incident, before this result, the
+fixed-node leg is not re-run. #250 is left open as a draft; the recommendation
+is to close it.
+
+**Reading it.** At a clock a fourth ply of null-move reduction adds nothing
+measurable (interval −2.2 to +5.2); the only fixed-node evidence is match M2's
++8.1. Experiment 1's step showed at both. So on this axis the first step took
+what there was at 5+0.05, and match M7, which asked where the axis turns over,
+is withdrawn unrun: this answers it at a clock.
+
 #### Match M1: experiment 1 at 10+0.1
 
 Recorded on 2026-11-12 at 23:41 MST, before the dispatch.
@@ -624,7 +652,7 @@ under the third amendment to the screening rule.
 |:--|:--|:--|:--|
 | M3 | [43386732727](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386732727) | 2026-11-13 07:34 | **Failed in the settings job, before any instance:** `rustc interrupted by SIGILL` compiling `rusty-chess-search`. The second failure of this kind tonight, and the one that explains both: `match.yml` sets no `RUSTFLAGS`, so its GitHub-hosted jobs build for the runner's own CPU and `rust-cache` restores that build on a different CPU. #251 proposes the one-line fix. No cost |
 | M3 | [43387376307](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43387376307) | 07:39 | The same inputs again. Completed: 3,000 games in 630 s of play |
-| M4 | [43388091282](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388091282) | 07:46 | Dispatched behind M3; the settings job passed at the first attempt |
+| M4 | [43388091282](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388091282) | 07:46 | Dispatched behind M3; the settings job passed at the first attempt. It waited for M5 and launched at 08:03. Completed: 3,000 games in 630 s of play |
 | M5 | [43388637501](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388637501) | 07:51 | Dispatched behind M4; the settings job passed at the first attempt. It took the instance slot before M4 did (the slot is not first come, first served). Completed: 3,000 games in 601 s of play |
 
 **Results** (each run's report; 200,000 nodes a move, hash 64 MB, against `main`
@@ -634,6 +662,7 @@ at `0a45da0`, bench 970,013):
 |:--|--:|:-:|--:|--:|:-:|:--|:--|
 | M3, double singular extension | +5.2 | −4.0 to +14.4 | 92.7% | 3000 | 585 / 540 / 1875 | 35, 310, 770, 345, 40 | Under +8: recorded, no PR |
 | M5, negative singular extension | +6.4 | −3.7 to +16.4 | 94.9% | 3000 | 695 / 640 / 1665 | 45, 350, 665, 385, 55 | Under +8: recorded, no PR |
+| M4, ProbCut with a capture filter | −10.4 | −20.2 to −0.7 | 0.3% | 3000 | 600 / 690 / 1710 | 55, 380, 700, 330, 35 | Weaker, with a 99% interval below zero: **dropped** |
 <!-- matches:m3-m6 -->
 
 #### Matches M7 to M10
@@ -781,6 +810,10 @@ The plan is in [nets.md](nets.md#net8x160-planned), recorded in `2160aea` at
 | Match M3 | [43386732727](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386732727), [43387376307](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43387376307) | $0.70 | About $0.75 for the second attempt (the task ran 649 s); nothing for the first |
 
 | SPRT, experiment 3 (#249) | [43384123736](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43384123736) | $1.70–5.80 | About $3.30: the timed leg's job took 44 min 58 s; the fixed-node leg's task ran 674 s after a 13-minute wait that used no instance |
+
+| Matches M4 and M5 | [43388091282](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388091282), [43388637501](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388637501) | $1.40 | About $1.50: the tasks ran 649 s and 620 s |
+
+| SPRT, experiment 4 (#250) | [43386646994](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386646994) | $2.30–5.80 | About $2.60: one instance for 45 minutes (the timed leg); the fixed-node leg launched nothing |
 
 *(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
 
