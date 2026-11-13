@@ -288,9 +288,49 @@ The control reads PeSTO's table values, so the method measures what it says.
 - **Any rule that mixes the evaluation with classical piece values is wrong by
   3×.** That is what `s1-qs-fut150` did. Static exchange evaluation is safe: it
   compares classical values only with each other.
-- **Not measured:** how the scale has moved from net to net (it should be
-  tracked, in [nets.md](nets.md), so a margin's drift is visible); the values in
-  positions that are already unbalanced, where the output is flatter.
+- **Not measured:** the values in positions that are already unbalanced,
+  where the output is flatter. How the scale moved from net to net was not
+  measured at first and now is, below.
+
+**The scale by net, measured at 01:30 MST.** The same program on every net that
+was a default and is kept in the bucket (`NET=<file>`; each file's SHA-256
+matches `nnue::RETIRED_NETS`, except net7's, which that list doesn't carry and
+which was not checked against its `training.json`). Mean value over the 300
+SPRT openings, and over the 50 bench positions in brackets:
+
+| Evaluation | Pawn | Knight | Bishop | Rook | Queen | Reverse futility's 80 a ply, in pawns |
+|:--|--:|--:|--:|--:|--:|--:|
+| PeSTO | 77 (86) | 319 (331) | 351 (350) | 457 (472) | 1,011 (1,001) | 1.04 |
+| net 1 | 148 (187) | 560 (607) | 617 (647) | 755 (854) | 1,667 (1,745) | 0.54 |
+| net2x80 | 184 (229) | 562 (617) | 629 (678) | 794 (933) | 1,748 (1,905) | 0.43 |
+| net4w512 | 211 (256) | 568 (642) | 647 (701) | 781 (946) | 1,350 (1,556) | 0.38 |
+| net 5 | 227 (278) | 580 (656) | 651 (725) | 806 (993) | 1,481 (1,683) | 0.35 |
+| net6k4 | 238 (283) | 573 (644) | 655 (712) | 777 (927) | 1,109 (1,385) | 0.34 |
+| net7 | 242 (287) | 562 (639) | 647 (708) | 761 (928) | 1,179 (1,426) | 0.33 |
+| net7rl012 | 263 (332) | 703 (841) | 818 (941) | 981 (1,268) | 1,455 (1,842) | 0.30 |
+| net8 | 263 (336) | 708 (843) | 818 (943) | 955 (1,249) | 1,500 (1,866) | 0.30 |
+
+- **The pawn has grown with every net,** from 148 to 263, and the search's
+  margins have stood still, so each net made every evaluation-based margin a
+  little tighter in pawns than the last. Reverse futility's 80 a ply was tested
+  at 1.04 pawns a ply and stands at 0.30.
+- **The pieces jumped once.** Knights, bishops and rooks sat near 560, 650 and
+  780 from net 1 to net7, then rose by a quarter in one step, to 703, 818 and
+  981, with net7rl012: the net trained on generations 0–2 relabelled by net7,
+  whose labels [datasets.md](datasets.md#net7-l050-r41363264869-n5000) records
+  as larger than the originals.
+- **That step is also the largest net gain since king buckets** (+16.3 timed,
+  +18.1 at fixed nodes, #202), and the ledger reads it as better labels making a
+  stronger net. This table offers a second reading that the record cannot tell
+  from the first: a net whose evaluation is a quarter larger makes every margin
+  in the search a fifth tighter, and the gain could be partly that. The second
+  relabelling, whose labels sat close to the originals and whose scale barely
+  moved, gained nothing (#210). **Not established here; matches M16 and M17
+  ask the question the cheap way,** by scaling net8's evaluation in the search
+  and seeing which way the engine wants its margins.
+- **For the ledger:** each net's scale belongs in [nets.md](nets.md) beside its
+  loss, measured when it is trained, so a change in the search's effective
+  margins is seen when it happens.
 
 ### How the clock is spent at 5+0.05
 
@@ -726,6 +766,20 @@ gave M10, M7, M8, M9): M6, M12, M11, M8, M9, M10, M13, M14, M7. The ones that
 can become a PR tonight go first, since each needs an SPRT after it; M10 and M7
 are measurements for the owner and lose nothing by running later. Every match
 planned is still run unless the spend cap stops it, and a stop is recorded.
+
+#### Matches M16 and M17: which way does the search want its margins?
+
+Recorded on 2026-11-13 at 01:29 MST, before either was dispatched.
+
+| | |
+|:--|:--|
+| Question | Every evaluation-based margin in the search is now about 3.4 times tighter in pawns than when it was tuned, and tightened by another fifth with net7rl012. Taken together, are they too tight, too loose, or about right for net8? |
+| The probe | One lab parameter, `EVAL_PCT`, scales the evaluation as the search reads it. At 125 every margin is a fifth tighter at once (reverse futility, futility, the aspiration window, the singular margin, the correction history's cap, the null move's evaluation term); at 80, a quarter looser. It is exactly equivalent to rescaling those constants together, up to rounding |
+| M16 | `research/lab-eval125` (`d4bb6a5`, bench 942,637) against `main`, 200,000 nodes, 3,000 games |
+| M17 | `research/lab-eval80` (`63dca34`, bench 1,170,683; EBF 2.005 on the bench, a hair over the bar) against `main`, 200,000 nodes, 3,000 games |
+| Read beforehand | One side at +8 or more and the other at or below zero: the margins are off in that direction, and the change becomes a PR that rescales the constants themselves (not the evaluation: scaling the evaluation would also scale the scores `datagen` records as labels), with its own match to confirm the rescaled constants behave as the probe did, then a plan and an SPRT. Both within ±8: the margins as a set are about right at net8's scale, and the reading that net7rl012's gain was a margin effect loses its support. Both positive or both negative is not expected and would be recorded as it is |
+| Not a feature | The probe also scales the scores the search reports, so it is never a PR itself |
+| Cost estimate | About $0.70 each. They run next, ahead of the matches still queued: this question came out of the session's measurement and is its best-motivated one |
 
 #### SPSA run S1: the margins and reduction constants together
 
