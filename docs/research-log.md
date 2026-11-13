@@ -84,7 +84,7 @@ summarises: each plan as it was written before its run, then the result.
 | #247 | This log, the net8 ledger correction, net8x160's record, the roadmap | Ready for review | Merge after review |
 
 **Since the session ended:** the owner merged #246 and released it as `v0.49.0`
-(2026-11-13), and #254 was rebased onto it and passed its SPRT again, H1 in both legs: **+8.1 ± 4.9** timed and **+7.6 ± 4.7** at fixed nodes; the owner then merged it (`059caa3`). The
+(2026-11-13), and #254 was rebased onto it and passed its SPRT again, H1 in both legs: **+8.1 ± 4.9** timed and **+7.6 ± 4.7** at fixed nodes; the owner then merged it (`059caa3`). #256 was rebased onto `v0.50.0` in turn and passed its SPRT again, H1 in both legs: **+12.3 ± 6.4** timed and **+30.8 ± 10.8** at fixed nodes. The
 table above is the state at the session's end; what followed is in
 [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246).
 
@@ -485,6 +485,7 @@ fixed-node leg is two identical engines).
 | 6, second run (after the session) | #254, rebased onto #246 | The same patch, against `v0.49.0` | 939252 → 958984 | **+8.1 ± 4.9** (H1, 6,124 games) | **+7.6 ± 4.7** (H1, 6,482 games) | **Gate met again,** on top of #246. Merged by the owner on 2026-11-13 (`059caa3`). [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246) |
 | 7 | #255 | Continuation history four plies back, in quiet ordering and the LMR history term | 970013 → 1025352 | +2.1 ± 3.8 (inconclusive at 10,000 games) | −1.2 ± 4.0 (inconclusive at 10,000 games) | **Gate not met: dropped.** Recommended for closing |
 | T1 | #256 | The embedded net: net8 → net8x160, net8's recipe with 160 superbatches for 80 | 970013 → 990172 | **+11.6 ± 6.1** (H1, 3,910 games) | **+8.2 ± 5.1** (H1, 6,250 games) | **Gate met.** A draft that needs its gallery entries; for the owner to merge |
+| T1, second run (after the session) | #256, rebased onto #246 and #254 | The same net, against net8 in `v0.50.0`'s search | 958984 → 919304 | **+12.3 ± 6.4** (H1, 3,890 games) | **+30.8 ± 10.8** (H1, 1,516 games) | **Gate met again,** in `v0.50.0`'s search. For the owner to merge. [Follow-up 2026-11-13](#training-t1s-net-again-net8x160-against-net8-in-v0500s-search-256) |
 
 #### Experiment 1: adaptive null-move reduction (#246)
 
@@ -1618,3 +1619,31 @@ four test expectations, and the ledger: net8x160's Summary row and section in
   beforehand).
 
 Local checks on `35fbdc9` before the push: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings` (exit 0), `cargo test --workspace --locked` (270 passed) and with `--features stats` (271 passed), `npm test` (59 pass) and `npm run nnue:diagrams:check` (19 snapshots current); the signature is 919304 in two runs and in the `stats` build.
+
+**Result** ([run 43474643514](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43474643514),
+#256, `35fbdc9` against `main` at `4451cfe`; elo0 0, elo1 5, α = β = 0.05; on
+demand, two `c8a.16xlarge` in us-east-1b; one attempt; the plan's commits
+`35fbdc9` (17:36:04 UTC) and `02283a5` (17:37:10), the push at 17:37:29):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **+12.3 ± 6.4** | 100.0% | 3890 | 898 / 760 / 2232 | 2.95 | 51, 396, 921, 518, 59 | H1 |
+| Fixed nodes, 200,000 per move | **+30.8 ± 10.8** | 100.0% | 1516 | 398 / 264 / 854 | 2.95 | 15, 140, 341, 220, 42 | H1 |
+
+CI bench (base `v0.50.0`): signature 958,984 → 919,304; speed per node +2.5% ± 2.0%; time to depth −6.4% ± 1.8% (marked better); 4,016 instructions a node (4,035 for `v0.50.0`); fail-high-first 87.8% (87.6%); EBF 1.86 (1.85); perft pass; the performance gate passed.
+Every CI check on `35fbdc9` passed, `NNUE diagrams` and `Commit messages` among them.
+
+**The gate recorded before the run is met:** H1 in both legs, in the search the net would ship in. The agent does not merge. The comment's reading: "Gate: pass: smarter per node, and worth its cost at a clock: merge."
+
+**Reading it.**
+- **The net beats net8 in the search it would ship in, on both legs:** +12.3 ± 6.4 at a clock and +30.8 ± 10.8 per node.
+- **At a clock it reads as it did in `v0.48.1`'s search** (+11.6 ± 6.1 then; 0.7 higher now, against an error of about ±8.8 for the difference of two such readings). The two search changes neither took from the net's gain there nor added to it.
+- **At fixed nodes it reads far higher than before:** +8.2 ± 5.1 then, 22.6 higher now, against an error of about ±11.9 for the difference. A leg that stops after 1,516 games reads high, and this is one run, so the size is not established. It may be that a search which leans harder on the evaluation (the null-move reduction now grows with the evaluation's margin over beta) is served more by a better one; that was not tested.
+- **The two legs disagree again,** by 18.5 against an error of about ±12.6 for their difference, as they did for #248 and #252. Not explained here either: the net does not make a node dearer (the CI bench reads speed per node +2.5% ± 2.0%, and time to depth 6.4% shorter).
+- **Against the plan's expectation** of +5 to +10 in both legs: the timed leg is just above it and the fixed-node leg far above.
+- **Still not measured:** the three changes together as one match against `v0.48.1` (adding three SPRTs adds readings that each stopped at H1, which reads high); a ladder rating of this net, which is not released; a second training run; anything but self-play against the previous net.
+
+**Cost:** about $1.50 (the legs' jobs took 19 min 12 s and 6 min 55 s, at
+about $3.45 an hour a leg; an estimate from run time, not a bill). With the
+session's $35.30 and #254's second run, about $39.80 in all. Both
+instances terminated (17:44:24 and 17:56:42 UTC).
