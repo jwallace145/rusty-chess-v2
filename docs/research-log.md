@@ -83,6 +83,11 @@ summarises: each plan as it was written before its run, then the result.
 | #251 | `Match` workflow: portable `RUSTFLAGS` | Green. Not exercised end to end | Merge candidate: it removes a failure that cost two retries tonight |
 | #247 | This log, the net8 ledger correction, net8x160's record, the roadmap | Ready for review | Merge after review |
 
+**Since the session ended:** the owner merged #246 and released it as `v0.49.0`
+(2026-11-13), and #254 was rebased onto it for its SPRT to be played again. The
+table above is the state at the session's end; what followed is in
+[Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246).
+
 **What it cost.** About $35.30 of AWS at the session's estimates, against a
 self-imposed cap of $40 (the table at the end); nothing was left running.
 Eight SPRTs (one with a single leg played), twelve matches (three more
@@ -804,6 +809,10 @@ does not merge.
 - **Not measured:** how it stacks with experiment 1. Both were tested against
   `main`; both make the search look less at what it expects to fail.
 
+**Played again on top of experiment 1** after #246 merged: see
+[Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246). The result above is the first run's and is
+not changed by it.
+
 #### Experiment 7: continuation history four plies back (#255)
 
 Recorded on 2026-11-13 at 02:41 MST, before the `sprt` label was added (which
@@ -1472,3 +1481,35 @@ ProbCut papers (no PDF reader); Anantharaman, Campbell and Hsu on singular
 extensions, and the original LMR articles, which are cited through the wiki
 only; commit dates. Several wiki pages carried a banner saying they were a
 temporary, read-only recovery copy.
+
+## Follow-up 2026-11-13: experiment 6 again, on top of #246
+
+After the session above had ended, the owner merged #246 (`cd51dee`, 15:24:42
+UTC) and released it as `v0.49.0` (`9663137`, 15:29:21 UTC), then asked for #254
+to be rebased. A rebase is a push, and a push to a pull request that carries
+the `sprt` label plays its SPRT again, against the new base. That run is #254's
+gate now, and the first measurement of two of the session's changes together,
+which the session left open ("Not verified, and open", above). The same agent
+did the work; the owner was present.
+
+### Experiment 6, second run: #254 against `v0.49.0`
+
+Recorded on 2026-11-13 at 08:41 MST (15:41 UTC), before the rebased
+branch was pushed.
+
+| | |
+|:--|:--|
+| Question | Does one more ply of late-move reduction at expected cut nodes still gain Elo when the base already has the adaptive null-move reduction? Both make the search look less at what it expects to fail, so they may overlap |
+| The one change | The base. `feat/lmr-cut-node` at `695192d` against `main` at `9663137` (`v0.49.0`, which has #246). The patch is the first run's: the rebase from `0e188c9` had no conflict and `git range-diff` reports the two commits equal |
+| Held the same | The SPRT's settings (elo0 0, elo1 5, α = β = 0.05; 5+0.05 and 200,000 nodes a move; the same openings and cap), the instance type and market, the net (net8) |
+| Bench, local | 939252 → 958984 (+2.1% nodes to depth 10: the main search 4.2% smaller, quiescence 8.3% larger); fail-high-first 0.8773 → 0.8756 (bar 0.87); EBF 1.896 → 1.846 (bar 2.0); both bars pass; 1.9% of reduced moves re-searched (1.7%). The base's figures are the release's own record (`benchmarks/v0.49.0/`); they are counts, the same on any machine |
+| Expectation | Positive, and at or under the first run's +10: between +5 and +10 in both legs. A test that stops at H1 reads high on average, as the first run did, and the two changes may overlap, so the lower half is the likelier. A true gain under +5 would most likely run to the cap without a verdict |
+| Gate | H1 in both legs, against this base. The first run's pass does not carry over: a rebased change is judged on the engine it would merge into |
+| What each outcome means | **H1 in both:** the gate is met for the engine as it is now. **H0 in either:** the change loses on top of #246, whatever it did alone, and is recommended for closing. **Inconclusive in either:** the check fails; the two changes overlap, and whether to merge at a high LOS is the owner's decision under AGENTS.md |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80, outside the session's $35.30 and asked for by the owner. No SPRT or match is running, and no instance but the Lichess bot's (`describe-instances`, 15:38 UTC); the release's rating ladder runs on a GitHub-hosted runner |
+
+Local checks on `695192d` before the push: `cargo fmt --all --check`,
+`cargo clippy --workspace --all-targets --all-features -- -D warnings` (exit 0),
+`cargo test --workspace --locked` (270 passed) and with `--features stats`
+(271 passed), `npm test` (59 pass); the signature is 958984 in
+two runs and in the `stats` build.
