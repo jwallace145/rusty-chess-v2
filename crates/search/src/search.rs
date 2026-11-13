@@ -54,7 +54,7 @@ const ASPIRATION_MIN_DEPTH: u32 = 4;
 const NULL_MOVE_MIN_DEPTH: u32 = 3;
 
 /// Base depth reduction of the null-move search.
-const NULL_MOVE_REDUCTION: u32 = 3;
+const NULL_MOVE_REDUCTION: u32 = 4;
 
 /// The null-move reduction grows by one ply per this many plies of depth.
 const NULL_MOVE_DEPTH_DIVISOR: u32 = 3;

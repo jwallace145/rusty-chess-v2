@@ -336,7 +336,7 @@ fn the_null_move_reduction_grows_with_depth_and_with_the_margin_over_beta() {
     }
     // The shallowest null move still searches: depth 3 less 1 + R is 0, a
     // quiescence search, never a negative depth.
-    assert_eq!(null_move_reduction(3, 0), 4);
+    assert_eq!(null_move_reduction(3, 0), 5);
 }
 
 #[test]
