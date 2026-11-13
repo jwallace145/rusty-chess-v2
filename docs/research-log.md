@@ -617,7 +617,7 @@ Recorded on 2026-11-13 at 01:34 MST, before the `sprt` label was added.
 | Bench, local | 970013 → 970114 (101 nodes more to depth 10); fail-high-first 0.8740 → 0.8740; EBF 1.877 → 1.898; both bars pass; 13,312 captures skipped |
 | Expectation | Fixed nodes: +5 to +15, from M6. Timed: about the same; the rule costs a table read and an addition a capture |
 | Gate | H1 in both legs. Anything else drops the change |
-| Risks named beforehand | Experiment 3 was the same idea in quiescence and lost at 200,000 nodes; this one has been screened there and read positive, which is a reason to test it and not a reason to expect it to pass. M6 is the best of nine matches read so far, so its +12.2 is inflated by that choice; the SPRT is a fresh sample. The values belong to this net |
+| Risks named beforehand | Experiment 3 was the same idea in quiescence and lost at 200,000 nodes; this one has been screened there and read positive, which is a reason to test it and not a reason to expect it to pass. M6 is the best of the five 200,000-node screens read so far (M2 to M6), so its +12.2 is inflated by that choice; the SPRT is a fresh sample. (The first push of this row said "nine matches", a miscount, corrected in the next commit.) The values belong to this net |
 | Cost estimate | Two on-demand `c8a.16xlarge` for 15 to 50 minutes: $1.70 to $5.80. No other SPRT is running; a match and the training run are, which leaves room under the account's quota |
 
 #### Match M1: experiment 1 at 10+0.1
