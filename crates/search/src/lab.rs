@@ -89,7 +89,7 @@ params! {
     // Capture history (0 = off): added to a capture's ordering score divided by this.
     CAPHIST = 0,
     // Continuation history four plies back (0 = off).
-    CONT4 = 0,
+    CONT4 = 1,
     // ProbCut (0 = off): at depth >= PC_DEPTH, a capture whose search at
     // depth - 4 beats beta + PC_MARGIN ends the node.
     PC_MARGIN = 0,
