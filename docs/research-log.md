@@ -99,6 +99,15 @@ serial GPU and SPRT time for an expected gain at or below the search items',
 and the only training knobs reachable without merging trainer changes are the
 `Train` workflow's inputs.
 
+**Added on 2026-11-13 at 01:07 MST: H15, net8 is under-trained.** Not in the
+ranking above, which took the ledger's "at 1.5B positions a longer schedule is
+saturated" as settled and set the net experiments aside. Counting passes says
+otherwise: 80 superbatches were 5.5 passes over net 5's data and are 2.6 over
+net8's, and the ledger's own advice is to revisit length when the data grows a
+lot. It costs a `Train` run and an SPRT and uses the GPU instance, which was
+idle, so it does not take from the search experiments. Its plan and record are
+in [nets.md](nets.md#net8x160-planned).
+
 ### Method
 
 **The lab build.** A scratch branch, `research/overnight-lab` (pushed for
@@ -746,6 +755,15 @@ terminated. Experiment 4's timed leg was not affected and plays on. Its
 fixed-node leg is re-run (`gh run rerun --failed`) once the run completes, if
 the timed leg accepted H1; if it did not, the gate is already not met and the
 fixed-node leg is recorded as not played.
+
+#### Training T1: net8x160
+
+The plan is in [nets.md](nets.md#net8x160-planned), recorded in `2160aea` at
+08:07:36 UTC, before the dispatch at 08:07:49.
+
+| Run | Started (UTC) | Outcome |
+|:--|:--|:--|
+| [43390801430](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43390801430) | 2026-11-13 08:07 | Net id `net8x160-l050-r43390801430`. An on-demand `g6.xlarge` (`i-0573b746d7245e4b6`, us-east-1b) launched at the first try, at 08:08:36. Pending |
 
 ### Cost and resources
 
