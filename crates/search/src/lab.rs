@@ -58,7 +58,7 @@ params! {
     // Singular extensions.
     SE_MIN_DEPTH = 8,
     SE_MARGIN = 2,
-    SE_DOUBLE = 0,
+    SE_DOUBLE = 20,
     SE_DOUBLE_MAX = 6,
     SE_NEG = 0,
     // Transposition table.
