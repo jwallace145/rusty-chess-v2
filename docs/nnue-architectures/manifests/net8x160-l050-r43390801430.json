@@ -1,0 +1,57 @@
+{
+  "schema": "rusty-chess-nnue-diagram/1",
+  "net_id": "net8x160-l050-r43390801430",
+  "topology": {
+    "feature_set": "Chess768",
+    "features_per_perspective": 768,
+    "perspectives": 2,
+    "shared_feature_transformer": true,
+    "king_buckets": 4,
+    "king_bucket_layout": "KING_BUCKET_LAYOUT, files e–h mirrored",
+    "hidden_width": 512,
+    "activation": "SCReLU",
+    "output_buckets": 8,
+    "output_bucket_rule": "(pieces − 2) / 4",
+    "quantization": {
+      "qa": 255,
+      "qb": 64,
+      "scale": 400
+    }
+  },
+  "file_bytes": 3163200,
+  "status": "default",
+  "status_note": "Default since v0.51.0; plays generation 7",
+  "generation": 7,
+  "default_releases": "v0.51.0",
+  "training": {
+    "generations": "0–6",
+    "labels": "N7 on 0–2, O on 3–6",
+    "lambda": 0.5,
+    "superbatches": 160
+  },
+  "change": {
+    "from": "net8-l050-r42564788061",
+    "kind": "schedule",
+    "summary": "160 superbatches instead of 80, on net8's data and labels"
+  },
+  "experiment": {
+    "pr": 256,
+    "baseline": "net8-l050-r42564788061",
+    "timed": "+11.6 ± 6.1",
+    "fixed_nodes": "+8.2 ± 5.1",
+    "verdict": "kept"
+  },
+  "ledger_anchor": "net8x160-l050-r43390801430",
+  "provenance": {
+    "architecture_source": [
+      "crates/search/nets/net8x160-l050-r43390801430.nnue (3,163,200 bytes, the embedded file)",
+      "docs/nets.md#net8x160-l050-r43390801430 (Network row)",
+      "docs/nnue.md#architecture",
+      "docs/king-buckets.md#feature-indexing-must-match-bullet-exactly",
+      "docs/nnue.md#output-buckets",
+      "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
+    ],
+    "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net8x160-l050-r43390801430/training.json (in S3; read for the ledger's section, not again for this manifest)",
+    "notes": "The SPRT figures are the first run's, in v0.48.1's search (run 43434302426). #256 was then rebased onto v0.50.0 and its SPRT played again before merging; that run is in #256's description."
+  }
+}
