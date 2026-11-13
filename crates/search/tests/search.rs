@@ -727,6 +727,79 @@ fn late_move_reductions_reduce_and_research_without_losing_mates() {
 }
 
 #[test]
+fn expected_cut_nodes_alternate_down_a_line_and_follow_reduced_moves() {
+    use rusty_chess_search::search::child_expects_cut;
+    // A full-window search is of a principal-variation child, whatever the
+    // parent was expected to be: never an expected cut node.
+    for parent in [false, true] {
+        for reduced in [false, true] {
+            assert!(!child_expects_cut(parent, true, reduced));
+        }
+    }
+    // A reduced search is of a move expected to fail low, so its child is
+    // expected to refute it.
+    assert!(child_expects_cut(false, false, true));
+    assert!(child_expects_cut(true, false, true));
+    // Any other null-window search flips the expectation: a cut node's first
+    // move leads to an all node, an all node's moves to cut nodes.
+    assert!(child_expects_cut(false, false, false));
+    assert!(!child_expects_cut(true, false, false));
+    // So down a line of unreduced null-window searches the expectation
+    // alternates, starting from the root, which is never a cut node.
+    let mut expects_cut = false;
+    let mut line = Vec::new();
+    for _ in 0..6 {
+        expects_cut = child_expects_cut(expects_cut, false, false);
+        line.push(expects_cut);
+    }
+    assert_eq!(line, [true, false, true, false, true, false]);
+}
+
+#[test]
+fn reducing_more_at_expected_cut_nodes_keeps_mates_and_the_result_deterministic() {
+    // Mates stay exact with the deeper reductions, including a quiet key
+    // move late in the list.
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - 0 1", "f6a6", 3),
+        ("k7/8/2K5/8/8/8/8/7R w - - 0 1", "", 2),
+    ] {
+        let r = search(fen, depth(8));
+        assert_eq!(
+            mate_in(r.score),
+            Some(mate),
+            "{fen}: {} ({})",
+            r.score,
+            r.pv
+        );
+        if !best.is_empty() {
+            assert_eq!(r.best.to_string(), best, "{fen}");
+        }
+    }
+    // The same search twice gives the same nodes, score and line: the
+    // expectation is a function of the path, not of anything left over.
+    let fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+    let (a, b) = (search(fen, depth(8)), search(fen, depth(8)));
+    assert_eq!(
+        (a.nodes, a.qnodes, a.score, &a.pv),
+        (b.nodes, b.qnodes, b.score, &b.pv)
+    );
+    // And reduced moves are still re-searched when they surprise.
+    let mut board = board(fen);
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut board, &depth(8), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.lmr_reductions > 0, "no reductions");
+        assert!(summary.lmr_researches > 0, "no re-searches");
+        assert!(summary.lmr_researches < summary.lmr_reductions);
+    }
+}
+
+#[test]
 fn internal_iterative_reductions_fire_and_keep_mates() {
     // Mates stay exact with nodes lacking a table move searched a ply
     // shallower, including a quiet key move and a late quiet check.
