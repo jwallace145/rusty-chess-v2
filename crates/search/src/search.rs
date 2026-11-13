@@ -19,7 +19,7 @@ use rusty_chess_core::types::PieceKind;
 
 use crate::board::Board;
 use crate::corrhist::CorrectionHistory;
-use crate::history::{Continuation, History, PieceTo};
+use crate::history::{CaptureHistory, Continuation, History, PieceTo};
 use crate::killers::Killers;
 use crate::lab::{self, get as lp};
 use crate::movepick::MovePicker;
@@ -134,9 +134,11 @@ const LMR_HISTORY_DIVISOR: i32 = 512;
 /// of both, so deep searches of late moves are cut the most.
 static LMR_TABLE: std::sync::LazyLock<[[u8; 64]; 64]> = std::sync::LazyLock::new(|| {
     let mut t = [[0u8; 64]; 64];
+    let base = f64::from(lp(&lab::LMR_BASE)) / 100.0;
+    let div = f64::from(lp(&lab::LMR_DIV)) / 100.0;
     for (d, row) in t.iter_mut().enumerate().skip(1) {
         for (i, cell) in row.iter_mut().enumerate().skip(1) {
-            let r = 0.75 + (d as f64).ln() * (i as f64).ln() / 2.25;
+            let r = base + (d as f64).ln() * (i as f64).ln() / div;
             *cell = r.floor().clamp(0.0, 8.0) as u8;
         }
     }
@@ -230,6 +232,9 @@ pub struct Searcher {
     /// Continuation history one and two plies back.
     cont1: Continuation,
     cont2: Continuation,
+    /// Lab: continuation history four plies back, and capture history.
+    cont4: Continuation,
+    caphist: CaptureHistory,
     /// The network's error by pawn structure, learned during the search.
     corrhist: CorrectionHistory,
     /// The move made at each ply of the current line (`PieceTo::NONE`
@@ -272,6 +277,8 @@ impl Searcher {
             history: History::new(),
             cont1: Continuation::new(),
             cont2: Continuation::new(),
+            cont4: Continuation::new(),
+            caphist: CaptureHistory::new(),
             corrhist: CorrectionHistory::new(),
             moved: [PieceTo::NONE; MAX_PLY + 2],
             excluded: [Move::NULL; MAX_PLY + 2],
@@ -320,6 +327,8 @@ impl Searcher {
         self.history.clear();
         self.cont1.clear();
         self.cont2.clear();
+        self.cont4.clear();
+        self.caphist.clear();
         self.corrhist.clear();
     }
 
@@ -357,6 +366,8 @@ impl Searcher {
         self.history.age();
         self.cont1.age();
         self.cont2.age();
+        self.cont4.age();
+        self.caphist.age();
         self.moved = [PieceTo::NONE; MAX_PLY + 2];
         self.excluded = [Move::NULL; MAX_PLY + 2];
         self.evals = [EVAL_NONE; MAX_PLY + 2];
@@ -798,6 +809,15 @@ impl Searcher {
         } else {
             PieceTo::NONE
         };
+        let prev4 = if ply >= 4 && lp(&lab::CONT4) != 0 {
+            self.moved[ply - 4]
+        } else {
+            PieceTo::NONE
+        };
+        let caphist_div = lp(&lab::CAPHIST);
+        // Lab: captures searched at this node, for the capture-history malus.
+        let mut caps_tried = [(PieceTo::NONE, 0usize); 32];
+        let mut caps_count = 0usize;
         let mut picker = MovePicker::new(tt_move).with_killers(self.killers.get(ply));
         let mut best = -INFINITY;
         let mut best_move = Move::NULL;
@@ -813,9 +833,23 @@ impl Searcher {
                 base
             }
         };
-        while let Some(m) = picker.next_with(board.position(), &|q| {
-            self.quiet_score(board.position(), prev1, prev2, q)
-        }) {
+        while let Some(m) = picker.next_with(
+            board.position(),
+            &|q| {
+                self.quiet_score(board.position(), prev1, prev2, q)
+                    + self.cont4.get(prev4, PieceTo::of(board.position(), q))
+            },
+            &|c| {
+                if caphist_div > 0 {
+                    self.caphist.get(
+                        PieceTo::of(board.position(), c),
+                        victim_index(board.position(), c),
+                    ) / caphist_div
+                } else {
+                    0
+                }
+            },
+        ) {
             if m == excluded {
                 continue;
             }
@@ -911,8 +945,17 @@ impl Searcher {
             // late move reduction below.
             let history = if quiet {
                 self.quiet_score(board.position(), prev1, prev2, m)
+                    + self.cont4.get(prev4, PieceTo::of(board.position(), m))
             } else {
                 0
+            };
+            let cap_entry = if !quiet && caphist_div > 0 {
+                Some((
+                    PieceTo::of(board.position(), m),
+                    victim_index(board.position(), m),
+                ))
+            } else {
+                None
             };
             self.moved[ply] = PieceTo::of(board.position(), m);
             let undo = board.make_move(m);
@@ -1015,11 +1058,22 @@ impl Searcher {
                             self.history.update(side, m, bonus);
                             self.cont1.update(prev1, pt, bonus);
                             self.cont2.update(prev2, pt, bonus);
+                            self.cont4.update(prev4, pt, bonus);
                             for &q in &quiets_tried[..quiets_count] {
                                 let qt = PieceTo::of(board.position(), q);
                                 self.history.update(side, q, -bonus);
                                 self.cont1.update(prev1, qt, -bonus);
                                 self.cont2.update(prev2, qt, -bonus);
+                                self.cont4.update(prev4, qt, -bonus);
+                            }
+                        }
+                        if caphist_div > 0 {
+                            let bonus = hist_bonus(depth);
+                            if let Some((pt, victim)) = cap_entry {
+                                self.caphist.update(pt, victim, bonus);
+                            }
+                            for &(pt, victim) in &caps_tried[..caps_count] {
+                                self.caphist.update(pt, victim, -bonus);
                             }
                         }
                         break;
@@ -1029,6 +1083,12 @@ impl Searcher {
             if !m.is_capture() && !m.is_promotion() && quiets_count < quiets_tried.len() {
                 quiets_tried[quiets_count] = m;
                 quiets_count += 1;
+            }
+            if let Some(entry) = cap_entry {
+                if caps_count < caps_tried.len() {
+                    caps_tried[caps_count] = entry;
+                    caps_count += 1;
+                }
             }
             index += 1;
         }
@@ -1260,6 +1320,17 @@ impl Searcher {
             .map(|m| m.to_string())
             .collect::<Vec<_>>()
             .join(" ")
+    }
+}
+
+/// Lab: the capture-history index of what `m` takes (5 for nothing: a
+/// promotion without a capture).
+#[inline]
+fn victim_index(pos: &Position, m: Move) -> usize {
+    if m.is_en_passant() {
+        0
+    } else {
+        pos.piece_at(m.to()).map_or(5, |p| p.kind.index())
     }
 }
 

@@ -76,13 +76,18 @@ impl MovePicker {
     /// The next move, or `None` when every legal move has been yielded,
     /// ordering quiets without history.
     pub fn next(&mut self, pos: &Position) -> Option<Move> {
-        self.next_with(pos, &|_| 0)
+        self.next_with(pos, &|_| 0, &|_| 0)
     }
 
     /// The next move, ordering the remaining quiets by `score` (history,
     /// continuation history, whatever the caller combines), evaluated once
     /// per quiet when the quiet stage begins.
-    pub fn next_with(&mut self, pos: &Position, score: &dyn Fn(Move) -> i32) -> Option<Move> {
+    pub fn next_with(
+        &mut self,
+        pos: &Position,
+        score: &dyn Fn(Move) -> i32,
+        cap: &dyn Fn(Move) -> i32,
+    ) -> Option<Move> {
         loop {
             match self.state {
                 State::TtMove => {
@@ -96,7 +101,7 @@ impl MovePicker {
                     }
                 }
                 State::GenerateCaptures => {
-                    self.score_captures(pos);
+                    self.score_captures(pos, cap);
                     self.state = State::GoodCaptures;
                 }
                 State::GoodCaptures => {
@@ -173,7 +178,7 @@ impl MovePicker {
 
     /// Most valuable victim, least valuable attacker; promotions count the
     /// promoted piece.
-    fn score_captures(&mut self, pos: &Position) {
+    fn score_captures(&mut self, pos: &Position, cap: &dyn Fn(Move) -> i32) {
         for (i, &m) in self.captures.iter().enumerate() {
             let victim = if m.is_en_passant() {
                 SEE_VALUE[0]
@@ -185,7 +190,7 @@ impl MovePicker {
                 .piece_at(m.from())
                 .map_or(0, |p| SEE_VALUE[p.kind.index()]);
             let promo = m.promotion().map_or(0, |k| SEE_VALUE[k.index()]);
-            self.capture_scores[i] = 10 * victim - attacker + promo;
+            self.capture_scores[i] = 10 * victim - attacker + promo + cap(m);
         }
     }
 

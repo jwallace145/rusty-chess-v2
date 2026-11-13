@@ -73,6 +73,66 @@ impl History {
     }
 }
 
+/// Lab: capture history, a score for a capture by the piece that moves, its
+/// destination and the kind of piece it takes (5 for a promotion that takes
+/// nothing). Same gravity as [`History`].
+#[derive(Clone)]
+pub struct CaptureHistory {
+    table: Box<[[[i16; 6]; 64]; 12]>,
+}
+
+impl Default for CaptureHistory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CaptureHistory {
+    /// All zero.
+    pub fn new() -> CaptureHistory {
+        CaptureHistory {
+            table: Box::new([[[0; 6]; 64]; 12]),
+        }
+    }
+
+    /// Forget everything.
+    pub fn clear(&mut self) {
+        *self.table = [[[0; 6]; 64]; 12];
+    }
+
+    /// Halve every score.
+    pub fn age(&mut self) {
+        for a in self.table.iter_mut() {
+            for b in a.iter_mut() {
+                for v in b.iter_mut() {
+                    *v /= 2;
+                }
+            }
+        }
+    }
+
+    /// The score of capturing `victim` with `m`.
+    #[inline]
+    pub fn get(&self, m: PieceTo, victim: usize) -> i32 {
+        if m.is_none() {
+            return 0;
+        }
+        i32::from(self.table[m.piece as usize][m.to as usize][victim])
+    }
+
+    /// Apply `delta` with gravity.
+    #[inline]
+    pub fn update(&mut self, m: PieceTo, victim: usize, delta: i32) {
+        if m.is_none() {
+            return;
+        }
+        let delta = delta.clamp(-MAX_HISTORY, MAX_HISTORY);
+        let entry = &mut self.table[m.piece as usize][m.to as usize][victim];
+        let v = i32::from(*entry);
+        *entry = (v + delta - v * delta.abs() / MAX_HISTORY) as i16;
+    }
+}
+
 /// A move as the continuation tables see it: the piece that moved (a
 /// [`Piece::index`](rusty_chess_core::position::Piece::index), 0..12) and
 /// its destination. [`PieceTo::NONE`] stands for "no previous move" (the

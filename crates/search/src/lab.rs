@@ -72,6 +72,13 @@ params! {
     SEE_CAP = 0,
     // Internal iterative reductions.
     IIR_DEPTH = 4,
+    // The LMR table, in hundredths: LMR_BASE / 100 + ln(depth) * ln(index) / (LMR_DIV / 100).
+    LMR_BASE = 75,
+    LMR_DIV = 225,
+    // Capture history (0 = off): added to a capture's ordering score divided by this.
+    CAPHIST = 0,
+    // Continuation history four plies back (0 = off).
+    CONT4 = 0,
 }
 
 /// The value of `p`.
