@@ -616,7 +616,7 @@ under the third amendment to the screening rule.
 | M3 | [43386732727](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386732727) | 2026-11-13 07:34 | **Failed in the settings job, before any instance:** `rustc interrupted by SIGILL` compiling `rusty-chess-search`. The second failure of this kind tonight, and the one that explains both: `match.yml` sets no `RUSTFLAGS`, so its GitHub-hosted jobs build for the runner's own CPU and `rust-cache` restores that build on a different CPU. #251 proposes the one-line fix. No cost |
 | M3 | [43387376307](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43387376307) | 07:39 | The same inputs again. Completed: 3,000 games in 630 s of play |
 | M4 | [43388091282](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388091282) | 07:46 | Dispatched behind M3; the settings job passed at the first attempt |
-| M5 | [43388637501](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388637501) | 07:51 | Dispatched behind M4; the settings job passed at the first attempt |
+| M5 | [43388637501](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388637501) | 07:51 | Dispatched behind M4; the settings job passed at the first attempt. It took the instance slot before M4 did (the slot is not first come, first served). Completed: 3,000 games in 601 s of play |
 
 **Results** (each run's report; 200,000 nodes a move, hash 64 MB, against `main`
 at `0a45da0`, bench 970,013):
@@ -624,6 +624,7 @@ at `0a45da0`, bench 970,013):
 | Match | Elo (candidate − baseline) | 99% interval | LOS | Games | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) | By the rule |
 |:--|--:|:-:|--:|--:|:-:|:--|:--|
 | M3, double singular extension | +5.2 | −4.0 to +14.4 | 92.7% | 3000 | 585 / 540 / 1875 | 35, 310, 770, 345, 40 | Under +8: recorded, no PR |
+| M5, negative singular extension | +6.4 | −3.7 to +16.4 | 94.9% | 3000 | 695 / 640 / 1665 | 45, 350, 665, 385, 55 | Under +8: recorded, no PR |
 <!-- matches:m3-m6 -->
 
 #### Matches M7 to M10
@@ -664,6 +665,23 @@ Each: `Match` from `main`, 200,000 nodes a move, 3,000 games, hash 64 MB. +8 or
 more: a clean branch, a plan and an SPRT. Under +8: recorded, no PR; for the
 three improving sites that closes the roadmap's "revisit" with a measurement at
 200,000 nodes, whichever way it reads. About $0.70 each.
+
+**Match M15, added at 01:05 MST after M3 and M5 and because of them.** The
+two singular-extension halves read +5.2 and +6.4, each under the threshold and
+each with an interval that includes zero. Together they are the usual modern
+form of the technique, and together they might clear what neither does alone.
+That hypothesis was formed after seeing both results, and is recorded as such.
+M15: `research/lab-se-both` (`71713cb`, bench 1,081,890: `SE_DOUBLE=20` and
+`SE_NEG=1`) against `main`, 200,000 nodes, 3,000 games, after M11. +8 or more:
+a clean branch, a plan and an SPRT.
+
+**Performance bars of the probes** (local `perf-gate` on the lab build, depth-10
+bench), recorded before their matches so a crossing is known in advance: the
+double extension reads EBF 2.012 and both halves together 2.051, over the bar
+of 2.0; reverse futility with improving (M12) reads EBF 2.040, also over it.
+All the others pass both bars. As decided at the start, a bar is not lowered
+by the agent: one of these three going forward would be a PR whose `Bench`
+check fails, for the owner to decide, as #248 is.
 
 **The order of the remaining matches, amended at 01:03 MST** (the plans above
 gave M10, M7, M8, M9): M6, M12, M11, M8, M9, M10, M13, M14, M7. The ones that
