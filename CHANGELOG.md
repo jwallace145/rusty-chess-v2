@@ -7,6 +7,12 @@
 
 * **nnue:** embed net8x160, net8's recipe at twice the schedule, as the default ([#256](https://github.com/jwallace145/rusty-chess-v2/issues/256)) ([e80876f](https://github.com/jwallace145/rusty-chess-v2/commit/e80876fa36f09d5d7c18a91f36e903fd5cf19f0d))
 
+### Benchmarks
+
+* bench signature 919,304, instructions per node 4016, search 1.84M NPS, perft 289.76M NPS (pass (63)), fail-high first 87.8%, EBF 1.86, TT hit 55.7%
+* since v0.50.0: fail-high first +0.2 pt, EBF +0.02, instructions per node −0.5%, search NPS +26.4%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.50.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.49.0...v0.50.0) (2026-11-13)
 
 
