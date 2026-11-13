@@ -39,7 +39,7 @@ params! {
     // LMP_IMPROVING is set and the node is not improving.
     LMP_DEPTH = 4,
     LMP_BASE = 3,
-    LMP_IMPROVING = 0,
+    LMP_IMPROVING = 1,
     // The late-move-pruning threshold as a percentage of LMP_BASE + depth^2.
     LMP_PCT = 100,
     // Late move reductions.
