@@ -200,9 +200,26 @@ net7rl012w768's −1.00% was +28.9 at fixed nodes. That isn't a strength result.
 loads the file with `--eval-file`; fail-high-first 0.8754 (0.8740); EBF 1.767
 (1.877). The CI bench comment on #256 is the record.
 
+**Scale** (local; `nnue-scale` built from #253's branch at `5197197`, on the
+300 SPRT openings; measured on 2026-11-13 at about 06:35 MST, after the record
+above was written; the file's SHA-256 checked first). Mean value of a piece,
+with net8 and PeSTO from the same run as controls (they reproduce #253's
+table):
+
+| Evaluation | Pawn | Knight | Bishop | Rook | Queen |
+|:--|--:|--:|--:|--:|--:|
+| PeSTO (the check on the method) | 77 | 319 | 351 | 457 | 1,011 |
+| net8 | 263 | 708 | 818 | 955 | 1,500 |
+| **net8x160** | **268** | **697** | **801** | **899** | **1,398** |
+
+The pawn is 2% larger and every piece smaller, the rook by 6% and the queen by
+7%. Twice the schedule moved the scale far less than the first relabelling did
+(net7 to net7rl012: the pieces a quarter larger), so the search's margins sit
+where they did under net8.
+
 **Not measured:** noise (one training run); the `Train` artifact's copy of the
-net (only the S3 copy was hashed); the net's scale
-([the table below](#the-evaluations-scale-by-net) is on #253's branch).
+net (only the S3 copy was hashed). The net's scale was listed here as not
+measured when this section was first written; it is above now.
 
 ## net8-l050-r42564788061
 

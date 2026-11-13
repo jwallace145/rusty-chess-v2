@@ -22,6 +22,86 @@ An overnight session run by a coding agent (Claude Code) with the owner away.
 The owner delegated research, experiments and pull requests, and kept every
 merge, release and infrastructure decision.
 
+### Summary
+
+Written at the end of the session. Everything below it is the record it
+summarises: each plan as it was written before its run, then the result.
+
+**What was found.**
+
+1. **Two changes passed the gate, H1 in both SPRT legs, and wait for the
+   owner:** an adaptive null-move reduction (#246, **+23.9 ± 9.0** timed,
+   **+27.7 ± 9.7** at fixed nodes, and +29.4 in a 2,000-game match at 10+0.1),
+   and one more ply of late-move reduction at expected cut nodes (#254,
+   **+9.8 ± 5.6** and **+10.6 ± 5.8**). They were tested separately against
+   `main`; how they add is not measured.
+2. **One change is the owner's call:** futility pruning of captures (#252),
+   **+17.7 ± 7.9** at fixed nodes (H1) and **+4.9 ± 3.8** timed, where the SPRT
+   reached its cap without a verdict at LOS 99.4%. With 10,000 more timed games,
+   played as a match whose reading was fixed beforehand, the timed gain is
+   **+4.0, 95% interval +1.3 to +6.7**. The gate as run is not met.
+3. **Four changes did not pass and are dropped:** the table score as the
+   pruning evaluation (#248: +16.5 ± 7.4 timed, +2.8 ± 3.7 at fixed nodes, and
+   it crosses the fail-high-first bar), quiescence futility (#249: −10.8 ± 6.7
+   at fixed nodes), a fourth ply of null-move reduction (#250: +1.5 ± 3.7
+   timed; its fixed-node leg never played), and continuation history four
+   plies back (#255: +2.1 ± 3.8 timed, −1.2 ± 4.0 at fixed nodes).
+4. **A net was trained and is under test:** net8x160, net8 at twice the
+   schedule, has a held-out loss 0.58% under net8's on identical records
+   (#256, a draft; its SPRT is the session's last job and was still playing
+   when this was written).
+5. **The search's constants are about right.** net8's pawn is worth about 260
+   evaluation units, so every evaluation-based margin is 3.4 times tighter in
+   pawns than when it was tuned under PeSTO, and it does not matter: reading
+   the evaluation at 125% and at 80% scored −0.6 and +0.6 Elo, and the result
+   of an SPSA run over 17 constants screened at +1.6 ± 9.0. Both gains were
+   structural, not a better value of an existing constant.
+6. **Shallow screens mislead, and the screening rule was amended three times,
+   in the open.** Local screens at 40,000 nodes a move had the wrong size or
+   sign for all three changes taken from them straight to an SPRT (+13.0 was
+   +27.7, +15.8 was +2.8, +12.7 was −10.8), and read −12 for the change that
+   became #254. They were right about one (capture futility, about +16 at
+   both). From 00:34 MST candidates were screened on the instance at the
+   SPRT's own budget instead, and a single screen there still moved in its
+   SPRT: +27.3 was +10.6, +11.6 was −1.2, +12.2 was +17.7.
+
+**The pull requests.** None is merged; merging is the owner's.
+
+| PR | What | State when the session ended | Recommendation |
+|:--|:--|:--|:--|
+| #246 | Adaptive null-move reduction | Gate met; every check green | **Merge candidate.** First: it is the larger gain |
+| #254 | LMR one ply deeper at expected cut nodes | Gate met; every check green | **Merge candidate.** After #246 it needs a rebase (the null-move search's child takes the new argument) and, by the repository's rule, its SPRT again, which is also the first measurement of the two together |
+| #252 | Futility pruning of captures | Fixed-node H1; timed inconclusive at the cap, pooled +4.0 (+1.3 to +6.7) | **The owner's decision:** the rules' "inconclusive at high LOS" case |
+| #248 | Table score as the pruning evaluation | Draft. Timed H1, fixed-node inconclusive; crosses the fail-high-first bar | Not as it stands: two decisions against the rules for a gain the fixed-node leg does not see |
+| #249 | Quiescence futility | Draft. Fixed-node H0 | Close |
+| #250 | Null-move base 3 → 4, stacked on #246 | Draft. Timed inconclusive at +1.5; fixed-node leg never played | Close |
+| #255 | Continuation history four plies back | Draft. Both legs inconclusive at the cap, +2.1 and −1.2; a node 6% dearer | Close |
+| #256 | Embed net8x160 | Draft. SPRT in progress: see training T1 | By its SPRT. If it passes it still needs its gallery entries before it can merge |
+| #253 | `nnue-scale`, and the scale of every net | Green. A tool and documentation | Merge candidate; no Elo claim |
+| #251 | `Match` workflow: portable `RUSTFLAGS` | Green. Not exercised end to end | Merge candidate: it removes a failure that cost two retries tonight |
+| #247 | This log, the net8 ledger correction, net8x160's record, the roadmap | Ready for review | Merge after review |
+
+**What it cost.** About $33 of AWS so far at the session's estimates, against a
+self-imposed cap of $40 (the table at the end), with the last SPRT still
+running. Seven SPRTs finished (one with a single leg), twelve matches (three
+more attempts failed, one of them after launching an instance), one training
+run, one local SPSA run and sixteen local screens.
+
+**Where the remaining strength is, on this evidence.**
+- **In structure the search does not have, tested at the gate's budget.** Both
+  gains were of that kind, and the session had time for only a few such ideas.
+  Screened and close: the two singular-extension variants (+5.2 and +6.4 in
+  3,000 games each, never tested together). Built in the lab and never screened
+  at 200,000 nodes: capture history in ordering, losing-capture reductions,
+  razoring.
+- **Not in the constants,** unless a much longer tuning run says otherwise.
+- **Possibly in the schedule of the net,** which T1 tests, and after that in
+  generation 7, which should be played by an engine that already has #246 and
+  #254: its labels are that engine's searches.
+- **In how the two SPRT legs are read.** They disagreed in both directions
+  tonight, and the session did not explain it. A match of the same change at
+  two or three node budgets would.
+
 ### Scope, authority and limits
 
 | | |
@@ -170,8 +250,17 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 <!-- screens:end -->
 
 The table is rendered from each screen's fastchess log by a script
-(`lab/render_screens.py` on `research/overnight-lab`); more rows follow as
-screens finish.
+(`lab/render_screens.py` on `research/overnight-lab`).
+
+**The harness's smoke test and negative control, 23:14 MST, before the first
+screen** (`pilot-identical`; recorded here at the end of the session, when the
+log was checked against the run directory and this run was found missing from
+it). The lab binary against itself with no option set, 40,000 nodes a move, 60
+pairs: 31 wins, 31 losses, 58 draws, **every pair balanced** (pentanomial 0, 0,
+60, 0, 0). Two identical engines at fixed nodes play an opening's two games as
+mirror images, so the harness adds nothing of its own to a result, and a
+screen that reads away from zero is reading the option. It is not in the table
+because it tests the harness, not a change.
 
 **Incident, 23:33 MST: a screen's log was destroyed by the agent.** The runner
 script (`screen.sh`) was edited in place while `s1-lmr-cut` was playing. Bash
@@ -374,17 +463,12 @@ fixed-node leg is two identical engines).
 | # | PR | The one change | Bench before → after | Timed SPRT | Fixed-node SPRT | Verdict |
 |--:|:--|:--|:--|:--|:--|:--|
 | 1 | #246 | Null-move reduction `2 + depth/4` → `3 + depth/3 + min((eval − beta)/200, 3)` | 970013 → 939252 | **+23.9 ± 9.0** (H1, 1,706 games) | **+27.7 ± 9.7** (H1, 1,508 games) | **Gate met.** For the owner to merge |
-
 | 2 | #248 | Reverse futility and the null move read the table's score as the evaluation, where its bound allows | 970013 → 942699 | **+16.5 ± 7.4** (H1, 2,714 games) | +2.8 ± 3.7 (inconclusive at 10,000 games) | **Gate not met: dropped by its plan.** A speed gain only the owner could merge over; it also crosses the fail-high-first bar (0.853 against 0.87) |
-
 | 3 | #249 | Futility pruning in quiescence, the victim valued at the net's scale | 970013 → 990066 | +3.6 ± 3.9 (inconclusive at 10,000 games) | **−10.8 ± 6.7** (H0, 3,290 games) | **Gate not met: dropped.** Recommended for closing |
 | 4 | #250, stacked on #246 | Null-move reduction's base 3 → 4 | 939252 → 925602 (against #246) | +1.5 ± 3.7 (inconclusive at 10,000 games) | Not played (its instance failed to launch) | **Gate not met: dropped.** Recommended for closing |
-
 | 5 | #252 | Futility pruning of captures in the main search, the victim valued at the net's scale | 970013 → 970114 | +4.9 ± 3.8, LOS 99.4% (inconclusive at 10,000 games, LLR 2.61) | **+17.7 ± 7.9** (H1, 2,668 games) | **Gate not met as run.** Smarter per node; with match M18's 10,000 more timed games the timed gain is +4.0, 95% interval +1.3 to +6.7. The "inconclusive at high LOS" case: the owner's decision |
-
 | 6 | #254 | One more ply of late-move reduction at expected cut nodes | 970013 → 988822 | **+9.8 ± 5.6** (H1, 5,004 games) | **+10.6 ± 5.8** (H1, 4,322 games) | **Gate met.** For the owner to merge |
-
-| 7 | #255 | Continuation history four plies back, in quiet ordering and the LMR history term | 970013 → 1025352 | Pending | Pending | Pending |
+| 7 | #255 | Continuation history four plies back, in quiet ordering and the LMR history term | 970013 → 1025352 | +2.1 ± 3.8 (inconclusive at 10,000 games) | −1.2 ± 4.0 (inconclusive at 10,000 games) | **Gate not met: dropped.** Recommended for closing |
 
 #### Experiment 1: adaptive null-move reduction (#246)
 
@@ -728,45 +812,30 @@ waits for experiment 6's SPRT to finish and its instances to terminate).
 | Risks named beforehand | The per-node cost, above. M8 is the third-best of ten 200,000-node matches read so far (M2 to M6, M8, M11, M12, M16, M17), so it carries some of the same inflation as the others chosen that way |
 | Cost estimate | Two on-demand `c8a.16xlarge` for 20 to 50 minutes: $2.30 to $5.80 |
 
-#### Match M18: more timed games for experiment 5
+**Result** ([run 43427691305](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43427691305),
+#255, `1bb7459` against `main` at `0a45da0`; elo0 0, elo1 5, α = β = 0.05; on
+demand, two `c8a.16xlarge`; one attempt; the plan's commit `50f6049` at 09:41
+UTC, the label at 12:44:10, after the gap in the session):
 
-Recorded on 2026-11-13 at 02:21 MST, before the dispatch.
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | +2.1 ± 3.8 | 86.5% | 10000 | 1952 / 1891 / 6157 | 0.55 | 103, 1075, 2593, 1116, 113 | Inconclusive at the 5,000-round cap |
+| Fixed nodes, 200,000 per move | −1.2 ± 4.0 | 28.1% | 10000 | 2019 / 2053 / 5928 | −1.87 | 100, 1305, 2258, 1203, 134 | Inconclusive at the 5,000-round cap |
 
-| | |
-|:--|:--|
-| Question | The timed leg ended at the cap at +4.9 ± 3.8. With twice the games, is the timed gain clear of zero? |
-| What runs | `Match` from `main`: `feat/capture-futility` (`cb6dfbc`) against `main`, **5+0.05, 10,000 games, hash 16 MB** (the SPRT's settings, where a match's default hash is 64), 95% interval; one on-demand `c8a.16xlarge` |
-| How it is read, fixed here | The two samples (the SPRT's timed leg and this match) are pooled by inverse variance; they are independent games at the same settings. **A pooled 95% interval that excludes zero** says the change gains at a clock by a small amount: with the fixed-node H1 that is the "inconclusive at high LOS" case in which the repository's rules let the owner merge over a failed check, and #252 is put to him as that. **An interval that includes zero** says the timed gain is not shown, and the recommendation is to drop it. Either way the gate as run stays not met; this match does not change the SPRT's verdict |
-| Cost estimate | About 47 minutes of one instance: $2.70. To pay for it, matches M13 and M14 (the improving heuristic at LMR and at late move pruning) are withdrawn unrun: M12 has just read −12.2 for the heuristic at its main site, they could not become PRs under the bars' rules without it, and they were the lowest-ranked in the queue |
+CI bench (base `v0.48.1`): signature 970,013 → 1,025,352; **speed per node
+−6.1% ± 3.2%, time to depth +12.7% ± 3.9%** (marked worse); 4,257 instructions
+a node; fail-high-first 87.8%; EBF 1.88; the performance gate passed.
 
-**Attempts.** [43402595891](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43402595891),
-dispatched at 09:36 UTC once M8 had finished; the settings job passed at the
-first attempt. Completed: 10,000 games in 2,611 s of play.
+**The recorded gate is not met:** neither leg accepted H1, so the change is
+dropped. The comment's reading: "no gain at a clock: do not merge." #255 is a
+draft; the recommendation is to close it.
 
-**Result** (the run's report; `cb6dfbc`, bench 970,114, against `main` at
-`0a45da0`, bench 970,013; 5+0.05, hash 16 MB, 60 games at once):
-
-| Sample | Elo | 95% interval | LOS | Games | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) |
-|:--|--:|:-:|--:|--:|:-:|:--|
-| The SPRT's timed leg | +4.9 | +1.1 to +8.7 | 99.4% | 10000 | 2050 / 1908 / 6042 | 105, 1071, 2512, 1201, 111 |
-| Match M18 | +3.0 | −0.8 to +6.9 | 93.8% | 10000 | 2016 / 1929 / 6055 | 120, 1071, 2530, 1160, 119 |
-| **Pooled** | **+4.0** | **+1.3 to +6.7** | | 20000 | 4066 / 3837 / 12097 | 225, 2142, 5042, 2361, 230 |
-
-The pooled row is computed from the summed pentanomial counts (the score of a
-pair and its variance over 10,000 pairs); pooling the two estimates by inverse
-variance, as the plan worded it, gives the same +4.0 and +1.3 to +6.7. The same
-calculation reproduces each sample's reported figures.
-
-**By the reading fixed beforehand: the pooled 95% interval excludes zero.** The
-change gains at a clock by a small amount, about +4, and per node by more
-(+17.7 ± 7.9 in the SPRT, +12.2 in M6). M18 alone would not have said so: its
-own interval includes zero, and it read lower than the SPRT's leg. **The gate
-as run is still not met.** #252 is put to the owner as the case the
-repository's rules name, an inconclusive result at high LOS, for him to merge
-over or not; the agent's own reading is that it is a real but small gain,
-about the size `elo1` cannot reliably confirm.
-
-#### Match M1: experiment 1 at 10+0.1
+**Reading it.** Nothing per node (−1.2 ± 4.0 over 10,000 games, against M8's
++11.6 over 3,000) and nothing at a clock, with a node 6% dearer, the cost the
+plan named. M8 was the third-best of ten matches; its interval was not an
+interval for the change. Of the three changes taken from a 200,000-node match
+to an SPRT, one held (experiment 5: +12.2, then +17.7), one shrank and passed
+(experiment 6: +27.3, then +10.6) and this one vanished.
 
 #### Match M1: experiment 1 at 10+0.1
 
@@ -1012,6 +1081,44 @@ same engine to within 9 or 10 Elo either way, at the SPRT's fixed-node budget.
   not charge for. The looser one would likely lose at a clock.
 - Each cost about $0.75 (the tasks ran 649 s and 680 s).
 
+#### Match M18: more timed games for experiment 5
+
+Recorded on 2026-11-13 at 02:21 MST, before the dispatch.
+
+| | |
+|:--|:--|
+| Question | The timed leg ended at the cap at +4.9 ± 3.8. With twice the games, is the timed gain clear of zero? |
+| What runs | `Match` from `main`: `feat/capture-futility` (`cb6dfbc`) against `main`, **5+0.05, 10,000 games, hash 16 MB** (the SPRT's settings, where a match's default hash is 64), 95% interval; one on-demand `c8a.16xlarge` |
+| How it is read, fixed here | The two samples (the SPRT's timed leg and this match) are pooled by inverse variance; they are independent games at the same settings. **A pooled 95% interval that excludes zero** says the change gains at a clock by a small amount: with the fixed-node H1 that is the "inconclusive at high LOS" case in which the repository's rules let the owner merge over a failed check, and #252 is put to him as that. **An interval that includes zero** says the timed gain is not shown, and the recommendation is to drop it. Either way the gate as run stays not met; this match does not change the SPRT's verdict |
+| Cost estimate | About 47 minutes of one instance: $2.70. To pay for it, matches M13 and M14 (the improving heuristic at LMR and at late move pruning) are withdrawn unrun: M12 has just read −12.2 for the heuristic at its main site, they could not become PRs under the bars' rules without it, and they were the lowest-ranked in the queue |
+
+**Attempts.** [43402595891](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43402595891),
+dispatched at 09:36 UTC once M8 had finished; the settings job passed at the
+first attempt. Completed: 10,000 games in 2,611 s of play.
+
+**Result** (the run's report; `cb6dfbc`, bench 970,114, against `main` at
+`0a45da0`, bench 970,013; 5+0.05, hash 16 MB, 60 games at once):
+
+| Sample | Elo | 95% interval | LOS | Games | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) |
+|:--|--:|:-:|--:|--:|:-:|:--|
+| The SPRT's timed leg | +4.9 | +1.1 to +8.7 | 99.4% | 10000 | 2050 / 1908 / 6042 | 105, 1071, 2512, 1201, 111 |
+| Match M18 | +3.0 | −0.8 to +6.9 | 93.8% | 10000 | 2016 / 1929 / 6055 | 120, 1071, 2530, 1160, 119 |
+| **Pooled** | **+4.0** | **+1.3 to +6.7** | | 20000 | 4066 / 3837 / 12097 | 225, 2142, 5042, 2361, 230 |
+
+The pooled row is computed from the summed pentanomial counts (the score of a
+pair and its variance over 10,000 pairs); pooling the two estimates by inverse
+variance, as the plan worded it, gives the same +4.0 and +1.3 to +6.7. The same
+calculation reproduces each sample's reported figures.
+
+**By the reading fixed beforehand: the pooled 95% interval excludes zero.** The
+change gains at a clock by a small amount, about +4, and per node by more
+(+17.7 ± 7.9 in the SPRT, +12.2 in M6). M18 alone would not have said so: its
+own interval includes zero, and it read lower than the SPRT's leg. **The gate
+as run is still not met.** #252 is put to the owner as the case the
+repository's rules name, an inconclusive result at high LOS, for him to merge
+over or not; the agent's own reading is that it is a real but small gain,
+about the size `elo1` cannot reliably confirm.
+
 #### SPSA run S1: the margins and reduction constants together
 
 Recorded on 2026-11-13 at 00:01 MST, before the run. **Exploratory and local.**
@@ -1082,6 +1189,13 @@ gains the session did find were structural (a different null-move formula, a
 new distinction in LMR), not a better value of an existing constant. Not
 tested: the run's parameters at the SPRT's budget; a longer run.
 
+**A dry run of the script first** (`spsa-test`, 23:32 MST on 2026-11-12;
+recorded at the end of the session, like the harness's pilot above): 3
+iterations of 4 pairs at 10,000 nodes, seed 1, with the 13 parameters the
+script had then; 24 games (3 wins, 6 losses, 15 draws for the "plus" side). It
+checked that the script plays, parses a result and moves the parameters. Its
+parameters were discarded.
+
 **The run.** Started at 00:39:05 MST on `lab6` (`research/overnight-lab` at
 `b13d894`), 100,000 nodes, 12 pairs an iteration. Stopped by its stop file
 after 11 iterations and resumed from its saved state at 00:42 with 12 games at
@@ -1134,35 +1248,166 @@ net; the gate is H1 in both legs against net8.
 | Workload | Run | Estimate before | Actual (estimate from run time) |
 |:--|:--|--:|--:|
 | SPRT, experiment 1 (#246) | [43378687011](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43378687011) | $2.30–5.80 | About $0.95: the two legs' jobs took 9 min 21 s and 6 min 49 s |
-
 | Match M1, first attempt | [43380319041](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380319041) | $1.20 | About $0.20: one instance for about three minutes, then the failed setup |
 | Match M1, second attempt | [43380894175](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43380894175) | $1.20 | About $1.15: the task ran 1,130 s, about 20 minutes with launch and teardown |
-
 | SPRT, experiment 2 (#248) | [43381561111](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43381561111) | $1.20–5.80 | About $2.75: the legs' jobs took 13 min 51 s and 34 min 0 s |
 | Match M2, first attempt | [43383364015](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43383364015) | $0.80 | Nothing: it failed before launching an instance |
 | Match M2, second attempt | [43384379664](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43384379664) | $0.80 | About $0.70: the task ran 619 s, about 12 minutes with launch and teardown |
-
 | Match M3 | [43386732727](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386732727), [43387376307](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43387376307) | $0.70 | About $0.75 for the second attempt (the task ran 649 s); nothing for the first |
-
 | SPRT, experiment 3 (#249) | [43384123736](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43384123736) | $1.70–5.80 | About $3.30: the timed leg's job took 44 min 58 s; the fixed-node leg's task ran 674 s after a 13-minute wait that used no instance |
-
 | Matches M4 and M5 | [43388091282](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388091282), [43388637501](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43388637501) | $1.40 | About $1.50: the tasks ran 649 s and 620 s |
-
 | SPRT, experiment 4 (#250) | [43386646994](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386646994) | $2.30–5.80 | About $2.60: one instance for 45 minutes (the timed leg); the fixed-node leg launched nothing |
-
 | Match M6 | [43391890629](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43391890629) | $0.70 | About $0.80: the task ran 679 s |
-
 | SPRT, experiment 5 (#252) | [43394229688](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43394229688) | $1.70–5.80 | About $3.20: the legs' jobs took 10 min 23 s and 45 min 26 s |
 | Matches M16, M17 and M12 | [43393664014](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43393664014), [43395387426](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43395387426), [43397194328](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43397194328) | $2.10 | About $2.25: the tasks ran 649 s, 680 s and 619 s |
-
 | Matches M11 and M8 | [43398918563](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43398918563), [43400673040](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43400673040) | $1.40 | About $1.45: the tasks ran 619 s and 649 s |
 | SPRT, experiment 6 (#254) | [43401686917](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43401686917) | $1.20–5.80 | About $2.30: the legs' jobs took 15 min 25 s and 24 min 3 s |
 | Match M18 | [43402595891](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43402595891) | $2.70 | About $2.60: the task ran 2,630 s |
-
 | Training T1, net8x160 | [43390801430](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43390801430) | $2.20 | About $1.85: the job ran 2 h 1 min on a `g6.xlarge` |
+| SPRT, experiment 7 (#255) | [43427691305](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43427691305) | $2.30–5.80 | About $4.60: the legs' jobs took 45 min 28 s and 34 min 55 s |
 
 *(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
 
 ### Not verified, and open
 
-*(filled at the end of the session)*
+**Not verified.**
+- **How the two passing changes add.** #246 and #254 were each tested against
+  `main`. Both make the search spend less on what it expects to fail, so they
+  may overlap. #254's SPRT after its rebase onto #246 is that measurement.
+- **Anything but self-play against a PR's own base.** No rating run and no
+  other engine; self-play overstates gains. One change (#246) was also measured
+  at 10+0.1. Nothing was measured at a longer control, and #254 and #252 only
+  at the SPRT's two settings.
+- **Why the two SPRT legs disagreed** for #248 (+16.5 timed, +2.8 at fixed
+  nodes) and #252 (+4.9 and +17.7). The depth-by-phase table under experiment 2
+  shows the legs give a move different searches; whether that is the cause was
+  match M10's question, and M10 was withdrawn for the spend cap.
+- **Experiment 4's fixed-node leg,** which never played.
+- **`s1-lmr-cut`'s reading** (−11.8 ± 10.5 at 1,796 games): its log was
+  destroyed, and the figure is the last the agent saw.
+- **#251's fix, end to end.** `Match` is dispatched from `main`, so the change
+  cannot run before it merges. The diagnosis (a build for the runner's own CPU
+  restored from the cache onto a different CPU) fits both failures; it was not
+  reproduced on purpose.
+- **Speed per node for #246, #252 and #254.** Their CI bench comments read
+  ±7% to ±11% on speed, which says nothing either way. The instruction counts
+  are steadier: 4,033, 4,124 and 4,069 a node, against 4,066 for the base
+  (#235's bench comment).
+- **The costs.** Every figure in the table above is a run time multiplied by
+  the on-demand price, not a bill. Cost Explorer showed nothing for 2026-11-13
+  when the session ended (read at 13:38 UTC; it runs about a day behind).
+  Storage, data transfer, the logs and the GitHub-hosted runner minutes are not
+  in the table.
+- **Training noise.** net8x160 is one run from one seed.
+- **What jwall-engineering-infra 0.19.0 changed on an instance.** The pin moved
+  between net8's training and net8x160's (#240), and the difference was not
+  read.
+- **Most of the references:** see [References](#references).
+
+**Open.**
+- **Matches planned and withdrawn unrun:** M7 (null-move base 5), M9 (capture
+  history in ordering), M10 (#248 at 10+0.1), M13 and M14 (the improving
+  heuristic at LMR and at late move pruning), M15 (both singular-extension
+  variants together). Their lab branches are pushed, so each is one `Match`
+  dispatch, about $0.75.
+- **Built in the lab and never screened at the gate's budget:** razoring,
+  history pruning, SEE pruning of captures, the linear history bonus, no table
+  cutoffs at PV nodes, a late-move reduction for losing captures (+7.1 ± 9.7 at
+  40,000 nodes, which this session showed is not a reading to trust), and less
+  reduction at PV nodes (59% more nodes on the bench; not screened).
+- **SPSA run S1** stopped at 955 of its 1,500 iterations, and its result was
+  screened at 100,000 nodes only.
+- **#250's sticky comment is wrong** about what happened ("re-run the SPRT");
+  the PR's description and experiment 4 above have the timed leg's result. The
+  comment job does not find a lone leg's log when the other leg left no
+  artifact; not investigated.
+- **The NNUE gallery has no state for a net under test,** which is why #256
+  cannot be green before its verdict (its description).
+- **Branches pushed for reproducibility and never meant to merge:**
+  `research/overnight-lab`, the `research/lab-*` probes and
+  `research/nmp-base4`. The owner's to keep or delete.
+- **The account has no AWS Budget.** The $40 cap was the agent's own; a budget
+  with an alert would make the limit the owner's.
+- **A gap:** the agent was not running from 02:50 to 05:42 MST, so the session
+  did nearly three hours less than its length suggests.
+
+**Suggested next, in the order the evidence supports.**
+1. **Decide #246, then re-test #254 on top of it.** That SPRT is both #254's
+   gate after the rebase and the first measurement of the two together.
+2. **Play generation 7 only after those are decided.** Its labels are the
+   searches of the engine that plays it, so it should be the stronger one.
+3. **Screen at the gate's budget, and expect the best of several to shrink.**
+   One 200,000-node match (3,000 games, about $0.75) per idea: M15 and M9 are
+   ready to dispatch.
+4. **Find out what separates the two legs.** One change that splits them (#248
+   or #252) as a match at two or three node budgets and at 10+0.1 would say
+   whether it is search length. Until then a split verdict cannot be read.
+5. **Record each net's scale when it is trained** (#253's tool), so a change in
+   the search's effective margins is seen when it happens.
+6. **Not the constants.** Two independent measurements found nothing there; a
+   tuning run long enough to disagree would be far longer than this one.
+
+### References
+
+What was read for the hypotheses and the PRs. **How it was gathered:** a
+subagent of the session fetched each page on 2026-11-12 and summarised it. The
+session then had three pages fetched again and checked the claims its PRs rest
+on against verbatim quotes; those are marked ✓. The rest are cited on the
+subagent's summary and were not re-read, and two citations in PR descriptions
+were written from general knowledge without a page being fetched: Donninger,
+"Null Move and Deep Search", *ICCA Journal* 16(3), 1993 (#246), and the wiki's
+Node Types page (#254). **Originality:** these are descriptions of techniques
+and public test statistics. No engine's source, evaluations, games or weights
+were used, and every implementation was written from a description against
+this repository's own search. Several pages of the Stockfish project were
+opened for their commit messages and test figures (games to an SPRT pass, never
+Elo taken as this engine's); such a page also shows its diff, and that only the
+prose was read is the subagent's statement.
+
+| Technique | Sources | Used for |
+|:--|:--|:--|
+| Null-move pruning, adaptive reduction | Chess Programming Wiki, [Null Move Pruning](https://www.chessprogramming.org/Null_Move_Pruning) ✓ ("Some programs vary R with depth, or based on evaluation features"; "a factor scaled by the difference between (potentially TT-corrected) evaluation and beta can also be added to the reduction value"). E. A. Heinz, "Adaptive Null-Move Pruning", *ICCA Journal* 22(3), 1999, through [his own summary](https://people.csail.mit.edu/heinz/iccaj_db/node34.html) and through O. David-Tabibi and N. Netanyahu, ["Verified Null-Move Pruning"](https://arxiv.org/abs/0808.1125); the paper's full text was not read (the publisher refused the request) | Experiments 1 and 4, match M2 |
+| The table score as the pruning evaluation | The same page's "(potentially TT-corrected) evaluation", found by the check above after #248 was written; #248's own citation says it was written from general knowledge | Experiment 2 |
+| Delta pruning in quiescence | Wiki, [Delta Pruning](https://www.chessprogramming.org/Delta_Pruning) ✓ ("the safety margin (delta) should be around 200 centipawns, depending on the piece values used by the program"; "delta pruning should be switched off in the late endgame"), [Quiescence Search](https://www.chessprogramming.org/Quiescence_Search), [Static Exchange Evaluation](https://www.chessprogramming.org/Static_Exchange_Evaluation) | Experiment 3 |
+| Futility and reverse futility pruning | Wiki, [Futility Pruning](https://www.chessprogramming.org/Futility_Pruning) ✓ (among the moves still searched: "captures (either all or less typically only those that are capable of raising the score above alpha + margin)"), [Reverse Futility Pruning](https://www.chessprogramming.org/Reverse_Futility_Pruning); E. A. Heinz, [extended futility pruning](https://people.csail.mit.edu/heinz/dt/node19.html) | Experiment 5; screens `sc-rfp120`, `sc-fp200` |
+| Late move reductions by node type | Wiki, [Late Move Reductions](https://www.chessprogramming.org/Late_Move_Reductions) | Experiment 6, match M11 |
+| History tables | Wiki, [History Heuristic](https://www.chessprogramming.org/History_Heuristic) (read for its capture-history section; continuation history at further distances is cited from general knowledge), [History Leaf Pruning](https://www.chessprogramming.org/History_Leaf_Pruning) | Experiment 7, match M8; the lab's capture history and history pruning |
+| The improving heuristic | Wiki, [Improving](https://www.chessprogramming.org/Improving) | Screens `s1-imp-rfp`, `s1-imp-lmr`; match M12 |
+| Singular extensions | Wiki, [Singular Extensions](https://www.chessprogramming.org/Singular_Extensions), [Multi-Cut](https://www.chessprogramming.org/Multi-Cut) | Matches M3 and M5 |
+| ProbCut | Wiki, [ProbCut](https://www.chessprogramming.org/ProbCut); M. Buro's [publication list](https://skatgame.net/mburo/publications.html) (the papers themselves were not read) | Screen `s3-probcut200`, match M4 |
+| Razoring | Wiki, [Razoring](https://www.chessprogramming.org/Razoring) | A lab option, never screened |
+| Correction history | Wiki, [Static Evaluation Correction History](https://www.chessprogramming.org/Static_Evaluation_Correction_History) | Background: #221 |
+| Time management | Wiki, [Time Management](https://www.chessprogramming.org/Time_Management) | H10, not run |
+| SPSA | Wiki, [SPSA](https://www.chessprogramming.org/SPSA) and [Stockfish's Tuning Method](https://www.chessprogramming.org/Stockfish%27s_Tuning_Method); J. C. Spall's [SPSA page](https://www.jhuapl.edu/SPSA/); OpenBench's [SPSA Tuning Workloads](https://github.com/AndyGrant/OpenBench/wiki/SPSA-Tuning-Workloads) (the perturbation as about a twentieth of a parameter's range) | SPSA run S1 |
+| SPRT and match statistics | Wiki, [Sequential Probability Ratio Test](https://www.chessprogramming.org/Sequential_Probability_Ratio_Test) and [Match Statistics](https://www.chessprogramming.org/Match_Statistics); the fishtest wiki, [Fishtest Mathematics](https://official-stockfish.github.io/docs/fishtest-wiki/Fishtest-Mathematics.html) and [Creating my first test](https://official-stockfish.github.io/docs/fishtest-wiki/Creating-my-first-test.html) (a node-budget test is "independent of engine speed" and does "not substitute tests under real TC") | Method; the pooled reading of match M18 |
+| NNUE training | Wiki, [NNUE](https://www.chessprogramming.org/NNUE); bullet's docs, [basics](https://github.com/jw1912/bullet/blob/main/docs/1-basics.md) and [data](https://github.com/jw1912/bullet/blob/main/docs/3-data.md) | H11 to H13, H15 and training T1 |
+
+**Test records opened for their figures only** (commit messages and pull-request
+descriptions of the Stockfish project, each for how many games a published
+patch took to pass): the improving heuristic in LMR
+([fff6b9f](https://github.com/official-stockfish/Stockfish/commit/fff6b9f0614243a14c7ba6aa8c846d8d4025d3a6)),
+capture history
+([4bc1198](https://github.com/official-stockfish/Stockfish/commit/4bc11984fc5a148ee8f1b55d6ac47c4a397cc8b8)),
+history pruning
+([4eca981](https://github.com/official-stockfish/Stockfish/commit/4eca981e557704f4ce3db829adf380b8fc058926)),
+singular-extension variants
+([f69106f](https://github.com/official-stockfish/Stockfish/commit/f69106f7bb82f97ba07fb06a31395039d08af9f4),
+[33a858e](https://github.com/official-stockfish/Stockfish/commit/33a858eaa1f792b3413384a3d0993dba36aca92e),
+[39da50e](https://github.com/official-stockfish/Stockfish/commit/39da50ed23ee3f1bd32a58c8f02471faa9a9fd63)),
+razoring ([#3921](https://github.com/official-stockfish/Stockfish/pull/3921)),
+correction history
+([#4950](https://github.com/official-stockfish/Stockfish/pull/4950),
+[#5598](https://github.com/official-stockfish/Stockfish/pull/5598),
+[#5617](https://github.com/official-stockfish/Stockfish/pull/5617)) and time
+management
+([e6482b7](https://github.com/official-stockfish/Stockfish/commit/e6482b7d97a6620cebdd569cce575d42ed80c871),
+[#6729](https://github.com/official-stockfish/Stockfish/pull/6729),
+[discussion 4292](https://github.com/official-stockfish/Stockfish/discussions/4292)).
+None of the session's choices rests on them: the ranking was made from this
+repository's record before the list came back.
+
+**What the reference review could not check:** Heinz's 1999 paper in full; the
+ProbCut papers (no PDF reader); Anantharaman, Campbell and Hsu on singular
+extensions, and the original LMR articles, which are cited through the wiki
+only; commit dates. Several wiki pages carried a banner saying they were a
+temporary, read-only recovery copy.
