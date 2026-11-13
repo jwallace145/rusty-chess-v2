@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.48.1](https://github.com/jwallace145/rusty-chess-v2/compare/v0.48.0...v0.48.1) (2026-11-13)
+
+
+### Documentation
+
+* add the project logo and use it in the README ([#245](https://github.com/jwallace145/rusty-chess-v2/issues/245)) ([824b4da](https://github.com/jwallace145/rusty-chess-v2/commit/824b4da84a49a449c9c432bfc87abb207c47a6cf))
+* **nnue:** add versioned architecture diagrams, manifests and a gallery for every net ([#242](https://github.com/jwallace145/rusty-chess-v2/issues/242)) ([57e7d90](https://github.com/jwallace145/rusty-chess-v2/commit/57e7d90da93455663329e6fda1d20f87ccf2bd46))
+* **nnue:** render the architecture SVGs with their natural size so GitHub shows them full size ([#244](https://github.com/jwallace145/rusty-chess-v2/issues/244)) ([80dd817](https://github.com/jwallace145/rusty-chess-v2/commit/80dd817a1a990ac1977f6d964ec0fa2822be491d))
+
 ## [0.48.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.47.2...v0.48.0) (2026-11-09)
 
 
