@@ -695,6 +695,51 @@ fn late_move_reductions_reduce_and_research_without_losing_mates() {
 }
 
 #[test]
+fn every_history_table_is_forgotten_by_clear_hash_so_a_search_repeats_exactly() {
+    // The search learns as it goes: butterfly history and the continuation
+    // tables one, two and four plies back all steer ordering and reductions.
+    // `clear_hash` (a new game, and between bench positions) must forget
+    // every one of them, or the second search of a position differs from the
+    // first and the bench signature stops being a signature.
+    let fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    let mut b = board(fen);
+    let first = s.search(&mut b, &depth(9), &mut |_| {});
+    s.clear_hash();
+    let mut b = board(fen);
+    let second = s.search(&mut b, &depth(9), &mut |_| {});
+    assert_eq!(
+        (first.nodes, first.qnodes, first.score, &first.pv),
+        (second.nodes, second.qnodes, second.score, &second.pv)
+    );
+    // Without the clear, what the first search learned changes the second:
+    // the tables are in use, not dead weight.
+    let mut b = board(fen);
+    let third = s.search(&mut b, &depth(9), &mut |_| {});
+    assert_ne!(
+        (second.nodes, second.qnodes),
+        (third.nodes, third.qnodes),
+        "a search with everything remembered matched a fresh one"
+    );
+    // Mates stay exact with the longer memory.
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - 0 1", "f6a6", 3),
+    ] {
+        let r = search(fen, depth(8));
+        assert_eq!(
+            (r.best.to_string(), mate_in(r.score)),
+            (best.into(), Some(mate)),
+            "{fen}"
+        );
+    }
+}
+
+#[test]
 fn internal_iterative_reductions_fire_and_keep_mates() {
     // Mates stay exact with nodes lacking a table move searched a ply
     // shallower, including a quiet key move and a late quiet check.

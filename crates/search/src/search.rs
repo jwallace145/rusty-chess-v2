@@ -213,9 +213,11 @@ pub struct Searcher {
     tt: TranspositionTable,
     killers: Killers,
     history: History,
-    /// Continuation history one and two plies back.
+    /// Continuation history one, two and four plies back: the opponent's
+    /// last move, our own last move, and our move before that.
     cont1: Continuation,
     cont2: Continuation,
+    cont4: Continuation,
     /// The network's error by pawn structure, learned during the search.
     corrhist: CorrectionHistory,
     /// The move made at each ply of the current line (`PieceTo::NONE`
@@ -254,6 +256,7 @@ impl Searcher {
             history: History::new(),
             cont1: Continuation::new(),
             cont2: Continuation::new(),
+            cont4: Continuation::new(),
             corrhist: CorrectionHistory::new(),
             moved: [PieceTo::NONE; MAX_PLY + 2],
             excluded: [Move::NULL; MAX_PLY + 2],
@@ -300,6 +303,7 @@ impl Searcher {
         self.history.clear();
         self.cont1.clear();
         self.cont2.clear();
+        self.cont4.clear();
         self.corrhist.clear();
     }
 
@@ -337,6 +341,7 @@ impl Searcher {
         self.history.age();
         self.cont1.age();
         self.cont2.age();
+        self.cont4.age();
         self.moved = [PieceTo::NONE; MAX_PLY + 2];
         self.excluded = [Move::NULL; MAX_PLY + 2];
         board.set_root();
@@ -688,8 +693,8 @@ impl Searcher {
             }
         }
 
-        // What led here: the opponent's move one ply back and our own two
-        // plies back, for the continuation tables.
+        // What led here: the opponent's move one ply back, our own two plies
+        // back and our own four plies back, for the continuation tables.
         let prev1 = if ply >= 1 {
             self.moved[ply - 1]
         } else {
@@ -697,6 +702,11 @@ impl Searcher {
         };
         let prev2 = if ply >= 2 {
             self.moved[ply - 2]
+        } else {
+            PieceTo::NONE
+        };
+        let prev4 = if ply >= 4 {
+            self.moved[ply - 4]
         } else {
             PieceTo::NONE
         };
@@ -708,7 +718,7 @@ impl Searcher {
         let mut quiets_tried = [Move::NULL; 64];
         let mut quiets_count = 0usize;
         while let Some(m) = picker.next_with(board.position(), &|q| {
-            self.quiet_score(board.position(), prev1, prev2, q)
+            self.quiet_score(board.position(), prev1, prev2, prev4, q)
         }) {
             if m == excluded {
                 continue;
@@ -776,7 +786,7 @@ impl Searcher {
             // The quiet move's history, read before the move is made, for the
             // late move reduction below.
             let history = if quiet {
-                self.quiet_score(board.position(), prev1, prev2, m)
+                self.quiet_score(board.position(), prev1, prev2, prev4, m)
             } else {
                 0
             };
@@ -853,11 +863,13 @@ impl Searcher {
                             self.history.update(side, m, bonus);
                             self.cont1.update(prev1, pt, bonus);
                             self.cont2.update(prev2, pt, bonus);
+                            self.cont4.update(prev4, pt, bonus);
                             for &q in &quiets_tried[..quiets_count] {
                                 let qt = PieceTo::of(board.position(), q);
                                 self.history.update(side, q, -bonus);
                                 self.cont1.update(prev1, qt, -bonus);
                                 self.cont2.update(prev2, qt, -bonus);
+                                self.cont4.update(prev4, qt, -bonus);
                             }
                         }
                         break;
@@ -1052,14 +1064,22 @@ impl Searcher {
         best
     }
 
-    /// The ordering score of a quiet move: butterfly history plus the two
+    /// The ordering score of a quiet move: butterfly history plus the three
     /// continuation histories for what led to this node.
     #[inline]
-    fn quiet_score(&self, pos: &Position, prev1: PieceTo, prev2: PieceTo, m: Move) -> i32 {
+    fn quiet_score(
+        &self,
+        pos: &Position,
+        prev1: PieceTo,
+        prev2: PieceTo,
+        prev4: PieceTo,
+        m: Move,
+    ) -> i32 {
         let pt = PieceTo::of(pos, m);
         self.history.get(pos.side_to_move(), m)
             + self.cont1.get(prev1, pt)
             + self.cont2.get(prev2, pt)
+            + self.cont4.get(prev4, pt)
     }
 
     #[inline]
