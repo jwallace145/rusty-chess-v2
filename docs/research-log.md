@@ -295,7 +295,7 @@ The control reads PeSTO's table values, so the method measures what it says.
 **The scale by net, measured at 01:30 MST.** The same program on every net that
 was a default and is kept in the bucket (`NET=<file>`; each file's SHA-256
 matches `nnue::RETIRED_NETS`, except net7's, which that list doesn't carry and
-which was not checked against its `training.json`). Mean value over the 300
+which matches the `net_sha256` in its `training.json`, checked afterwards). Mean value over the 300
 SPRT openings, and over the 50 bench positions in brackets:
 
 | Evaluation | Pawn | Knight | Bishop | Rook | Queen | Reverse futility's 80 a ply, in pawns |
@@ -805,6 +805,32 @@ Recorded on 2026-11-13 at 01:29 MST, before either was dispatched.
 | Read beforehand | One side at +8 or more and the other at or below zero: the margins are off in that direction, and the change becomes a PR that rescales the constants themselves (not the evaluation: scaling the evaluation would also scale the scores `datagen` records as labels), with its own match to confirm the rescaled constants behave as the probe did, then a plan and an SPRT. Both within ±8: the margins as a set are about right at net8's scale, and the reading that net7rl012's gain was a margin effect loses its support. Both positive or both negative is not expected and would be recorded as it is |
 | Not a feature | The probe also scales the scores the search reports, so it is never a PR itself |
 | Cost estimate | About $0.70 each. They run next, ahead of the matches still queued: this question came out of the session's measurement and is its best-motivated one |
+
+**Results** (each run's report; 200,000 nodes a move, hash 64 MB, against `main`
+at `0a45da0`, bench 970,013):
+
+| Match | Run | Elo (candidate − baseline) | 99% interval | LOS | Games | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) |
+|:--|:--|--:|:-:|--:|--:|:-:|:--|
+| M16, evaluation at 125% (margins a fifth tighter) | [43393664014](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43393664014) | −0.6 | −10.0 to +8.8 | 43.7% | 3000 | 640 / 645 / 1715 | 45, 340, 715, 375, 25 |
+| M17, evaluation at 80% (margins a quarter looser) | [43395387426](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43395387426) | +0.6 | −8.3 to +9.5 | 56.7% | 3000 | 640 / 635 / 1725 | 25, 345, 750, 360, 20 |
+
+**By the reading written beforehand: both within ±8, so the margins as a set
+are about right at net8's scale.** A fifth tighter and a quarter looser are the
+same engine to within 9 or 10 Elo either way, at the SPRT's fixed-node budget.
+
+- **The roadmap's "re-tune what was tuned to PeSTO's scores" has its first
+  measurement, and it is flat** for the evaluation-based margins taken
+  together. The constants are 3.4 times tighter in pawns than when they were
+  tuned and the engine does not care about another quarter either way. One
+  constant could still be wrong in a way the set hides (SPSA run S1 looks
+  constant by constant), but there is no direction here to chase.
+- **The second reading of net7rl012's gain loses its support:** making net8's
+  evaluation a quarter larger, which is what that net's relabelling did to the
+  pieces, gains nothing. The ledger's reading, better labels, stands.
+- **It is not a statement about a clock.** Both probes change how many nodes a
+  depth costs (−2.8% and +20.7% on the bench), which a fixed-node match does
+  not charge for. The looser one would likely lose at a clock.
+- Each cost about $0.75 (the tasks ran 649 s and 680 s).
 
 #### SPSA run S1: the margins and reduction constants together
 
