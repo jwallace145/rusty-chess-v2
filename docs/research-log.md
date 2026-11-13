@@ -253,7 +253,13 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 <!-- screens:end -->
 
 The table is rendered from each screen's fastchess log by a script
-(`lab/render_screens.py` on `research/overnight-lab`).
+(`lab/render_screens.py` on `research/overnight-lab`). **The logs are kept on
+that branch,** under `lab/runs/`, with SPSA run S1's state and log, the queue
+runners' records, and under `lab/analysis/` the three one-off calculations
+behind the clock table, experiment 2's depth table and match M18's pooled row
+(`e203c2b`, added at the end of the session; the session's scratch directory
+does not outlive it). The repository's commit hooks normalised trailing
+whitespace in the copies; they are otherwise what the session read.
 
 **The harness's smoke test and negative control, 23:14 MST, before the first
 screen** (`pilot-identical`; recorded here at the end of the session, when the
@@ -1372,7 +1378,11 @@ time, not a bill; no instance was left running.
   cannot be green before its verdict (its description).
 - **Branches pushed for reproducibility and never meant to merge:**
   `research/overnight-lab`, the `research/lab-*` probes and
-  `research/nmp-base4`. The owner's to keep or delete.
+  `research/nmp-base4`. The owner's to keep or delete; `research/overnight-lab`
+  is the only home of the screens' logs.
+- **The SPRT and match artifacts expire.** The games and logs of every run
+  cited here are GitHub Actions artifacts, kept until 2027-02-11 (90 days).
+  Nothing was copied out of them but what this log quotes.
 - **The account has no AWS Budget.** The $40 cap was the agent's own; a budget
   with an alert would make the limit the owner's.
 - **A gap:** the agent was not running from 02:50 to 05:42 MST, so the session
