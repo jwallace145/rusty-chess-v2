@@ -45,7 +45,7 @@ params! {
     // Late move reductions.
     LMR_HIST_DIV = 512,
     LMR_PV = 0,
-    LMR_CUT = 0,
+    LMR_CUT = 1,
     LMR_IMPROVING = 0,
     // Razoring (0 = off): depth <= RAZOR_DEPTH and eval + RAZOR_MARGIN * depth < alpha.
     RAZOR_DEPTH = 0,
