@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="branding/logo.png" alt="rusty-chess logo" width="280">
+</p>
+
 # rusty-chess-v2
 
 A single-threaded UCI chess engine in Rust whose classical search is
@@ -23,6 +27,7 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 | `trainer` | Trains NNUE nets with bullet (CUDA or Metal); a separate Cargo project so the engine never needs a GPU toolkit ([docs/training.md](docs/training.md)). |
 | `tests/` | UCI smoke tests, the perft suite `perft.epd`, mate-in-N positions. |
 | `perf-targets.toml` | The performance bars `perf-gate` enforces; they only go up. |
+| `branding/` | The project logo, its derived avatar, favicon and social preview images, and the script that makes them ([branding/README.md](branding/README.md)). |
 | `benches/` | Criterion microbenchmarks for the binary; crates keep their own under `crates/*/benches`. |
 
 ## Building and running
