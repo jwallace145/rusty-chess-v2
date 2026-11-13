@@ -84,7 +84,7 @@ summarises: each plan as it was written before its run, then the result.
 | #247 | This log, the net8 ledger correction, net8x160's record, the roadmap | Ready for review | Merge after review |
 
 **Since the session ended:** the owner merged #246 and released it as `v0.49.0`
-(2026-11-13), and #254 was rebased onto it for its SPRT to be played again. The
+(2026-11-13), and #254 was rebased onto it and passed its SPRT again, H1 in both legs: **+8.1 ± 4.9** timed and **+7.6 ± 4.7** at fixed nodes. The
 table above is the state at the session's end; what followed is in
 [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246).
 
@@ -482,6 +482,7 @@ fixed-node leg is two identical engines).
 | 4 | #250, stacked on #246 | Null-move reduction's base 3 → 4 | 939252 → 925602 (against #246) | +1.5 ± 3.7 (inconclusive at 10,000 games) | Not played (its instance failed to launch) | **Gate not met: dropped.** Recommended for closing |
 | 5 | #252 | Futility pruning of captures in the main search, the victim valued at the net's scale | 970013 → 970114 | +4.9 ± 3.8, LOS 99.4% (inconclusive at 10,000 games, LLR 2.61) | **+17.7 ± 7.9** (H1, 2,668 games) | **Gate not met as run.** Smarter per node; with match M18's 10,000 more timed games the timed gain is +4.0, 95% interval +1.3 to +6.7. The "inconclusive at high LOS" case: the owner's decision |
 | 6 | #254 | One more ply of late-move reduction at expected cut nodes | 970013 → 988822 | **+9.8 ± 5.6** (H1, 5,004 games) | **+10.6 ± 5.8** (H1, 4,322 games) | **Gate met.** For the owner to merge |
+| 6, second run (after the session) | #254, rebased onto #246 | The same patch, against `v0.49.0` | 939252 → 958984 | **+8.1 ± 4.9** (H1, 6,124 games) | **+7.6 ± 4.7** (H1, 6,482 games) | **Gate met again,** on top of #246. For the owner to merge. [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246) |
 | 7 | #255 | Continuation history four plies back, in quiet ordering and the LMR history term | 970013 → 1025352 | +2.1 ± 3.8 (inconclusive at 10,000 games) | −1.2 ± 4.0 (inconclusive at 10,000 games) | **Gate not met: dropped.** Recommended for closing |
 | T1 | #256 | The embedded net: net8 → net8x160, net8's recipe with 160 superbatches for 80 | 970013 → 990172 | **+11.6 ± 6.1** (H1, 3,910 games) | **+8.2 ± 5.1** (H1, 6,250 games) | **Gate met.** A draft that needs its gallery entries; for the owner to merge |
 
@@ -1513,3 +1514,29 @@ Local checks on `695192d` before the push: `cargo fmt --all --check`,
 `cargo test --workspace --locked` (270 passed) and with `--features stats`
 (271 passed), `npm test` (59 pass); the signature is 958984 in
 two runs and in the `stats` build.
+
+**Result** ([run 43455334547](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43455334547),
+#254, `695192d` against `main` at `9663137`; elo0 0, elo1 5, α = β = 0.05; on
+demand, two `c8a.16xlarge` in us-east-1a; one attempt; the plan's commit
+`36efe7b` at 15:41:21 UTC, the push at 15:42:35):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **+8.1 ± 4.9** | 99.9% | 6124 | 1268 / 1126 / 3730 | 2.97 | 67, 631, 1538, 745, 81 | H1 |
+| Fixed nodes, 200,000 per move | **+7.6 ± 4.7** | 99.9% | 6482 | 1407 / 1266 / 3809 | 2.96 | 97, 593, 1666, 842, 43 | H1 |
+
+CI bench (base `v0.49.0`): signature 939,252 → 958,984; speed per node +0.8% ± 2.5%; time to depth +1.3% ± 2.4%; 4,035 instructions a node (4,033 for `v0.49.0`); fail-high-first 87.6% (87.7%); EBF 1.85 (1.90, marked better); perft pass; the performance gate passed.
+
+**The gate recorded before the run is met:** H1 in both legs, against the engine that has #246. The agent does not merge. The comment's reading: "Gate: pass: smarter per node, and worth its cost at a clock: merge."
+
+**Reading it.**
+- **The gain holds on top of #246, and the legs agree again:** +8.1 ± 4.9 at a clock and +7.6 ± 4.7 per node.
+- **It reads a little under the first run, and not by enough to say the two changes overlap.** Against `v0.48.1` the same patch read +9.8 ± 5.6 and +10.6 ± 5.8; this run is 1.7 and 3.0 lower, and the difference between two such readings carries an error of about ±7.5 (the two errors combined). A small overlap is not ruled out either.
+- **Both legs needed more games than before** (6,124 and 6,482, against 5,004 and 4,322), which fits a somewhat smaller gain; where an SPRT stops is noisy and proves little by itself.
+- **Inside the plan's expectation** of +5 to +10.
+- **Still not measured:** the two changes together as one match against `v0.48.1` (adding #246's SPRT to this one adds two readings that each stopped at H1, which reads high); the net of #256 on top of them; this change at a longer time control; anything but self-play against the base.
+
+**Cost:** about $3.00 (the legs' jobs took 28 min 34 s and 24 min 1 s, at
+about $3.45 an hour a leg; an estimate from run time, not a bill), outside the
+session's table. With the session's $35.30, about $38.30 in all. Both
+instances terminated (16:06:35 and 16:11:10 UTC).
