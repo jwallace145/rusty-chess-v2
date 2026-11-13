@@ -382,6 +382,8 @@ fixed-node leg is two identical engines).
 
 | 5 | #252 | Futility pruning of captures in the main search, the victim valued at the net's scale | 970013 → 970114 | +4.9 ± 3.8, LOS 99.4% (inconclusive at 10,000 games, LLR 2.61) | **+17.7 ± 7.9** (H1, 2,668 games) | **Gate not met as run.** Smarter per node; a timed gain the SPRT's cap could not settle. Match M18 adds timed games for the owner's decision |
 
+| 6 | #254 | One more ply of late-move reduction at expected cut nodes | 970013 → 988822 | Pending | Pending | Pending |
+
 #### Experiment 1: adaptive null-move reduction (#246)
 
 Recorded on 2026-11-12 at 23:26 MST, before the `sprt` label was added.
@@ -658,6 +660,23 @@ clock: do not merge; worth a `perf` pass to make it cheaper and a re-test."
   they are added as a fixed-size measurement instead (match M18, below) and
   read together with these.
 
+#### Experiment 6: more late-move reduction at expected cut nodes (#254)
+
+Recorded on 2026-11-13 at 02:28 MST, before the `sprt` label was added.
+
+| | |
+|:--|:--|
+| Question | Late move reductions treat every node off the principal variation alike. Does reducing late quiet moves one ply more at nodes expected to fail high gain Elo? |
+| The one change | `negamax` carries `cut_node` (the root is not one; a full-window child never is; a reduced search's child always is; any other null-window child is the opposite of its parent), and a late quiet move's reduction is one ply larger when it is set. `feat/lmr-cut-node` at `0e188c9` against `main` at `0a45da0` |
+| Held the same | The reduction table, the history adjustment, which moves are reduced, the re-search rule, every pruning rule, the net |
+| Why this variant | The standard form (H3's first half), one ply. The other half, less reduction at principal-variation nodes, grew the bench tree by 59% and was not screened. One variant tested |
+| Screen (exploratory, on the instance) | Match M11: **+27.3, 99% interval +17.9 to +36.6**, 3,000 games at 200,000 nodes; the lab build that played it has the PR's signature, 988822. **At 40,000 nodes the same change read about −12** (`s1-lmr-cut`, whose log was lost), and it was dropped until the third amendment sent the dismissed changes back to be screened at the right budget |
+| Bench, local | 970013 → 988822 (+1.9% nodes to depth 10: the main search 2.5% smaller, quiescence 6.2% larger); fail-high-first 0.8740 → 0.8755; EBF 1.877 → 1.861; both bars pass; 1.9% of reduced moves re-searched (1.8%) |
+| Expectation | Fixed nodes: +10 to +25, from M11 less what picking the best of eight screens adds. Timed: uncertain. The change costs nothing per node, but experiments 4 and 5 both kept less at a clock than at fixed nodes, and experiment 1 kept all of it |
+| Gate | H1 in both legs. Anything else drops the change |
+| Risks named beforehand | A reduction worth more with depth should be worth as much or more at a clock's deeper early searches, as experiment 1's was; if the timed leg reads well below the fixed-node one, that is the third change tonight to do so and says something about the two legs rather than about this change. A deeper reduction can miss tactics a re-search does not catch |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80. No other SPRT is running |
+
 #### Match M18: more timed games for experiment 5
 
 Recorded on 2026-11-13 at 02:21 MST, before the dispatch.
@@ -820,7 +839,11 @@ budget rather than a dismissal at the wrong one.
 | Match | Run | Elo (candidate − baseline) | 99% interval | LOS | Games | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) | By the rule |
 |:--|:--|--:|:-:|--:|--:|:-:|:--|:--|
 | M12, reverse futility with improving | [43397194328](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43397194328) | −12.2 | −22.2 to −2.2 | 0.1% | 3000 | 580 / 685 / 1735 | 70, 365, 705, 320, 40 | Weaker, the 99% interval below zero: **dropped**, now on a measurement at the SPRT's budget |
+| M11, one more ply of LMR at expected cut nodes | [43398918563](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43398918563) | **+27.3** | +17.9 to +36.6 | 100.0% | 3000 | 715 / 480 / 1805 | 25, 265, 705, 460, 45 | **+8 or more: goes forward as experiment 6 (#254).** Its 40,000-node screen had read about −12 |
 <!-- matches:m11-m14 -->
+
+M13 and M14 (the improving heuristic at LMR and at late move pruning) were
+withdrawn unrun at 02:21 MST to pay for match M18; see its plan.
 
 Each: `Match` from `main`, 200,000 nodes a move, 3,000 games, hash 64 MB. +8 or
 more: a clean branch, a plan and an SPRT. Under +8: recorded, no PR; for the
