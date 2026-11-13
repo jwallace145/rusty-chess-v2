@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.50.0...v0.51.0) (2026-11-13)
+
+
+### Features
+
+* **nnue:** embed net8x160, net8's recipe at twice the schedule, as the default ([#256](https://github.com/jwallace145/rusty-chess-v2/issues/256)) ([e80876f](https://github.com/jwallace145/rusty-chess-v2/commit/e80876fa36f09d5d7c18a91f36e903fd5cf19f0d))
+
 ## [0.50.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.49.0...v0.50.0) (2026-11-13)
 
 
