@@ -326,7 +326,7 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
 | `net5-l050-r41229287546` (512 hidden) | 4 | generations 0–3 (1.53B positions), 80 superbatches | 1101129 | retired |
 | `net6k4-l050-r41282883885` (512 hidden, 8 output buckets, **4 king buckets**) | 5 | generations 0–4 (2.03B positions), 80 superbatches | 1046838 | retired |
 | `net7rl012-l050-r42054816508` (512 hidden, 8 output buckets, 4 king buckets) | 6 | generations 0–5 (2.35B positions), generations 0–2 on label set `N7`, 80 superbatches | 976528 | retired: played generation 6 |
-| `net8-l050-r42564788061` (512 hidden, 8 output buckets, 4 king buckets) | 7 | generations 0–6 (3.20B positions), generations 0–2 on label set `N7`, 80 superbatches | 970013 | **embedded, the default** |
+| `net8x160-l050-r43390801430` (512 hidden, 8 output buckets, 4 king buckets) | 7 | generations 0–6 (3.20B positions), generations 0–2 on label set `N7`, **160 superbatches** | 919304 | **embedded, the default** |
 
 - **Using a retired net:** download its file and pass the path
   (`setoption name EvalFile value <file>`, `bench --eval-file <file>`), and
@@ -338,7 +338,7 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
   the net of its time.
 - **A new default** replaces the `NETS` entry, and the net it replaces moves
   to `RETIRED_NETS` if it played a generation. A net replaced before playing
-  any generation (net 2, net 3, net 4, net5b8, net6, net7) is in neither: it never
+  any generation (net 2, net 3, net 4, net5b8, net6, net7, net8) is in neither: it never
   played data, and its file stays in the bucket. The swap changes the bench
   signature, and is kept only on a timed SPRT win over the net it replaces.
 - Each net's full history (data, parameters, validation curve, SPRT and
@@ -348,7 +348,7 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
 
 - **UCI:** `setoption name EvalFile value` takes:
   - `/path/to/net.nnue` to load a net file;
-  - the embedded net's id (`net8-l050-r42564788061`) for the default; a
+  - the embedded net's id (`net8x160-l050-r43390801430`) for the default; a
     retired net's id names its file in the bucket instead;
   - `pesto` for PeSTO;
   - `<default>`, or an empty value, to return to the default net.

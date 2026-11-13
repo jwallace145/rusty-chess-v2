@@ -95,14 +95,14 @@ test("check fails when the ledger has a net without a snapshot, or a snapshot ha
 test("check fails when a status disagrees with the engine, or an orphan file appears", { timeout: 120_000 }, async () => {
   const root = repoCopy();
   try {
-    const path = join(root, PATHS.manifests, "net8-l050-r42564788061.json");
+    const path = join(root, PATHS.manifests, "net8x160-l050-r43390801430.json");
     const m = JSON.parse(readFileSync(path, "utf8"));
     m.file_bytes = 3_163_152;
     writeFileSync(path, JSON.stringify(m));
     writeFileSync(join(root, PATHS.diagrams, "notes.txt"), "x");
     const r = await quiet(() => main(["check"], root));
     assert.equal(r.code, 1);
-    assert.ok(r.errors.some((e) => /file_bytes 3163152 but crates\/search\/nets\/net8-l050-r42564788061\.nnue is 3163200 bytes/.test(e)), r.errors.join("\n"));
+    assert.ok(r.errors.some((e) => /file_bytes 3163152 but crates\/search\/nets\/net8x160-l050-r43390801430\.nnue is 3163200 bytes/.test(e)), r.errors.join("\n"));
     assert.ok(r.errors.some((e) => /notes\.txt: unexpected file/.test(e)), r.errors.join("\n"));
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -131,7 +131,7 @@ test("list prints every snapshot in training order", async () => {
   } finally {
     console.log = log;
   }
-  assert.equal(lines.length, 18);
+  assert.equal(lines.length, 19);
   assert.match(lines[0], /^net1-l050-r41022503872 /);
-  assert.match(lines.at(-1), /^net8-l050-r42564788061 .*default/);
+  assert.match(lines.at(-1), /^net8x160-l050-r43390801430 .*default/);
 });

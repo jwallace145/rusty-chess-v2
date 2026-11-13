@@ -101,6 +101,7 @@ generation wasn't used. Confirmed from each net's `training.json`: its
 | `net7rl012345-l050-r42398995769` | `N7` | `N7` | `N7` | `N7r` | `N7r` | `N7r` | — | `g0-5·N7(0-2)·N7r(3-5)` |
 | `net7rl012w768-l050-r42411319602` | `N7` | `N7` | `N7` | `O` | `O` | `O` | — | `g0-5·N7(0-2)` |
 | `net8-l050-r42564788061` | `N7` | `N7` | `N7` | `O` | `O` | `O` | `O` | `g0-6·N7(0-2)` |
+| `net8x160-l050-r43390801430` | `N7` | `N7` | `N7` | `O` | `O` | `O` | `O` | `g0-6·N7(0-2)` |
 
 ### Prepared training sets
 
