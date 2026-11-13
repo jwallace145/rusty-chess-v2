@@ -156,6 +156,7 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 | `s3-probcut200` | `PC_MARGIN=200`: ProbCut at depth ≥ 5, any capture that does not lose material, its search at depth − 4 against beta + 200 | 40,000 | 2,000 | −15.7 ± 9.8 | 0.1% | 472 / 562 / 966 | 60, 254, 429, 230, 27 | −2.23 | Game cap. **Dropped as built.** A stricter capture filter (`PC_SEE_DIV=3`) is in the lab build but was not screened here: ProbCut acts at depth, so its test belongs on the instance at 200,000 nodes |
 | `s4-capfut200` | `CAPFUT=200`: futility pruning of captures in the main search at depth ≤ 6, when eval + 300 + 200·depth + the victim's net-scale value ≤ alpha | 40,000 | 2,000 | **+15.1 ± 9.5** | 99.9% | 571 / 484 / 945 | 34, 200, 455, 267, 44 | 1.79 | Game cap. Over the threshold; **held for a replication** under the rule added at 00:31 (`r1-capfut200`) |
 | `c2-capfut-on-qsfut` | `CAPFUT=200` **with experiment 3's quiescence rule on both sides** (`QS_FUT=300 QS_FUT_NET=1`) | 40,000 | 2,000 | +9.9 ± 9.8 | 97.7% | 545 / 488 / 967 | 42, 202, 469, 231, 56 | 1.07 | Game cap. A stacking check: the main-search rule still reads positive on top of the quiescence rule |
+| `s3-lmrnoisy1` | `LMR_NOISY=1`: one ply of late-move reduction for losing captures | 40,000 | 2,000 | +7.1 ± 9.7 | 92.6% | 495 / 454 / 1051 | 23, 261, 420, 244, 52 | 0.73 | Game cap. Under the threshold. **Not pursued** |
 <!-- screens:end -->
 
 The table is rendered from each screen's fastchess log by a script
@@ -201,6 +202,23 @@ points up. From here a variant that reads +8 or more is screened again, fresh
 games, and goes forward only if the two screens pooled still read +8 or more.
 Experiments 1 to 3 were chosen under the earlier rule and are not re-judged by
 this one.
+
+**A third amendment, 00:34 MST: 40,000-node screens no longer choose
+experiments.** Experiment 3's fixed-node leg is reading about −9 after 1,900
+games, where its screen read +12.7: with experiment 2, that is two changes in
+a row whose 40,000-node screen had the wrong size or the wrong sign at 200,000
+nodes, and experiment 1's was wrong by half the other way. The screen is not a
+smaller version of the SPRT; it is a different test. From here a candidate is
+screened **on the instance, at the SPRT's fixed-node budget**, by the `Match`
+workflow (3,000 games at 200,000 nodes, about $0.70 and 12 minutes, ±9 Elo at
+95%), with the same threshold: +8 or more goes forward to a PR and an SPRT.
+The laptop's 40,000-node queue is stopped after the screen in progress
+(`r1-capfut200`, the replication of `s4-capfut200`), and the screens still
+queued are withdrawn unrun: `s1-caphist8`, `s1-cont4`, `s1-seecap90`,
+`s1-imp-lmp`, `s4-probcut200s3` and `s1-lmr-cut-rerun`. So the lost
+`s1-lmr-cut` screen is not re-run after all: its only record is the reading
+noted above. The laptop runs SPSA run S1 instead, whose result is also judged
+on the instance before any PR.
 
 **Screens withdrawn before they ran** (queued, then removed; nothing was
 played): `sc-rfp160` and `sc-rfp240` (reverse-futility margin 160 and 240),
@@ -513,6 +531,25 @@ act at depth.
 it goes forward, by a tenth of an Elo, as experiment 4. The report's own
 reading is "no significant difference" at 99%: this is a screen, and the SPRT
 is the test.
+
+#### Matches M3 to M6: screens on the instance at 200,000 nodes
+
+Recorded on 2026-11-13 at 00:34 MST, before the first dispatch. **Exploratory**,
+under the third amendment to the screening rule.
+
+| Match | Candidate (a lab branch whose defaults carry one change), against `main` | The change |
+|:--|:--|:--|
+| M3 | `research/lab-se-double20` (`debe861`, bench 1,058,291) | Singular extensions: a second ply when the singular search fails low by 20 more than its margin, at most 6 times a line, not at PV nodes |
+| M4 | `research/lab-probcut200s3` (`41c856e`, bench 961,758) | ProbCut at depth ≥ 5: a capture whose exchange wins at least (beta + 200 − eval)/3 in classical units, searched at depth − 4 against beta + 200 |
+| M5 | `research/lab-se-neg` (`add0ae5`, bench 947,856) | Singular extensions: one ply less for the table move when it is not singular and the table score is at or above beta, or the node is an expected cut node |
+| M6 | A lab branch with `CAPFUT=200` (made before its dispatch) | Futility pruning of captures in the main search at depth ≤ 6, the victim at the net's scale: the rule `s4-capfut200` and `c2-capfut-on-qsfut` read +15.1 and +9.9 for at 40,000 nodes |
+
+| | |
+|:--|:--|
+| What runs | `Match` from `main`, one at a time: 200,000 nodes a move, 3,000 games, hash 64 MB, 99% interval; one on-demand `c8a.16xlarge` each |
+| The lab build as candidate | It has runtime parameter reads the engine doesn't, so it is a little slower a node; at fixed nodes that changes nothing. With no parameter set it has `main`'s bench signature |
+| Read beforehand | +8 or more: built cleanly on a branch from `main`, with a plan and an SPRT. Under +8: recorded, no PR. The order is fixed: M3, M4, M5, M6; a match is skipped only if the spend cap requires it, and that is recorded |
+| Cost estimate | About $0.70 each, $2.80 in all |
 
 #### SPSA run S1: the margins and reduction constants together
 
