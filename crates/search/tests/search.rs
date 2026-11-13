@@ -341,6 +341,28 @@ fn reverse_futility_pruning_prunes_but_keeps_mates_and_mate_threats() {
 }
 
 #[test]
+fn the_pruning_evaluation_takes_the_table_score_only_where_its_bound_points() {
+    use rusty_chess_search::search::{MATE, pruning_eval};
+    use rusty_chess_search::tt::Bound;
+    // No entry: the static evaluation.
+    assert_eq!(pruning_eval(40, None), 40);
+    // An exact score replaces it, above or below.
+    assert_eq!(pruning_eval(40, Some((Bound::Exact, 250))), 250);
+    assert_eq!(pruning_eval(40, Some((Bound::Exact, -90))), -90);
+    // A lower bound says "at least this": it can only raise the evaluation.
+    assert_eq!(pruning_eval(40, Some((Bound::Lower, 250))), 250);
+    assert_eq!(pruning_eval(40, Some((Bound::Lower, -90))), 40);
+    // An upper bound says "at most this": it can only lower it.
+    assert_eq!(pruning_eval(40, Some((Bound::Upper, -90))), -90);
+    assert_eq!(pruning_eval(40, Some((Bound::Upper, 250))), 40);
+    // A mate score is never an evaluation for pruning, whatever its bound.
+    for bound in [Bound::Exact, Bound::Lower, Bound::Upper] {
+        assert_eq!(pruning_eval(40, Some((bound, MATE - 7))), 40);
+        assert_eq!(pruning_eval(40, Some((bound, -(MATE - 7)))), 40);
+    }
+}
+
+#[test]
 fn late_move_pruning_skips_quiets_but_keeps_mates_and_defences() {
     for (fen, best, mate) in [
         (

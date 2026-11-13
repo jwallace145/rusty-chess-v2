@@ -146,6 +146,27 @@ pub fn is_mate_score(score: i32) -> bool {
     score.abs() >= MATE_BOUND
 }
 
+/// The evaluation whole-node pruning reasons from: the static evaluation,
+/// or the transposition table's score for this position where that is the
+/// better estimate. A table score is the result of a search of this very
+/// position, shallower than the one now asked for (or the node would have
+/// been cut off already), so it knows what the static evaluation cannot see.
+/// It replaces the evaluation only in the direction its bound points: an
+/// exact score always; a lower bound only when it is above the evaluation
+/// (the position is at least that good); an upper bound only when below it.
+/// A mate score never does: pruning margins mean nothing against one.
+#[inline]
+pub fn pruning_eval(static_eval: i32, table: Option<(Bound, i32)>) -> i32 {
+    match table {
+        Some((bound, score)) if !is_mate_score(score) => match bound {
+            Bound::Exact => score,
+            Bound::Lower => score.max(static_eval),
+            Bound::Upper => score.min(static_eval),
+        },
+        _ => static_eval,
+    }
+}
+
 /// Moves to mate from `score`: positive if the side to move mates, negative
 /// if it is mated, `None` for a non-mate score.
 pub fn mate_in(score: i32) -> Option<i32> {
@@ -585,31 +606,41 @@ impl Searcher {
             0
         };
 
-        // Reverse futility pruning: at shallow depth, when the static
-        // evaluation beats beta by a margin that grows with the depth left,
-        // the remaining search is very unlikely to bring the score back
-        // under beta. Only at null-window nodes, so the principal variation
-        // is always searched out.
+        // What reverse futility and the null move reason from: the static
+        // evaluation, improved by the table's score for this position where
+        // its bound allows (`pruning_eval`). Futility pruning of single moves
+        // and the correction history keep the static evaluation itself.
+        let node_eval = if node_prunable {
+            pruning_eval(static_eval, tt_hit.map(|hit| (hit.bound, hit.score)))
+        } else {
+            static_eval
+        };
+
+        // Reverse futility pruning: at shallow depth, when the evaluation
+        // beats beta by a margin that grows with the depth left, the
+        // remaining search is very unlikely to bring the score back under
+        // beta. Only at null-window nodes, so the principal variation is
+        // always searched out.
         if node_prunable
             && !pv_node
             && depth <= RFP_MAX_DEPTH
-            && static_eval - RFP_MARGIN * depth as i32 >= beta
+            && node_eval - RFP_MARGIN * depth as i32 >= beta
         {
             stat!(self.stats, rfp_cutoffs);
-            return static_eval;
+            return node_eval;
         }
 
         // Null-move pruning: if passing the turn still fails high at a
         // reduced depth, this node almost certainly does too. Not in check,
         // not twice in a row, not without a piece to move (zugzwang), and
-        // only when the static evaluation already clears beta.
+        // only when the evaluation already clears beta.
         if null_ok
             && node_prunable
             && depth >= NULL_MOVE_MIN_DEPTH
             && board
                 .position()
                 .has_non_pawn_material(board.position().side_to_move())
-            && static_eval >= beta
+            && node_eval >= beta
         {
             let reduction = NULL_MOVE_REDUCTION + depth / 4;
             let undo = board.make_null_move();
