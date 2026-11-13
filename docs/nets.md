@@ -40,7 +40,7 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
 | `net7rl012345-l050-r42398995769` | **Dropped:** failed its SPRT against net7rl012 (#210) | 0–5 · 2,238.2M | `N7` on 0–2, `N7r` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019640 (its own labels; not comparable with net7rl012's, cross-scored below) | 8.22 / 35.56 | +1.9 ± 4.1 vs net7rl012 (inconclusive) | −5.2 ± 5.2 (H0) | — |
 | `net7rl012w768-l050-r42411319602` | **Dropped:** failed its SPRT against net7rl012 at a clock (#214) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → **768**) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019168** (same held-out set as net7rl012: 0.019361) | 7.64 / 41.77 | −9.0 ± 6.4 vs net7rl012 (H0) | **+28.9 ± 10.2** (H1) | — |
 | `net8-l050-r42564788061` | Default `v0.48.0`–`v0.50.0`; passed its SPRT (#235); replaced by net8x160 before playing a generation | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.020037 (its own held-out set, which adds generation 6's workers; cross-scored below) | 7.03 / 34.05 | **+14.1 ± 6.9** vs net7rl012 | **+8.8 ± 5.3** | 3172 ± 29 (`v0.48.0`), 3178 ± 33 (`v0.48.1`), 3181 ± 30 (`v0.49.0`), 3219 ± 32 (`v0.50.0`) |
-| `net8x160-l050-r43390801430` | Default from `v0.51.0`; passed its SPRT (#256) | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | **160** | **0.019921** (same held-out set as net8: 0.020037) | 7.28 / 31.34 | **+12.3 ± 6.4** vs net8 in `v0.50.0`'s search, the run it merged on (**+11.6 ± 6.1** in `v0.48.1`'s) | **+30.8 ± 10.8** (**+8.2 ± 5.1** in `v0.48.1`'s) | — |
+| `net8x160-l050-r43390801430` | Default from `v0.51.0`; passed its SPRT (#256) | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | **160** | **0.019921** (same held-out set as net8: 0.020037) | 7.28 / 31.34 | **+12.3 ± 6.4** vs net8 in `v0.50.0`'s search, the run it merged on (**+11.6 ± 6.1** in `v0.48.1`'s) | **+30.8 ± 10.8** (**+8.2 ± 5.1** in `v0.48.1`'s) | 3220 ± 35 (`v0.51.0`) |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -285,7 +285,14 @@ push and a push plays the SPRT again.
 - **At fixed nodes it reads far higher than before:** +8.2 ± 5.1 then, 22.6 higher now, against an error of about ±11.9 for the difference. A leg that stops after 1,516 games reads high, and this is one run, so the size is not established. It may be that a search which leans harder on the evaluation (the null-move reduction now grows with the evaluation's margin over beta) is served more by a better one; that was not tested.
 - **The two legs disagree again,** by 18.5 against an error of about ±12.6 for their difference, as they did for #248 and #252. Not explained here either: the net does not make a node dearer (the CI bench reads speed per node +2.5% ± 2.0%, and time to depth 6.4% shorter).
 - **Against the plan's expectation** of +5 to +10 in both legs: the timed leg is just above it and the fixed-node leg far above.
-- **Still not measured:** the three changes together as one match against `v0.48.1` (adding three SPRTs adds readings that each stopped at H1, which reads high); a ladder rating of this net (`v0.51.0`'s run was in progress when this was added); a second training run; anything but self-play against the previous net.
+- **Still not measured:** the three changes together as one match against `v0.48.1` (adding three SPRTs adds readings that each stopped at H1, which reads high); a second training run; anything but self-play against the previous net.
+
+**Ladder.** `v0.51.0`, the first release that carries this net, read 3220 ± 35
+(`Rating` run [43481823225](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43481823225);
+four rungs of 100 games against Stockfish 19, as the others). net8's last
+release, `v0.50.0`, read 3219 ± 32 with the same search: +1, with an error of
+about ±47 for the difference. The ladder cannot see a net worth about 12 at a
+clock in self-play, and does not contradict it.
 
 ## net8-l050-r42564788061
 
@@ -1364,3 +1371,8 @@ from it on 2026-11-13 and not re-read).
 | `v0.50.0`'s rating against its release notes | Added to net8's row and section: 3219 ± 32 (`Rating` run [43472083980](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43472083980); four rungs of 100 games against Stockfish 19, as the others). It is the last release that carries net8 |
 
 **Not checked:** `v0.51.0`'s rating, whose run was in progress.
+
+**2026-11-13,** after `v0.51.0`'s rating run finished: 3220 ± 35, recorded in
+net8x160's summary row and section from the release notes (`Rating` run
+[43481823225](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43481823225)).
+This closes the item left unchecked above.
