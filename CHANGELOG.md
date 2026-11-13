@@ -9,6 +9,12 @@
 * **nnue:** add versioned architecture diagrams, manifests and a gallery for every net ([#242](https://github.com/jwallace145/rusty-chess-v2/issues/242)) ([57e7d90](https://github.com/jwallace145/rusty-chess-v2/commit/57e7d90da93455663329e6fda1d20f87ccf2bd46))
 * **nnue:** render the architecture SVGs with their natural size so GitHub shows them full size ([#244](https://github.com/jwallace145/rusty-chess-v2/issues/244)) ([80dd817](https://github.com/jwallace145/rusty-chess-v2/commit/80dd817a1a990ac1977f6d964ec0fa2822be491d))
 
+### Benchmarks
+
+* bench signature 970,013, instructions per node 4066, search 1.82M NPS, perft 267.35M NPS (pass (63)), fail-high first 87.4%, EBF 1.88, TT hit 52.5%
+* since v0.48.0: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.0%, search NPS −0.2%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.48.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.47.2...v0.48.0) (2026-11-09)
 
 
