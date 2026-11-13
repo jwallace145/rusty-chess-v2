@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.49.0...v0.50.0) (2026-11-13)
+
+
+### Features
+
+* **search:** one more ply of late-move reduction at expected cut nodes ([#254](https://github.com/jwallace145/rusty-chess-v2/issues/254)) ([059caa3](https://github.com/jwallace145/rusty-chess-v2/commit/059caa34e1c201f406d3c0c48198b5368d805c83))
+
 ## [0.49.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.48.1...v0.49.0) (2026-11-13)
 
 
