@@ -129,6 +129,31 @@ this asks whether it was under-trained.
   (0.019261) is already level with net 2's final 0.019273, because it spent
   36 superbatches at 0.001 rather than 18.
 
+## net8x160 (planned)
+
+net8's data and settings with **twice the schedule**: 160 superbatches. The plan
+was recorded on 2026-11-13 at 01:07 MST, before the `Train` dispatch, during the
+overnight research session ([research-log.md](research-log.md)); nothing here
+says the net is stronger.
+
+| | |
+|:--|:--|
+| Question | Is net8 under-trained? Its 80 superbatches (8.0B positions) are **2.6 passes** over 3.03B training positions. The schedule was last tested at 1.47B, where 80 superbatches were 5.5 passes and 120 (8.2 passes) added nothing (net5x120, #159); "revisit length only when the data grows a lot" is that entry's own conclusion, and the data has since doubled |
+| The one change from net8 | `superbatches` 160 instead of 80, so the learning rate drops after 72 and 144 instead of 36 and 72 (the trainer's default step, `superbatches × 9 / 20`). 16.0B positions, 5.3 passes |
+| Held the same | net8's data and labels (`g0-6·N7(0-2)`: `N7` on generations 0–2, `O` on 3–6), split and shuffle seeds, `val_fraction` 0.05, (768 × 4 → 512) × 2 → 8, λ 0.5. `trainer/` and `ci/train-task.sh` are unchanged since net8's commit `8ac2314`; `train.yml` changed only in the pinned version of jwall-engineering-infra's `remote-task.yml`, 0.18.0 → 0.19.0 (#240), which runs the instance, not the training (`git diff 8ac2314 0a45da0 -- trainer ci/train-task.sh .github/workflows/train.yml`, read before the dispatch; what 0.19.0 changed on the instance was not read) |
+| Prepared set | `g0-6·N7(0-2)`: its `train.data` and `val.data` SHA-256s must equal net8's (`e8f78490…a7df`, `bf6d6dff…3488`), so the two nets' own held-out losses compare directly |
+| What net8's curve says | From its `training.json`: held-out loss was still falling at the end of each phase, by 0.12% over superbatches 28–36 at the first learning rate (0.020895 → 0.020862) and 0.05% over 68–72 at the second (0.020111 → 0.020101). Small slopes; the case rests on the pass count more than on the curve |
+| Gate | H1 in both the timed and the fixed-node SPRT against net8, the default, at `main`. Anything else drops the net |
+| Expectation | A held-out loss 0.2 to 0.5% under net8's 0.020037, and a few Elo: net2x80's −0.36% was +21, net5x120's −0.17% was not resolved at 10,000 games. Near `elo1`, so the cap without a verdict is a likely outcome. The net's size and speed don't change |
+| Cost | About 2.4 hours on the `g6.xlarge` (net8's 1,519 s of preparation plus twice its 3,621 s of training), an estimate of $2.20; then an SPRT, $2 to $6 |
+| Name | `net8x160`, a schedule-only change of net8, by the ledger's convention |
+
+```sh
+gh workflow run Train --ref main -f net-id=net8x160 -f generations=0,1,2,3,4,5,6 \
+  -f labels=0=net7-l050-r41363264869-n5000,1=net7-l050-r41363264869-n5000,2=net7-l050-r41363264869-n5000 \
+  -f hidden=512 -f output-buckets=8 -f king-buckets=4 -f wdl=0.5 -f superbatches=160
+```
+
 ## net8-l050-r42564788061
 
 net7rl012's recipe on generations 0–6. **It beat net7rl012 in both SPRT legs
