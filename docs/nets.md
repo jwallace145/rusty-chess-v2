@@ -1177,8 +1177,12 @@ moved since PeSTO, so this table is also the history of how tight they are.
 
 Mean value over the 300 SPRT openings (`tests/openings/openings.epd`), each net
 file read from the bucket and checked against its recorded SHA-256
-(`nnue::RETIRED_NETS`; net7's against its `training.json`). A local measurement
-on 2026-11-13, at `v0.48.1`.
+(`nnue::RETIRED_NETS`; net7's against its `training.json`; net8's, which is no
+longer embedded, against the SHA-256 in its section). A local measurement on
+2026-11-13, at `v0.48.1`. net8x160's row was added the same day at `v0.51.0`,
+where it is the embedded net; the PeSTO and net8 rows were measured again there
+and read the same. The other rows were not run again: the evaluation code did
+not change in between, only the net that is embedded.
 
 | Evaluation | Pawn | Knight | Bishop | Rook | Queen | Reverse futility's 80 a ply, in pawns |
 |:--|--:|--:|--:|--:|--:|--:|
@@ -1191,6 +1195,7 @@ on 2026-11-13, at `v0.48.1`.
 | `net7-l050-r41363264869` | 242 | 562 | 647 | 761 | 1,179 | 0.33 |
 | `net7rl012-l050-r42054816508` | 263 | 703 | 818 | 981 | 1,455 | 0.30 |
 | `net8-l050-r42564788061` | 263 | 708 | 818 | 955 | 1,500 | 0.30 |
+| `net8x160-l050-r43390801430` (the embedded default) | 268 | 697 | 801 | 899 | 1,398 | 0.30 |
 
 ```sh
 cargo run --release -p rusty-chess-tools --bin nnue-scale -- --fens tests/openings/openings.epd \
@@ -1203,7 +1208,7 @@ cargo run --release -p rusty-chess-tools --bin nnue-scale -- --fens tests/openin
   log-odds, and between engines this strong a clean pawn is worth far more than
   100 of them. Large pieces read less than the pawn's ratio because the output
   flattens far from zero.
-- **The pawn has grown with every net,** 148 to 263, so each net made every
+- **The pawn has grown with every net,** 148 to 268, so each net made every
   evaluation-based margin in the search a little tighter in pawns than the last.
 - **The pieces jumped once,** by about a quarter, with net7rl012: the net trained
   on generations 0–2 relabelled by net7, whose scores are larger than the
@@ -1211,6 +1216,9 @@ cargo run --release -p rusty-chess-tools --bin nnue-scale -- --fens tests/openin
   whose evaluation is a quarter larger makes the search's margins a fifth
   tighter, so that net's SPRT gain (+16.3 timed, #202) can't be read as better
   labels alone; whether the scale was part of it is not known.
+- **A longer schedule on the same data moved the scale only a little:**
+  net8x160's knight, bishop, rook and queen read 2% to 7% under net8's and
+  its pawn 2% over ([net8x160](#net8x160-l050-r43390801430)).
 - **Anything that adds a piece's value to an evaluation has to use this
   table,** not the classical 100 to 900 that static exchange compares with each
   other. Mixing the two is wrong by about three times.

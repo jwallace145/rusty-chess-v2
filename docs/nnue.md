@@ -368,9 +368,9 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
 
 The network's output is scaled to "centipawns" by `SCALE`, but a pawn is not
 worth 100 of them: the net is trained on win probability, and what a pawn is
-worth in those units depends on the training data. net8's evaluation moves by
-about 260 when a pawn comes off the board, 710 for a knight and 1,500 for a
-queen, and the figures have grown from net to net
+worth in those units depends on the training data. net8x160's evaluation moves
+by about 270 when a pawn comes off the board, 700 for a knight and 1,400 for a
+queen, and the pawn's figure has grown from net to net
 ([nets.md](nets.md#the-evaluations-scale-by-net)).
 
 - **Measuring it:** `nnue-scale --fens tests/openings/openings.epd` (in
