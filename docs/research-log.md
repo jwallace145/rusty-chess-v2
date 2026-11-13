@@ -384,6 +384,8 @@ fixed-node leg is two identical engines).
 
 | 6 | #254 | One more ply of late-move reduction at expected cut nodes | 970013 → 988822 | Pending | Pending | Pending |
 
+| 7 | #255 | Continuation history four plies back, in quiet ordering and the LMR history term | 970013 → 1025352 | Pending | Pending | Pending |
+
 #### Experiment 1: adaptive null-move reduction (#246)
 
 Recorded on 2026-11-12 at 23:26 MST, before the `sprt` label was added.
@@ -677,6 +679,24 @@ Recorded on 2026-11-13 at 02:28 MST, before the `sprt` label was added.
 | Risks named beforehand | A reduction worth more with depth should be worth as much or more at a clock's deeper early searches, as experiment 1's was; if the timed leg reads well below the fixed-node one, that is the third change tonight to do so and says something about the two legs rather than about this change. A deeper reduction can miss tactics a re-search does not catch |
 | Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80. No other SPRT is running |
 
+#### Experiment 7: continuation history four plies back (#255)
+
+Recorded on 2026-11-13 at 02:41 MST, before the `sprt` label was added (which
+waits for experiment 6's SPRT to finish and its instances to terminate).
+
+| | |
+|:--|:--|
+| Question | The search scores a quiet move by what was played one and two plies back. Does also knowing the move four plies back, our own move before last, order quiets and steer reductions better? |
+| The one change | A third `Continuation` table keyed by the move four plies back, read in `quiet_score` (so in quiet ordering and in the LMR history term) and updated with the same bonus and malus as the others. `feat/continuation-history-4` at `1bb7459` against `main` at `0a45da0` |
+| Held the same | The butterfly history, the two existing tables, the bonus, gravity and aging, the LMR history divisor, everything else |
+| Why this variant | The usual next distance (H8's neighbour in the first ranking; it was a lab toggle from the start). One variant, screened once, at 200,000 nodes |
+| Screen (exploratory, on the instance) | Match M8: **+11.6, 99% interval +1.9 to +21.2**, 3,000 games at 200,000 nodes; the lab build that played it has the PR's signature, 1025352 |
+| Bench, local | 970013 → 1025352 (+5.7% nodes to depth 10); fail-high-first 0.8740 → 0.8781; EBF 1.877 → 1.875; both bars pass |
+| Expectation | Fixed nodes: +5 to +12. Timed: less. Each quiet scored costs one more lookup in a 1.2 MB table, and continuation history one and two plies back was itself +18 at fixed nodes and neutral in a 10+0.1 match (#79). The likeliest outcome is the one the gate exists for: H1 per node, not at a clock |
+| Gate | H1 in both legs. Anything else drops the change |
+| Risks named beforehand | The per-node cost, above. M8 is the third-best of ten 200,000-node matches read so far (M2 to M6, M8, M11, M12, M16, M17), so it carries some of the same inflation as the others chosen that way |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 20 to 50 minutes: $2.30 to $5.80 |
+
 #### Match M18: more timed games for experiment 5
 
 Recorded on 2026-11-13 at 02:21 MST, before the dispatch.
@@ -687,6 +707,10 @@ Recorded on 2026-11-13 at 02:21 MST, before the dispatch.
 | What runs | `Match` from `main`: `feat/capture-futility` (`cb6dfbc`) against `main`, **5+0.05, 10,000 games, hash 16 MB** (the SPRT's settings, where a match's default hash is 64), 95% interval; one on-demand `c8a.16xlarge` |
 | How it is read, fixed here | The two samples (the SPRT's timed leg and this match) are pooled by inverse variance; they are independent games at the same settings. **A pooled 95% interval that excludes zero** says the change gains at a clock by a small amount: with the fixed-node H1 that is the "inconclusive at high LOS" case in which the repository's rules let the owner merge over a failed check, and #252 is put to him as that. **An interval that includes zero** says the timed gain is not shown, and the recommendation is to drop it. Either way the gate as run stays not met; this match does not change the SPRT's verdict |
 | Cost estimate | About 47 minutes of one instance: $2.70. To pay for it, matches M13 and M14 (the improving heuristic at LMR and at late move pruning) are withdrawn unrun: M12 has just read −12.2 for the heuristic at its main site, they could not become PRs under the bars' rules without it, and they were the lowest-ranked in the queue |
+
+**Attempts.** [43402595891](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43402595891),
+dispatched at 09:36 UTC once M8 had finished; the settings job passed at the
+first attempt. Pending.
 
 #### Match M1: experiment 1 at 10+0.1
 
@@ -814,6 +838,18 @@ run after M6, one at a time, in the order M10, M7, M8, M9.
 
 Cost estimate: $1.20 for M10 and about $0.70 each for the others, $3.30 in all.
 Any of them is dropped, and recorded as not run, if the spend cap requires it.
+
+**Results so far** (each run's report; 200,000 nodes a move, hash 64 MB, against
+`main` at `0a45da0`, bench 970,013):
+
+| Match | Run | Elo (candidate − baseline) | 99% interval | LOS | Games | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) | By the rule |
+|:--|:--|--:|:-:|--:|--:|:-:|:--|:--|
+| M8, continuation history four plies back | [43400673040](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43400673040) | **+11.6** | +1.9 to +21.2 | 99.9% | 3000 | 705 / 605 / 1690 | 50, 285, 720, 405, 40 | **+8 or more: goes forward as experiment 7 (#255)** |
+<!-- matches:m7-m10 -->
+
+M7 was withdrawn unrun (experiment 4's result made it moot). M9, M15 and M10
+are held behind match M18, which has the instance for about 47 minutes; they
+run after it if the spend cap allows, in that order.
 
 #### Matches M11 to M14: what the 40,000-node screens dismissed
 
