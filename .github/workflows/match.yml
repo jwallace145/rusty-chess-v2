@@ -73,6 +73,14 @@ permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
+  # Setting RUSTFLAGS replaces the `target-cpu=native` from .cargo/config.toml.
+  # Without it the jobs on GitHub-hosted runners built for whichever CPU they
+  # landed on, and rust-cache then restored that build on a runner with a
+  # different CPU: rustc died with SIGILL inside a cached proc macro, in the
+  # settings job, about one dispatch in two on 2026-11-13. The portable
+  # x86-64-v3 baseline is what the SPRT, the bench and the releases build for;
+  # the instance's own build sets its flags in ci/match-task.sh.
+  RUSTFLAGS: -C target-cpu=x86-64-v3
 
 jobs:
   resolve:
