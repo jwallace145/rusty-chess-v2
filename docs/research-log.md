@@ -151,6 +151,8 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 | `s1-tt-eval` | `TT_EVAL=1`: the table's score as the evaluation for reverse futility and the null move, where its bound allows | 40,000 | 2,000 | **+15.8 ± 10.1** | 99.9% | 556 / 465 / 979 | 44, 202, 432, 263, 59 | 1.77 | Game cap. **Put forward: experiment 2 (#248)** |
 | `sc-rfp120` | `RFP_MARGIN=120`: reverse-futility margin 80 → 120 a ply (wider, towards the net's scale) | 40,000 | 2,000 | −4.5 ± 10.6 | 20.2% | 516 / 542 / 942 | 71, 237, 387, 257, 48 | −0.74 | Game cap. **Dropped**; the wider values queued behind it were withdrawn |
 | `sc-fp200` | `FP_BASE=200 FP_MARGIN=200`: futility 100 + 100 a ply → 200 + 200 | 40,000 | 2,000 | −0.3 ± 9.8 | 47.2% | 516 / 518 / 966 | 54, 215, 452, 237, 42 | −0.25 | Game cap. **Dropped**: no difference |
+| `c1-tteval-on-nmp` | `TT_EVAL=1` **with experiment 1's null-move form on both sides** (`NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200`) | 40,000 | 2,000 | +7.1 ± 9.7 | 92.5% | 520 / 479 / 1001 | 42, 222, 425, 275, 36 | 0.72 | Game cap. A stacking check, not a candidate: experiment 2's change reads about half its stand-alone screen on top of experiment 1 |
+| `s2-qsfut-net300` | `QS_FUT=300 QS_FUT_NET=1`: quiescence futility with a margin of 300 and the victim at the net's measured values (300, 775, 880, 1,100, 1,680) | 40,000 | 2,000 | **+12.7 ± 10.1** | 99.3% | 543 / 470 / 987 | 38, 229, 417, 254, 62 | 1.38 | Game cap. **Put forward: experiment 3 (#249)** |
 <!-- screens:end -->
 
 The table is rendered from each screen's fastchess log by a script
