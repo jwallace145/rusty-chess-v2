@@ -433,6 +433,29 @@ does not recommend merging it as it stands.
 - **Not tested:** the half of the rule that only lowers the evaluation, which
   keeps fail-high-first over its bar on the bench (0.872).
 
+**Depth by phase of the game, measured afterwards** from both legs' games (the
+`sprt-timed` and `sprt-nodes` artifacts; the mean depth fastchess recorded for
+each engine's moves, and the mean time a move):
+
+| Own moves | Timed: PR depth | Timed: base depth | Timed: time a move | Fixed nodes: PR depth | Fixed nodes: base depth | Fixed nodes: time a move |
+|:--|--:|--:|--:|--:|--:|--:|
+| 1–10 | 15.58 | 15.46 | 288 ms | 13.45 | 13.37 | 110 ms |
+| 11–20 | 15.25 | 15.03 | 179 ms | 13.95 | 13.77 | 106 ms |
+| 21–30 | 15.86 | 15.61 | 117 ms | 15.11 | 14.93 | 101 ms |
+| 31–45 | 17.14 | 16.84 | 79 ms | 17.15 | 17.01 | 91 ms |
+| 46 on | 20.80 | 20.00 | 52 ms | 22.38 | 21.56 | 75 ms |
+
+- **The change buys depth in both legs,** a tenth of a ply early and about 0.8
+  late, so the fixed-node leg's +2.8 is not for want of depth: the extra depth
+  is bought with pruning that is right less often, and per node the two about
+  cancel.
+- **The two legs are not "the same search at different speeds".** A timed game
+  gives its first ten moves 2.6 times the fixed-node leg's time (288 ms against
+  110) and its late moves two thirds of it (52 ms against 75). So a change
+  whose value depends on how long the search runs is weighed differently by
+  the two legs. Whether that is what separates them here is match M10's
+  question (#248 at 10+0.1), if the spend cap leaves room for it.
+
 #### Experiment 3: futility pruning in quiescence, at the net's piece values (#249)
 
 Recorded on 2026-11-13 at 00:12 MST, before the `sprt` label was added.
@@ -558,6 +581,21 @@ under the third amendment to the screening rule.
 |:--|:--|:--|:--|
 | M3 | [43386732727](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386732727) | 2026-11-13 07:34 | **Failed in the settings job, before any instance:** `rustc interrupted by SIGILL` compiling `rusty-chess-search`. The second failure of this kind tonight, and the one that explains both: `match.yml` sets no `RUSTFLAGS`, so its GitHub-hosted jobs build for the runner's own CPU and `rust-cache` restores that build on a different CPU. #251 proposes the one-line fix. No cost |
 | M3 | [43387376307](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43387376307) | 07:39 | The same inputs again; the settings job passed. Pending |
+
+#### Matches M7 to M10
+
+Recorded on 2026-11-13 at 00:50 MST, before any of them was dispatched. They
+run after M6, one at a time, in the order M10, M7, M8, M9.
+
+| Match | Candidate against baseline | Settings | The question, and what the answer becomes |
+|:--|:--|:--|:--|
+| M10 | `feat/tt-score-as-pruning-eval` (`fd1e41f`, #248) against `main` | 10+0.1, 2,000 games | **A measurement for the owner's decision on #248,** as M1 was for #246: does the timed gain (+16.5 ± 7.4 at 5+0.05) hold at twice the control? Predicted beforehand: smaller, because the fixed-node leg says the change is worth little per node and a longer control is more nodes a move. At +8 or less with an interval that includes zero, the reading is that the gain belongs to short searches and the gate was right; at +16 or more, that reading is wrong and the gain is a real one at a clock |
+| M7 | `research/lab-nmp5` (`df48070`: null-move base 5, divisors as #246) against `feat/null-move-reduction-base-4` (`25b1716`, #250) | 200,000 nodes, 3,000 games | Where the null-move axis turns over. **Information only: no PR tonight whatever it reads,** since it would be a second PR stacked on #246 and a third value on one axis |
+| M8 | `research/lab-cont4` (`7606d2c`) against `main` | 200,000 nodes, 3,000 games | Continuation history four plies back, in quiet ordering and the LMR history term. +8 or more: a clean branch, a plan and an SPRT |
+| M9 | `research/lab-caphist8` (`ccbf034`) against `main` | 200,000 nodes, 3,000 games | Capture history added to capture ordering (an eighth of its score beside MVV-LVA). +8 or more: a clean branch, a plan and an SPRT |
+
+Cost estimate: $1.20 for M10 and about $0.70 each for the others, $3.30 in all.
+Any of them is dropped, and recorded as not run, if the spend cap requires it.
 
 #### SPSA run S1: the margins and reduction constants together
 
