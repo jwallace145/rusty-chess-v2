@@ -1,0 +1,150 @@
+{
+    "resign": {
+        "move_count": 3,
+        "score": 800,
+        "twosided": true,
+        "enabled": true
+    },
+    "draw": {
+        "move_number": 40,
+        "move_count": 8,
+        "score": 10,
+        "enabled": true
+    },
+    "maxmoves": {
+        "move_count": 200,
+        "enabled": true
+    },
+    "tb_adjudication": {
+        "syzygy_dirs": "",
+        "max_pieces": 0,
+        "ignore_50_move_rule": false,
+        "enabled": false
+    },
+    "opening": {
+        "file": "/Users/jimmywallace/Projects/chess/rusty-chess-v2/tests/openings/openings.epd",
+        "format": 0,
+        "order": 0,
+        "plies": -1,
+        "start": 1
+    },
+    "pgn": {
+        "additional_lines_rgx": [],
+        "event_name": "Fastchess Tournament",
+        "site": "?",
+        "file": "",
+        "notation": 0,
+        "append_file": true,
+        "track_nodes": false,
+        "track_seldepth": false,
+        "track_nps": false,
+        "track_hashfull": false,
+        "track_tbhits": false,
+        "track_timeleft": false,
+        "track_latency": false,
+        "track_pv": false,
+        "min": false,
+        "crc": false
+    },
+    "epd": {
+        "file": "",
+        "append_file": true
+    },
+    "sprt": {
+        "alpha": 0.05,
+        "beta": 0.05,
+        "elo0": 0.0,
+        "elo1": 5.0,
+        "model": "normalized",
+        "enabled": true
+    },
+    "config_name": "config.json",
+    "output": 0,
+    "seed": 9727845102112128285,
+    "variant": 0,
+    "type": 0,
+    "gauntlet_seeds": 1,
+    "ratinginterval": 100,
+    "scoreinterval": 1,
+    "wait": 0,
+    "autosaveinterval": 20,
+    "games": 2,
+    "rounds": 1000,
+    "concurrency": 12,
+    "force_concurrency": false,
+    "recover": true,
+    "noswap": false,
+    "reverse": false,
+    "report_penta": true,
+    "affinity": false,
+    "check_mate_pvs": false,
+    "show_latency": false,
+    "log": {
+        "file": "",
+        "level": 3,
+        "append_file": true,
+        "compress": false,
+        "realtime": true,
+        "engine_coms": false
+    },
+    "engines": [
+        {
+            "name": "cand",
+            "dir": "",
+            "cmd": "/private/tmp/claude-501/-Users-jimmywallace-Projects-chess-rusty-chess-v2/16b9d994-675d-459a-9093-5eca1604a183/scratchpad/bin/lab6",
+            "args": "",
+            "restart": false,
+            "options": [
+                [
+                    "L_LMR_NOISY",
+                    "1"
+                ]
+            ],
+            "limit": {
+                "tc": {
+                    "increment": 6000,
+                    "fixed_time": 0,
+                    "time": 600000,
+                    "moves": 0,
+                    "timemargin": 0
+                },
+                "nodes": 40000,
+                "plies": 0
+            },
+            "variant": 0
+        },
+        {
+            "name": "base",
+            "dir": "",
+            "cmd": "/private/tmp/claude-501/-Users-jimmywallace-Projects-chess-rusty-chess-v2/16b9d994-675d-459a-9093-5eca1604a183/scratchpad/bin/lab6",
+            "args": "",
+            "restart": false,
+            "options": [],
+            "limit": {
+                "tc": {
+                    "increment": 6000,
+                    "fixed_time": 0,
+                    "time": 600000,
+                    "moves": 0,
+                    "timemargin": 0
+                },
+                "nodes": 40000,
+                "plies": 0
+            },
+            "variant": 0
+        }
+    ],
+    "stats": {
+        "cand vs base": {
+            "wins": 495,
+            "losses": 454,
+            "draws": 1051,
+            "penta_WW": 52,
+            "penta_WD": 244,
+            "penta_WL": 147,
+            "penta_DD": 273,
+            "penta_LD": 261,
+            "penta_LL": 23
+        }
+    }
+}

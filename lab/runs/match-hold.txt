@@ -1,0 +1,3 @@
+m9|research/lab-caphist8|main|nodes|200000|3000|Research log match M9 (exploratory screen): capture history added to capture ordering (lab branch, one default changed), at the SPRT's fixed-node budget.
+m15|research/lab-se-both|main|nodes|200000|3000|Research log match M15 (exploratory screen): both singular-extension variants together, a second ply for a clearly singular move and one ply less for a table move that is not singular (lab branch, two defaults changed), at the SPRT's fixed-node budget.
+m10|feat/tt-score-as-pruning-eval|main|tc|10+0.1|2000|Research log match M10: does #248's timed gain (H1 at 5+0.05, inconclusive at fixed nodes) hold at twice the time control? A measurement for the owner's decision, not a gate.

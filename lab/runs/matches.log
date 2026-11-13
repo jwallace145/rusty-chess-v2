@@ -1,0 +1,16 @@
+07:46:34 M4 attempt 1 run 43388091282 settings=success
+07:51:06 M5 attempt 1 run 43388637501 settings=success
+08:16:56 m6 attempt 1 run 43391890629 settings=success
+08:29:49 m6 run 43391890629 finished=success | +12.2 | +3.2 to +21.2 | 100.0% | 3000 | 685 / 580 / 1735 | 51.7% |
+08:30:31 m16 attempt 1 run 43393664014 settings=success
+08:42:55 m16 run 43393664014 finished=success | −0.6 | −10.0 to +8.8 | 43.7% | 3000 | 640 / 645 / 1715 | 49.9% |
+08:43:37 m17 attempt 1 run 43395387426 settings=success
+08:56:31 m17 run 43395387426 finished=success | +0.6 | −8.3 to +9.5 | 56.7% | 3000 | 640 / 635 / 1725 | 50.1% |
+08:57:13 m12 attempt 1 run 43397194328 settings=success
+09:09:08 m12 run 43397194328 finished=success | −12.2 | −22.2 to −2.2 | 0.1% | 3000 | 580 / 685 / 1735 | 48.2% |
+09:09:52 m11 attempt 1 run 43398918563 settings=success
+09:21:44 m11 run 43398918563 finished=success | +27.3 | +17.9 to +36.6 | 100.0% | 3000 | 715 / 480 / 1805 | 53.9% |
+09:22:26 m8 attempt 1 run 43400673040 settings=success
+09:34:50 m8 run 43400673040 finished=success | +11.6 | +1.9 to +21.2 | 99.9% | 3000 | 705 / 605 / 1690 | 51.7% |
+09:36:10 m18 attempt 1 run 43402595891 settings=success
+10:21:28 m18 run 43402595891 finished=success | +3.0 | −0.8 to +6.9 | 93.8% | 10000 | 2016 / 1929 / 6055 | 50.4% |

@@ -1,0 +1,15 @@
+s1-nmp-a	40000	13.03 +/- 9.39	99.68 %	2000, Wins: 547, Losses: 472, Draws: 981, Points: 1037.5 (51.88 %)	0.78	1.54 (52.4%) (-2.94, 2.94) [0.00, 5.00]	360s	[NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200]
+s1-imp-rfp	40000	-9.90 +/- 10.60	3.35 %	2000, Wins: 516, Losses: 573, Draws: 911, Points: 971.5 (48.58 %)	73, 233, 434, 198, 62	-1.38 (-47.0%) (-2.94, 2.94) [0.00, 5.00]	360s	[RFP_IMPROVING=1]
+s1-imp-lmr	40000	-5.91 +/- 10.00	12.33 %	2000, Wins: 449, Losses: 483, Draws: 1068, Points: 983.0 (49.15 %)	36, 281, 423, 201, 59	-0.95 (-32.2%) (-2.94, 2.94) [0.00, 5.00]	354s	[LMR_IMPROVING=1]	lab2
+s1-qs-fut150	40000	-106.30 +/- 21.23	0.00 %	556, Wins: 82, Losses: 247, Draws: 227	48, 108, 87, 31, 4	-2.95 (-100.3%)	98s	[QS_FUT=150]	[]	lab2
+s1-tt-eval	40000	15.82 +/- 10.06	99.90 %	2000, Wins: 556, Losses: 465, Draws: 979	44, 202, 432, 263, 59	1.77 (60.0%)	346s	[TT_EVAL=1]	[]	lab2
+sc-rfp120	40000	-4.52 +/- 10.61	20.18 %	2000, Wins: 516, Losses: 542, Draws: 942	71, 237, 387, 257, 48	-0.74 (-25.3%)	355s	[RFP_MARGIN=120]	[]	lab2
+sc-fp200	40000	-0.35 +/- 9.85	47.24 %	2000, Wins: 516, Losses: 518, Draws: 966	54, 215, 452, 237, 42	-0.25 (-8.5%)	340s	[FP_BASE=200 FP_MARGIN=200]	[]	lab2
+c1-tteval-on-nmp	40000	7.12 +/- 9.68	92.55 %	2000, Wins: 520, Losses: 479, Draws: 1001	42, 222, 425, 275, 36	0.72 (24.4%)	355s	[NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200 TT_EVAL=1]	[NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200]	lab4
+s2-qsfut-net300	40000	12.69 +/- 10.10	99.31 %	2000, Wins: 543, Losses: 470, Draws: 987	38, 229, 417, 254, 62	1.38 (46.8%)	347s	[QS_FUT=300 QS_FUT_NET=1]	[]	lab4
+s3-probcut200	40000	-15.65 +/- 9.80	0.09 %	2000, Wins: 472, Losses: 562, Draws: 966	60, 254, 429, 230, 27	-2.23 (-75.6%)	357s	[PC_MARGIN=200]	[]	lab4
+s4-capfut200	40000	15.12 +/- 9.48	99.91 %	2000, Wins: 571, Losses: 484, Draws: 945	34, 200, 455, 267, 44	1.79 (60.9%)	345s	[CAPFUT=200]	[]	lab6
+c2-capfut-on-qsfut	40000	9.90 +/- 9.77	97.66 %	2000, Wins: 545, Losses: 488, Draws: 967	42, 202, 469, 231, 56	1.07 (36.4%)	345s	[QS_FUT=300 QS_FUT_NET=1 CAPFUT=200]	[QS_FUT=300 QS_FUT_NET=1]	lab6
+s3-lmrnoisy1	40000	7.12 +/- 9.66	92.60 %	2000, Wins: 495, Losses: 454, Draws: 1051	23, 261, 420, 244, 52	0.73 (24.7%)	367s	[LMR_NOISY=1]	[]	lab6
+r1-capfut200	40000	16.69 +/- 9.42	99.97 %	2000, Wins: 571, Losses: 475, Draws: 954	33, 193, 464, 265, 45	2.01 (68.3%)	345s	[CAPFUT=200]	[]	lab6
+v1-spsa-s1-reduced	100000	1.56 +/- 8.98	63.36 %	2000, Wins: 406, Losses: 397, Draws: 1197	30, 222, 488, 229, 31	0.01 (0.4%)	1230s	[NMP_A64=192 NMP_B64=22 NMP_EVAL_MAX=3 NMP_EVAL_DIV=179 LMP_PCT=111 LMR_DIV=208]	[NMP_A64=192 NMP_B64=22 NMP_EVAL_MAX=3 NMP_EVAL_DIV=200]	lab6
