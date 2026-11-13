@@ -53,8 +53,10 @@ const ASPIRATION_MIN_DEPTH: u32 = 4;
 /// Null-move pruning needs at least this much depth to be worth a try.
 const NULL_MOVE_MIN_DEPTH: u32 = 3;
 
-/// Base depth reduction of the null-move search.
-const NULL_MOVE_REDUCTION: u32 = 3;
+/// Base depth reduction of the null-move search. 3 was the adaptive form's
+/// first value (#246); a match at the SPRT's fixed-node budget then read a
+/// fourth ply as +8.1 over it (`docs/research-log.md`, match M2).
+const NULL_MOVE_REDUCTION: u32 = 4;
 
 /// The null-move reduction grows by one ply per this many plies of depth.
 const NULL_MOVE_DEPTH_DIVISOR: u32 = 3;
