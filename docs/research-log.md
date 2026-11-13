@@ -1540,3 +1540,28 @@ CI bench (base `v0.49.0`): signature 939,252 → 958,984; speed per node +0.8% �
 about $3.45 an hour a leg; an estimate from run time, not a bill), outside the
 session's table. With the session's $35.30, about $38.30 in all. Both
 instances terminated (16:06:35 and 16:11:10 UTC).
+
+### `v0.49.0` on the ladder: the first reading of #246 that is not self-play
+
+The session listed "anything but self-play against a PR's own base" as not
+verified. The release's own rating run has since played (`Rating` run
+[43453142633](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43453142633),
+the owner's release workflow; figures from the release notes):
+
+| Release | Engine | Rating at 10+0.1 on Stockfish 19's `UCI_Elo` scale |
+|:--|:--|--:|
+| `v0.48.1` | The session's baseline | 3178 ± 33 |
+| `v0.49.0` | The same, with #246 | 3181 ± 30 |
+
+- **The ladder neither shows #246's gain nor contradicts it.** The two
+  readings differ by +3, and the difference of two such readings carries an
+  error of about ±45 (the two errors combined; 400 games each, 100 a rung,
+  and the two runs were on different runner CPUs).
+  #246's SPRT read +23.9 ± 9.0 and +27.7 ± 9.7 in self-play, and +29.4 in a
+  self-play match at the ladder's own 10+0.1.
+- **So the session's gains remain measured in self-play only.** A gain of 25
+  against the engine's own previous version is commonly worth less against
+  other opponents, and this ladder cannot say how much less: it would take
+  several thousand games a release to resolve 25 Elo.
+- **Not a result of this session:** the run is the release's, started by the
+  owner's merge. It is recorded in [nets.md](nets.md) with the other releases.

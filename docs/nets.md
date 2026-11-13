@@ -39,7 +39,7 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
 | `net7rl012-l050-r42054816508` | Default `v0.45.0`–`v0.47.2`; passed its SPRT (#202); **plays generation 6** | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019361 (its own labels; not comparable with net7's, cross-scored below) | 7.79 / 52.58 | **+16.3 ± 7.7** vs net7 | **+18.1 ± 8.1** | 3150 ± 32 (`v0.45.0`), 3171 ± 32 (`v0.45.1`), 3159 ± 29 (`v0.46.0`), 3173 ± 30 (`v0.46.1`), 3160 ± 31 (`v0.46.2`), 3200 ± 34 (`v0.47.0`), 3160 ± 30 (`v0.47.1`), 3189 ± 33 (`v0.47.2`) |
 | `net7rl012345-l050-r42398995769` | **Dropped:** failed its SPRT against net7rl012 (#210) | 0–5 · 2,238.2M | `N7` on 0–2, `N7r` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019640 (its own labels; not comparable with net7rl012's, cross-scored below) | 8.22 / 35.56 | +1.9 ± 4.1 vs net7rl012 (inconclusive) | −5.2 ± 5.2 (H0) | — |
 | `net7rl012w768-l050-r42411319602` | **Dropped:** failed its SPRT against net7rl012 at a clock (#214) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → **768**) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019168** (same held-out set as net7rl012: 0.019361) | 7.64 / 41.77 | −9.0 ± 6.4 vs net7rl012 (H0) | **+28.9 ± 10.2** (H1) | — |
-| `net8-l050-r42564788061` | Default from `v0.48.0`; passed its SPRT (#235) | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.020037 (its own held-out set, which adds generation 6's workers; cross-scored below) | 7.03 / 34.05 | **+14.1 ± 6.9** vs net7rl012 | **+8.8 ± 5.3** | 3172 ± 29 (`v0.48.0`), 3178 ± 33 (`v0.48.1`) |
+| `net8-l050-r42564788061` | Default from `v0.48.0`; passed its SPRT (#235) | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.020037 (its own held-out set, which adds generation 6's workers; cross-scored below) | 7.03 / 34.05 | **+14.1 ± 6.9** vs net7rl012 | **+8.8 ± 5.3** | 3172 ± 29 (`v0.48.0`), 3178 ± 33 (`v0.48.1`), 3181 ± 30 (`v0.49.0`) |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -346,7 +346,7 @@ two `c8a.16xlarge` in us-east-1a; one attempt, as #235 records it):
 
 **The recorded gate is met:** H1 in both legs. The comment's reading: "smarter per
 node, and worth its cost at a clock: merge." Merged as `37068b2` and released in
-`v0.48.0`, whose ladder run read 3172 ± 29 (`v0.48.1`, the same engine: 3178 ± 33). Self-play against the previous net,
+`v0.48.0`, whose ladder run read 3172 ± 29 (`v0.48.1`, the same engine: 3178 ± 33; `v0.49.0`, the same net under #246's search change: 3181 ± 30). Self-play against the previous net,
 which overstates gains, and one training run.
 
 ## net7rl012w768-l050-r42411319602
@@ -1290,3 +1290,9 @@ record and shard counts, 92 held-out workers, `labels`, `datasets` and the
 prepared set's two SHA-256s agree with this ledger, and the six held-out points
 of each net quoted in net8x160's section were checked against the two files by
 script.
+
+**2026-11-13,** after `v0.49.0` was released: its rating, 3181 ± 30, recorded
+in net8's summary row and section from the release notes (`Rating` run
+[43453142633](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43453142633);
+four rungs of 100 games against Stockfish 19, as the others). The net is the
+one `v0.48.1` embeds; the engine differs by #246, a search change.
