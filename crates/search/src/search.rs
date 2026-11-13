@@ -21,8 +21,9 @@ use crate::board::Board;
 use crate::corrhist::CorrectionHistory;
 use crate::history::{Continuation, History, PieceTo};
 use crate::killers::Killers;
+use crate::lab::{self, get as lp};
 use crate::movepick::MovePicker;
-use crate::see::see_ge;
+use crate::see::{SEE_VALUE, see_ge};
 use crate::stat;
 use crate::stats::{MAX_PLY, SearchStats, effective_branching_factor};
 use crate::telemetry::{IterRecord, SCHEMA_VERSION};
@@ -39,6 +40,19 @@ pub const MATE: i32 = 30_000;
 pub const MATE_BOUND: i32 = MATE - MAX_PLY as i32;
 
 const INFINITY: i32 = 32_000;
+
+/// Lab: no static evaluation at this ply (in check).
+const EVAL_NONE: i32 = 32_001;
+
+/// Lab: the history bonus for a cutoff at `depth`.
+#[inline]
+fn hist_bonus(depth: u32) -> i32 {
+    if lp(&lab::HIST_MODE) == 0 {
+        History::bonus(depth)
+    } else {
+        (lp(&lab::HIST_A) * depth as i32 + lp(&lab::HIST_B)).clamp(1, lp(&lab::HIST_MAX))
+    }
+}
 
 /// The deepest iteration iterative deepening will attempt.
 pub const MAX_DEPTH: u32 = MAX_PLY as u32 - 1;
@@ -224,6 +238,10 @@ pub struct Searcher {
     /// The move a singular-extension search at each ply leaves out
     /// (`Move::NULL` when none).
     excluded: [Move; MAX_PLY + 2],
+    /// Lab: the static evaluation at each ply of the line (EVAL_NONE in check).
+    evals: [i32; MAX_PLY + 2],
+    /// Lab: double extensions along the current line.
+    dext: [u8; MAX_PLY + 2],
     /// The depth of the iteration in progress, which bounds extensions.
     root_depth: u32,
     stats: SearchStats,
@@ -257,6 +275,8 @@ impl Searcher {
             corrhist: CorrectionHistory::new(),
             moved: [PieceTo::NONE; MAX_PLY + 2],
             excluded: [Move::NULL; MAX_PLY + 2],
+            evals: [EVAL_NONE; MAX_PLY + 2],
+            dext: [0; MAX_PLY + 2],
             root_depth: 0,
             stats: SearchStats::new(),
             nodes: 0,
@@ -339,6 +359,8 @@ impl Searcher {
         self.cont2.age();
         self.moved = [PieceTo::NONE; MAX_PLY + 2];
         self.excluded = [Move::NULL; MAX_PLY + 2];
+        self.evals = [EVAL_NONE; MAX_PLY + 2];
+        self.dext = [0; MAX_PLY + 2];
         board.set_root();
         let fen = board.position().to_fen();
 
@@ -428,13 +450,13 @@ impl Searcher {
     /// first iterations and mate scores use the full window.
     fn aspirate(&mut self, board: &mut Board, depth: u32, guess: i32) -> i32 {
         if depth < ASPIRATION_MIN_DEPTH || is_mate_score(guess) {
-            return self.negamax(board, depth, -INFINITY, INFINITY, 0, false);
+            return self.negamax(board, depth, -INFINITY, INFINITY, 0, false, false);
         }
-        let mut delta = ASPIRATION_DELTA;
+        let mut delta = lp(&lab::ASP_DELTA);
         let mut alpha = (guess - delta).max(-INFINITY);
         let mut beta = (guess + delta).min(INFINITY);
         loop {
-            let score = self.negamax(board, depth, alpha, beta, 0, false);
+            let score = self.negamax(board, depth, alpha, beta, 0, false, false);
             if self.aborted {
                 return score;
             }
@@ -502,6 +524,7 @@ impl Searcher {
         mut beta: i32,
         ply: usize,
         null_ok: bool,
+        cut_node: bool,
     ) -> i32 {
         self.pv_len[ply] = 0;
         if ply > 0 && (board.is_repetition() || board.is_fifty_moves()) {
@@ -533,6 +556,7 @@ impl Searcher {
         }
 
         let in_check = board.position().in_check();
+        let pv_node = beta - alpha > 1;
 
         // Transposition table: a cutoff when the stored depth suffices and
         // the bound agrees with the window (never at the root, which needs a
@@ -549,7 +573,11 @@ impl Searcher {
             stat!(self.stats, tt_hits);
             tt_move = hit.mv;
             tt_hit = Some(hit);
-            if ply > 0 && excluded == Move::NULL && hit.depth as u32 >= depth {
+            if ply > 0
+                && excluded == Move::NULL
+                && hit.depth as u32 >= depth
+                && !(pv_node && lp(&lab::TT_NO_PV_CUT) != 0)
+            {
                 let cutoff = match hit.bound {
                     Bound::Exact => true,
                     Bound::Lower => hit.score >= beta,
@@ -564,7 +592,6 @@ impl Searcher {
 
         // The pruning below reasons from the static evaluation; in check it
         // is meaningless, and a mate score in the window must be searched.
-        let pv_node = beta - alpha > 1;
         let prunable = ply > 0 && !in_check && !is_mate_score(beta);
         // Whole-node pruning (reverse futility, null move) is off in a
         // singular-extension search, which asks about the other moves only.
@@ -585,18 +612,69 @@ impl Searcher {
             0
         };
 
+        // Lab: the evaluation stack and the improving flag.
+        let eval_here = if in_check {
+            EVAL_NONE
+        } else if prunable {
+            static_eval
+        } else {
+            self.corrhist.corrected(board.position(), board.evaluate())
+        };
+        self.evals[ply] = eval_here;
+        let improving = if in_check {
+            false
+        } else if ply >= 2 && self.evals[ply - 2] != EVAL_NONE {
+            eval_here > self.evals[ply - 2]
+        } else if ply >= 4 && self.evals[ply - 4] != EVAL_NONE {
+            eval_here > self.evals[ply - 4]
+        } else {
+            true
+        };
+        // Lab: the table score as a better estimate where its bound allows.
+        let mut pruning_eval = static_eval;
+        if lp(&lab::TT_EVAL) != 0 && prunable && excluded == Move::NULL {
+            if let Some(hit) = tt_hit {
+                let usable = match hit.bound {
+                    Bound::Exact => true,
+                    Bound::Lower => hit.score > static_eval,
+                    Bound::Upper => hit.score < static_eval,
+                };
+                if usable && !is_mate_score(hit.score) {
+                    pruning_eval = hit.score;
+                }
+            }
+        }
+
         // Reverse futility pruning: at shallow depth, when the static
         // evaluation beats beta by a margin that grows with the depth left,
         // the remaining search is very unlikely to bring the score back
         // under beta. Only at null-window nodes, so the principal variation
         // is always searched out.
+        let rfp_depth = depth as i32 - i32::from(lp(&lab::RFP_IMPROVING) != 0 && improving);
         if node_prunable
             && !pv_node
-            && depth <= RFP_MAX_DEPTH
-            && static_eval - RFP_MARGIN * depth as i32 >= beta
+            && depth <= lp(&lab::RFP_DEPTH) as u32
+            && pruning_eval - lp(&lab::RFP_MARGIN) * rfp_depth >= beta
         {
             stat!(self.stats, rfp_cutoffs);
-            return static_eval;
+            return pruning_eval;
+        }
+
+        // Lab: razoring.
+        let razor_depth = lp(&lab::RAZOR_DEPTH);
+        if razor_depth > 0
+            && node_prunable
+            && !pv_node
+            && depth as i32 <= razor_depth
+            && static_eval + lp(&lab::RAZOR_MARGIN) * depth as i32 <= alpha
+        {
+            let v = self.quiescence(board, alpha, beta, ply);
+            if self.aborted {
+                return 0;
+            }
+            if v <= alpha {
+                return v;
+            }
         }
 
         // Null-move pruning: if passing the turn still fails high at a
@@ -605,15 +683,23 @@ impl Searcher {
         // only when the static evaluation already clears beta.
         if null_ok
             && node_prunable
-            && depth >= NULL_MOVE_MIN_DEPTH
+            && depth >= lp(&lab::NMP_MIN_DEPTH) as u32
             && board
                 .position()
                 .has_non_pawn_material(board.position().side_to_move())
-            && static_eval >= beta
+            && pruning_eval >= beta
         {
-            let reduction = NULL_MOVE_REDUCTION + depth / 4;
+            let eval_div = lp(&lab::NMP_EVAL_DIV);
+            let eval_term = if eval_div > 0 {
+                ((pruning_eval - beta) / eval_div).min(lp(&lab::NMP_EVAL_MAX)) as u32
+            } else {
+                0
+            };
+            let reduction =
+                lp(&lab::NMP_BASE) as u32 + depth / lp(&lab::NMP_DIV) as u32 + eval_term;
             let undo = board.make_null_move();
             self.moved[ply] = PieceTo::NONE;
+            self.dext[ply + 1] = self.dext[ply];
             let score = -self.negamax(
                 board,
                 depth.saturating_sub(1 + reduction),
@@ -621,6 +707,7 @@ impl Searcher {
                 -beta + 1,
                 ply + 1,
                 false,
+                !cut_node,
             );
             board.unmake_null_move(undo);
             if self.aborted {
@@ -639,7 +726,7 @@ impl Searcher {
         // leaves a table move for the next iteration's deeper visit, which is
         // the one that matters. Never at the root, which always has a move
         // from the previous iteration.
-        let depth = if ply > 0 && tt_move == Move::NULL && depth >= IIR_MIN_DEPTH {
+        let depth = if ply > 0 && tt_move == Move::NULL && depth >= lp(&lab::IIR_DEPTH) as u32 {
             stat!(self.stats, iir_reductions);
             depth - 1
         } else {
@@ -654,18 +741,18 @@ impl Searcher {
         // do (multi-cut), and the node fails high at once. Never at the root
         // or inside another such search, and extensions stop at twice the
         // iteration's depth so a line cannot grow without bound.
-        let mut singular_extension = 0;
+        let mut singular_extension = 0i32;
         if let Some(hit) = tt_hit
             && ply > 0
             && excluded == Move::NULL
-            && depth >= SE_MIN_DEPTH
+            && depth >= lp(&lab::SE_MIN_DEPTH) as u32
             && tt_move != Move::NULL
             && hit.bound != Bound::Upper
             && hit.depth as u32 + 3 >= depth
             && !is_mate_score(hit.score)
             && (ply as u32) < 2 * self.root_depth
         {
-            let singular_beta = hit.score - SE_MARGIN * depth as i32;
+            let singular_beta = hit.score - lp(&lab::SE_MARGIN) * depth as i32;
             self.excluded[ply] = tt_move;
             let score = self.negamax(
                 board,
@@ -674,6 +761,7 @@ impl Searcher {
                 singular_beta,
                 ply,
                 false,
+                cut_node,
             );
             self.excluded[ply] = Move::NULL;
             if self.aborted {
@@ -682,9 +770,19 @@ impl Searcher {
             if score < singular_beta {
                 stat!(self.stats, se_extensions);
                 singular_extension = 1;
+                let dbl = lp(&lab::SE_DOUBLE);
+                if dbl > 0
+                    && !pv_node
+                    && score < singular_beta - dbl
+                    && i32::from(self.dext[ply]) < lp(&lab::SE_DOUBLE_MAX)
+                {
+                    singular_extension = 2;
+                }
             } else if singular_beta >= beta {
                 stat!(self.stats, se_multicuts);
                 return singular_beta;
+            } else if lp(&lab::SE_NEG) != 0 && (hit.score >= beta || cut_node) {
+                singular_extension = -1;
             }
         }
 
@@ -707,6 +805,14 @@ impl Searcher {
         // Quiet moves searched at this node, for the history malus.
         let mut quiets_tried = [Move::NULL; 64];
         let mut quiets_count = 0usize;
+        let lmp_limit = {
+            let base = lp(&lab::LMP_BASE) as usize + (depth * depth) as usize;
+            if lp(&lab::LMP_IMPROVING) != 0 && !improving {
+                base / 2
+            } else {
+                base
+            }
+        };
         while let Some(m) = picker.next_with(board.position(), &|q| {
             self.quiet_score(board.position(), prev1, prev2, q)
         }) {
@@ -725,8 +831,8 @@ impl Searcher {
                 && prunable
                 && !pv_node
                 && index > 0
-                && depth <= FP_MAX_DEPTH
-                && static_eval + FP_BASE + FP_MARGIN * depth as i32 <= alpha
+                && depth <= lp(&lab::FP_DEPTH) as u32
+                && static_eval + lp(&lab::FP_BASE) + lp(&lab::FP_MARGIN) * depth as i32 <= alpha
                 && !is_mate_score(best)
             {
                 stat!(self.stats, futility_skips);
@@ -743,8 +849,8 @@ impl Searcher {
             if quiet
                 && prunable
                 && !pv_node
-                && depth <= LMP_MAX_DEPTH
-                && index >= lmp_threshold(depth)
+                && depth <= lp(&lab::LMP_DEPTH) as u32
+                && index >= lmp_limit
                 && !is_mate_score(best)
             {
                 if board.position().gives_check(m) {
@@ -765,11 +871,39 @@ impl Searcher {
             if quiet
                 && prunable
                 && index > 0
-                && depth <= SEE_MAX_DEPTH
+                && depth <= lp(&lab::SEE_DEPTH) as u32
                 && !is_mate_score(best)
-                && !see_ge(board.position(), m, -SEE_QUIET_MARGIN * depth as i32)
+                && !see_ge(board.position(), m, -lp(&lab::SEE_QUIET) * depth as i32)
             {
                 stat!(self.stats, see_skips);
+                index += 1;
+                continue;
+            }
+            // Lab: SEE pruning of captures.
+            let see_cap = lp(&lab::SEE_CAP);
+            if see_cap > 0
+                && !quiet
+                && prunable
+                && index > 0
+                && depth <= lp(&lab::SEE_DEPTH) as u32
+                && !is_mate_score(best)
+                && !see_ge(board.position(), m, -see_cap * depth as i32)
+            {
+                index += 1;
+                continue;
+            }
+            // Lab: history pruning.
+            let hp_depth = lp(&lab::HP_DEPTH);
+            if hp_depth > 0
+                && quiet
+                && prunable
+                && !pv_node
+                && index > 0
+                && depth as i32 <= hp_depth
+                && !is_mate_score(best)
+                && self.quiet_score(board.position(), prev1, prev2, m)
+                    < -lp(&lab::HP_MARGIN) * depth as i32
+            {
                 index += 1;
                 continue;
             }
@@ -782,13 +916,16 @@ impl Searcher {
             };
             self.moved[ply] = PieceTo::of(board.position(), m);
             let undo = board.make_move(m);
-            let new_depth = depth - 1 + if m == tt_move { singular_extension } else { 0 };
+            let ext = if m == tt_move { singular_extension } else { 0 };
+            let new_depth = (depth as i32 - 1 + ext).max(0) as u32;
+            self.dext[ply + 1] = self.dext[ply] + u8::from(ext >= 2);
             // Principal variation search: the first move gets the full
             // window; every later move a null window that only asks whether
             // it beats alpha, re-searched in full when it does (and might
             // still be below beta).
             let score = if index == 0 {
-                -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true)
+                let child_cut = if pv_node { false } else { !cut_node };
+                -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true, child_cut)
             } else {
                 // Late move reductions: a quiet move late in the list, at a
                 // node not in check and not giving check, is first searched
@@ -804,8 +941,16 @@ impl Searcher {
                     // Adjusted by history: one ply less per divisor of good
                     // history, one more per divisor of bad, never below zero
                     // or past the depth left.
-                    (lmr_reduction(depth, index) as i32 - history / LMR_HISTORY_DIVISOR)
-                        .clamp(0, new_depth as i32) as u32
+                    let mut r =
+                        lmr_reduction(depth, index) as i32 - history / lp(&lab::LMR_HIST_DIV);
+                    if lp(&lab::LMR_PV) != 0 && pv_node {
+                        r -= 1;
+                    }
+                    r += lp(&lab::LMR_CUT) * i32::from(cut_node);
+                    if lp(&lab::LMR_IMPROVING) != 0 && !improving {
+                        r += 1;
+                    }
+                    r.clamp(0, new_depth as i32) as u32
                 } else {
                     0
                 };
@@ -818,16 +963,33 @@ impl Searcher {
                         -alpha,
                         ply + 1,
                         true,
+                        true,
                     )
                 } else {
-                    -self.negamax(board, new_depth, -alpha - 1, -alpha, ply + 1, true)
+                    -self.negamax(
+                        board,
+                        new_depth,
+                        -alpha - 1,
+                        -alpha,
+                        ply + 1,
+                        true,
+                        !cut_node,
+                    )
                 };
                 if reduction > 0 && probe > alpha && !self.aborted {
                     stat!(self.stats, lmr_researches);
-                    probe = -self.negamax(board, new_depth, -alpha - 1, -alpha, ply + 1, true);
+                    probe = -self.negamax(
+                        board,
+                        new_depth,
+                        -alpha - 1,
+                        -alpha,
+                        ply + 1,
+                        true,
+                        !cut_node,
+                    );
                 }
                 if probe > alpha && probe < beta && !self.aborted {
-                    -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true)
+                    -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true, false)
                 } else {
                     probe
                 }
@@ -848,7 +1010,7 @@ impl Searcher {
                         if !m.is_capture() && !m.is_promotion() {
                             self.killers.store(ply, m);
                             let side = board.position().side_to_move();
-                            let bonus = History::bonus(depth);
+                            let bonus = hist_bonus(depth);
                             let pt = PieceTo::of(board.position(), m);
                             self.history.update(side, m, bonus);
                             self.cont1.update(prev1, pt, bonus);
@@ -1005,6 +1167,8 @@ impl Searcher {
             generate_captures(board.position(), &mut moves);
             stand_pat
         };
+        let stand_pat_val = best;
+        let qs_fut = lp(&lab::QS_FUT);
         let mut scores = [0i32; rusty_chess_core::movegen::MAX_MOVES];
         score_moves(board, &moves, &mut scores);
         if tt_move != Move::NULL {
@@ -1019,6 +1183,24 @@ impl Searcher {
             // A capture that loses material by static exchange evaluation
             // is not going to raise alpha above the stand pat; skip it.
             // Evasions are never skipped: in check every move is searched.
+            // Lab: quiescence futility.
+            if qs_fut > 0 && !in_check && m.promotion().is_none() {
+                let victim = if m.is_en_passant() {
+                    SEE_VALUE[0]
+                } else {
+                    board
+                        .position()
+                        .piece_at(m.to())
+                        .map_or(0, |p| SEE_VALUE[p.kind.index()])
+                };
+                let fut = stand_pat_val + qs_fut + victim;
+                if fut <= alpha {
+                    if fut > best {
+                        best = fut;
+                    }
+                    continue;
+                }
+            }
             if !in_check && !see_ge(board.position(), m, 0) {
                 stat!(self.stats, qsee_skips);
                 continue;

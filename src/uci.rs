@@ -55,6 +55,12 @@ where
                 )?;
                 writeln!(o, "option name Ponder type check default false")?;
                 writeln!(o, "option name EvalFile type string default <default>")?;
+                for (n, _, d) in rusty_chess_search::lab::ALL {
+                    writeln!(
+                        o,
+                        "option name L_{n} type spin default {d} min -100000 max 100000"
+                    )?;
+                }
                 writeln!(o, "uciok")?;
             }
             Some("isready") => writeln!(out.lock().unwrap(), "readyok")?,
@@ -195,6 +201,19 @@ impl<W: Write + Send + 'static> Engine<W> {
             .position(|w| *w == "value")
             .and_then(|i| words.get(i + 1))
             .copied();
+        if let (Some(n), Some(v)) = (name.as_deref(), value) {
+            if let Some(lab) = n.strip_prefix("L_") {
+                if let Ok(v) = v.parse::<i32>() {
+                    if !rusty_chess_search::lab::set(lab, v) {
+                        writeln!(
+                            self.out.lock().unwrap(),
+                            "info string unknown lab option {n}"
+                        )?;
+                    }
+                }
+                return Ok(());
+            }
+        }
         match (name.as_deref(), value) {
             (Some("Hash"), Some(v)) => match v.parse::<usize>() {
                 Ok(mb) if (1..=4096).contains(&mb) => self.searcher_mut().set_hash_mb(mb),

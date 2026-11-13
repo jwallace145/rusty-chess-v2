@@ -25,6 +25,7 @@ const EXIT_USAGE: u8 = 2;
 const EXIT_PERFT_MISMATCH: u8 = 3;
 
 fn main() -> ExitCode {
+    rusty_chess_search::lab::init_from_env();
     let command = match cli::parse(std::env::args().skip(1)) {
         Ok(command) => command,
         Err(err) => {

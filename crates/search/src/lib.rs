@@ -12,6 +12,8 @@ pub mod corrhist;
 pub mod eval;
 pub mod history;
 pub mod killers;
+#[allow(missing_docs)]
+pub mod lab;
 pub mod movepick;
 pub mod nnue;
 pub mod search;
