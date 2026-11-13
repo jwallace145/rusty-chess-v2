@@ -641,6 +641,36 @@ run after M6, one at a time, in the order M10, M7, M8, M9.
 Cost estimate: $1.20 for M10 and about $0.70 each for the others, $3.30 in all.
 Any of them is dropped, and recorded as not run, if the spend cap requires it.
 
+#### Matches M11 to M14: what the 40,000-node screens dismissed
+
+Recorded on 2026-11-13 at 01:03 MST, before any of them was dispatched.
+
+**Why.** The third amendment says a 40,000-node screen cannot judge a change at
+the SPRT's budget, in either direction. It applies to the screens that said no
+as much as to the ones that said yes: the improving heuristic and the cut-node
+reduction were dropped on readings of −5.9 to −11.8 at 40,000 nodes, and
+experiment 1 read half its real size there. The improving heuristic is the
+roadmap's named item to revisit with a network, so it gets a test at the right
+budget rather than a dismissal at the wrong one.
+
+| Match | Candidate (a lab branch whose default carries one change), against `main` | The change | Its 40,000-node screen |
+|:--|:--|:--|:--|
+| M11 | `research/lab-lmr-cut` (`e77459a`, bench 988,822) | One more ply of late-move reduction at expected cut nodes | −11.8 ± 10.5 at 1,796 games (log lost) |
+| M12 | `research/lab-rfp-improving` (`d3dcc6b`, bench 879,149) | Reverse futility with one ply less margin when improving | −9.9 ± 10.6 |
+| M13 | `research/lab-lmr-improving` (`1bc202d`, bench 851,461) | One more ply of late-move reduction when not improving | −5.9 ± 10.0 |
+| M14 | `research/lab-lmp-improving` (`98deaa7`, bench 896,900) | Late move pruning from half the index when not improving | Not screened |
+
+Each: `Match` from `main`, 200,000 nodes a move, 3,000 games, hash 64 MB. +8 or
+more: a clean branch, a plan and an SPRT. Under +8: recorded, no PR; for the
+three improving sites that closes the roadmap's "revisit" with a measurement at
+200,000 nodes, whichever way it reads. About $0.70 each.
+
+**The order of the remaining matches, amended at 01:03 MST** (the plans above
+gave M10, M7, M8, M9): M6, M12, M11, M8, M9, M10, M13, M14, M7. The ones that
+can become a PR tonight go first, since each needs an SPRT after it; M10 and M7
+are measurements for the owner and lose nothing by running later. Every match
+planned is still run unless the spend cap stops it, and a stop is recorded.
+
 #### SPSA run S1: the margins and reduction constants together
 
 Recorded on 2026-11-13 at 00:01 MST, before the run. **Exploratory and local.**
