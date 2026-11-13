@@ -157,6 +157,7 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 | `s4-capfut200` | `CAPFUT=200`: futility pruning of captures in the main search at depth ≤ 6, when eval + 300 + 200·depth + the victim's net-scale value ≤ alpha | 40,000 | 2,000 | **+15.1 ± 9.5** | 99.9% | 571 / 484 / 945 | 34, 200, 455, 267, 44 | 1.79 | Game cap. Over the threshold; **held for a replication** under the rule added at 00:31 (`r1-capfut200`) |
 | `c2-capfut-on-qsfut` | `CAPFUT=200` **with experiment 3's quiescence rule on both sides** (`QS_FUT=300 QS_FUT_NET=1`) | 40,000 | 2,000 | +9.9 ± 9.8 | 97.7% | 545 / 488 / 967 | 42, 202, 469, 231, 56 | 1.07 | Game cap. A stacking check: the main-search rule still reads positive on top of the quiescence rule |
 | `s3-lmrnoisy1` | `LMR_NOISY=1`: one ply of late-move reduction for losing captures | 40,000 | 2,000 | +7.1 ± 9.7 | 92.6% | 495 / 454 / 1051 | 23, 261, 420, 244, 52 | 0.73 | Game cap. Under the threshold. **Not pursued** |
+| `r1-capfut200` | `CAPFUT=200` again, fresh games: the replication of `s4-capfut200` | 40,000 | 2,000 | **+16.7 ± 9.4** | 100.0% | 571 / 475 / 954 | 33, 193, 464, 265, 45 | 2.01 | Game cap. It replicates at 40,000 nodes (the two pooled: about +15.9). **Judged on the instance by match M6**, not put forward from here |
 <!-- screens:end -->
 
 The table is rendered from each screen's fastchess log by a script
@@ -551,6 +552,13 @@ under the third amendment to the screening rule.
 | Read beforehand | +8 or more: built cleanly on a branch from `main`, with a plan and an SPRT. Under +8: recorded, no PR. The order is fixed: M3, M4, M5, M6; a match is skipped only if the spend cap requires it, and that is recorded |
 | Cost estimate | About $0.70 each, $2.80 in all |
 
+**Attempts.**
+
+| Match | Run | Started (UTC) | Outcome |
+|:--|:--|:--|:--|
+| M3 | [43386732727](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386732727) | 2026-11-13 07:34 | **Failed in the settings job, before any instance:** `rustc interrupted by SIGILL` compiling `rusty-chess-search`. The second failure of this kind tonight, and the one that explains both: `match.yml` sets no `RUSTFLAGS`, so its GitHub-hosted jobs build for the runner's own CPU and `rust-cache` restores that build on a different CPU. #251 proposes the one-line fix. No cost |
+| M3 | [43387376307](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43387376307) | 07:39 | The same inputs again; the settings job passed. Pending |
+
 #### SPSA run S1: the margins and reduction constants together
 
 Recorded on 2026-11-13 at 00:01 MST, before the run. **Exploratory and local.**
@@ -577,6 +585,15 @@ in the PR only if the run moved it by at least its final perturbation**; the
 rest stay as they are, and the fresh screen (also at 100,000 nodes) is of that
 reduced set. Fewer games at more nodes is a noisier run; the risk named above
 about a direction rather than an optimum is larger.
+
+**The run.** Started at 00:39:05 MST on `lab6` (`research/overnight-lab` at
+`b13d894`), 100,000 nodes, 12 pairs an iteration. Stopped by its stop file
+after 11 iterations and resumed from its saved state at 00:42 with 12 games at
+once instead of 14: the two extra games ran on the laptop's efficiency cores
+and each iteration waited for them. The resume replays the random generator,
+so the sequence of perturbations is the one a straight run would have drawn.
+At 17 s an iteration it will reach about 950 of its 1,500 iterations by the
+05:15 stop, so the gains will not have decayed as far as the schedule assumes.
 
 ### Cost and resources
 
