@@ -39,7 +39,7 @@ every net, are in [datasets.md](datasets.md#which-labels-each-net-trained-on).
 | `net7rl012-l050-r42054816508` | Default `v0.45.0`–`v0.47.2`; passed its SPRT (#202); **plays generation 6** | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019361 (its own labels; not comparable with net7's, cross-scored below) | 7.79 / 52.58 | **+16.3 ± 7.7** vs net7 | **+18.1 ± 8.1** | 3150 ± 32 (`v0.45.0`), 3171 ± 32 (`v0.45.1`), 3159 ± 29 (`v0.46.0`), 3173 ± 30 (`v0.46.1`), 3160 ± 31 (`v0.46.2`), 3200 ± 34 (`v0.47.0`), 3160 ± 30 (`v0.47.1`), 3189 ± 33 (`v0.47.2`) |
 | `net7rl012345-l050-r42398995769` | **Dropped:** failed its SPRT against net7rl012 (#210) | 0–5 · 2,238.2M | `N7` on 0–2, `N7r` on 3–5 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.019640 (its own labels; not comparable with net7rl012's, cross-scored below) | 8.22 / 35.56 | +1.9 ± 4.1 vs net7rl012 (inconclusive) | −5.2 ± 5.2 (H0) | — |
 | `net7rl012w768-l050-r42411319602` | **Dropped:** failed its SPRT against net7rl012 at a clock (#214) | 0–5 · 2,238.2M | `N7` on 0–2, `O` on 3–5 | (768 × 4 → **768**) × 2 → 8 (king and output buckets) | 0.5 | 80 | **0.019168** (same held-out set as net7rl012: 0.019361) | 7.64 / 41.77 | −9.0 ± 6.4 vs net7rl012 (H0) | **+28.9 ± 10.2** (H1) | — |
-| `net8-l050-r42564788061` | Default from `v0.48.0`; passed its SPRT (#235) | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.020037 (its own held-out set, which adds generation 6's workers; cross-scored below) | 7.03 / 34.05 | **+14.1 ± 6.9** vs net7rl012 | **+8.8 ± 5.3** | 3172 ± 29 (`v0.48.0`) |
+| `net8-l050-r42564788061` | Default from `v0.48.0`; passed its SPRT (#235) | 0–6 · 3,034.5M | `N7` on 0–2, `O` on 3–6 | (768 × 4 → 512) × 2 → 8 (king and output buckets) | 0.5 | 80 | 0.020037 (its own held-out set, which adds generation 6's workers; cross-scored below) | 7.03 / 34.05 | **+14.1 ± 6.9** vs net7rl012 | **+8.8 ± 5.3** | 3172 ± 29 (`v0.48.0`), 3178 ± 33 (`v0.48.1`) |
 
 **Comparing the columns:**
 - **Held-out loss only compares on the same held-out data.** Net 2's
@@ -132,12 +132,15 @@ this asks whether it was under-trained.
 ## net8x160-l050-r43390801430
 
 net8's data and settings with **twice the schedule**: 160 superbatches.
-**Trained; its SPRT is #256, so nothing here says it's stronger.** The plan
-below was recorded on 2026-11-13 at 01:07 MST (`2160aea`, 08:07:36 UTC), before
-the `Train` dispatch (08:07:49), during the overnight research session
+**It beat net8 in both SPRT legs (+11.6 ± 6.1 timed, +8.2 ± 5.1 at fixed
+nodes; #256), so the gate below is met. It is not the default: #256 is an open
+draft, and merging it is the owner's decision.** The plan below was recorded on
+2026-11-13 at 01:07 MST (`2160aea`, 08:07:36 UTC), before the `Train` dispatch
+(08:07:49), during the overnight research session
 ([research-log.md](research-log.md)), and is unchanged. The net has no row in
 the summary yet: a row needs an architecture snapshot, and a snapshot's
-manifest needs the SPRT's verdict (#256 says why).
+manifest names the release the net became the default in, which exists only
+once #256 merges (#256 lists what it needs).
 
 | | |
 |:--|:--|
@@ -199,6 +202,27 @@ net7rl012w768's −1.00% was +28.9 at fixed nodes. That isn't a strength result.
 970013), identical run to run, in the `stats` build and when `main`'s binary
 loads the file with `--eval-file`; fail-high-first 0.8754 (0.8740); EBF 1.767
 (1.877). The CI bench comment on #256 is the record.
+
+**Bench** (#256's CI comment, base `v0.48.1`): signature 990172 (net8:
+970013), speed per node −0.4% ± 3.4%, time to depth +2.6% ± 3.5%, 4,062
+instructions a node, fail-high-first 87.5% (87.4%), EBF 1.77 (1.88). The
+performance gate passed.
+
+**SPRT against net8** ([run 43434302426](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43434302426),
+#256, `44112fb` against `main` at `0a45da0`; elo0 0, elo1 5, α = β = 0.05; on
+demand, two `c8a.16xlarge` in us-east-1a; one attempt):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **+11.6 ± 6.1** | 100.0% | 3910 | 881 / 750 / 2279 | 2.96 | 34, 392, 995, 477, 57 | H1 |
+| Fixed nodes, 200,000 per move | **+8.2 ± 5.1** | 99.9% | 6250 | 1462 / 1314 / 3474 | 2.95 | 43, 781, 1409, 769, 123 | H1 |
+
+**The recorded gate is met:** H1 in both legs. The comment's reading: "smarter
+per node, and worth its cost at a clock: merge." Not merged: #256 is a draft
+that waits for the owner and for its gallery entries. Self-play against the
+previous net, which overstates gains, and one training run. Tested against
+`main` at `0a45da0`, so without the two search changes that passed their own
+SPRTs the same night (#246, #254); how the three add is not measured.
 
 **Scale** (local; `nnue-scale` built from #253's branch at `5197197`, on the
 300 SPRT openings; measured on 2026-11-13 at about 06:35 MST, after the record
@@ -322,7 +346,7 @@ two `c8a.16xlarge` in us-east-1a; one attempt, as #235 records it):
 
 **The recorded gate is met:** H1 in both legs. The comment's reading: "smarter per
 node, and worth its cost at a clock: merge." Merged as `37068b2` and released in
-`v0.48.0`, whose ladder run read 3172 ± 29. Self-play against the previous net,
+`v0.48.0`, whose ladder run read 3172 ± 29 (`v0.48.1`, the same engine: 3178 ± 33). Self-play against the previous net,
 which overstates gains, and one training run.
 
 ## net7rl012w768-l050-r42411319602
@@ -1125,6 +1149,7 @@ differ.
 | **Relabelling the newer generations didn't pay** | net7rl012345 against net7rl012: only generations 3–5's scores changed, to net7rl012's (61.4% of the records), +1.9 ± 4.1 timed (inconclusive at 10,000 games) and −5.2 ± 5.2 at fixed nodes, H0 (#210). Their original labellers, net4w512 to net6k4, were much closer to net7rl012 than PeSTO to net2x80 were to net7; `N7r` agrees with the originals on sign 96.1–96.5% of the time, against 93.0–95.7% for `N7`. One result, one training run | Relabelling pays most where the labeller gains most over the original. Don't relabel generations whose labeller is close to the current net; test width and other capacity next |
 | **The largest generation paid again** | net8 against net7rl012: only generation 6 added (+36% data, 849.9M positions played by net7rl012 with the correction history), **+14.1 ± 6.9** timed and **+8.8 ± 5.3** at fixed nodes (#235), against +6.8 for generation 5's +16% | The series by share of data added holds: +71% gave +21.9, +36% +14.1, +32% +14.5, +16% +6.8. A generation near 600M on 3.2B (+19%) should be expected to give about +7, close to what `elo1` 5 can resolve |
 | **768 wide is smarter but too slow at a clock** | net7rl012w768 against net7rl012 on identical data: held-out −1.00%, **+28.9 ± 10.2** at fixed nodes but **−9.0 ± 6.4** timed (#214), at 13.9% ± 6.9% slower per node and 20.9% longer to depth. 512 kept +44 of +74 at a clock | Width now costs more at 5+0.05 than it adds. Make the wide path cheaper (accumulator updates, a refresh cache) before going wider, and re-test this net after |
+| **At 3.0B positions, twice the schedule paid** | net8x160 (160 superbatches) against net8 (80) on identical data: held-out −0.58%, SPRT **+11.6 ± 6.1** timed and **+8.2 ± 5.1** at fixed nodes (#256), at the same cost per node. 80 superbatches were 5.5 passes over net 5's 1.47B positions, where 120 added nothing (net5x120), and 2.6 passes over net8's 3.03B. One result, one training run | Size the schedule in passes over the data, not in superbatches: about 5 passes. A net on generations 0–7 should be trained at that length from the start, and its schedule checked again when the data next grows by half |
 
 ## Next experiments
 
@@ -1175,6 +1200,11 @@ the fixed-node SPRT against the current default.
      (H1) but −9.0 ± 6.4 timed (H0; #214), about 14% slower per node. The engine
      reads 768 from #211. A cheaper 768 path, then a re-test of the same net, is the
      follow-up.
+   - **Schedule length at 3.0B positions:** [net8x160](#net8x160-l050-r43390801430),
+     net8's recipe at 160 superbatches, **passed both SPRT legs against net8**
+     (+11.6 ± 6.1 timed, +8.2 ± 5.1 at fixed nodes; #256, an open draft for
+     the owner). Item 6's result was for 1.47B positions; the schedule goes by
+     passes over the data.
    - **1024 neurons or a second hidden layer:** later, at about 3B
      positions. 512 already lost 30 of its +74 fixed-node gain to speed at a
      clock, and 1024's first layer (about 1.5 MB) leaves most CPUs' L2.
@@ -1251,3 +1281,12 @@ This closes the first item left open above. **Not checked:** anything in S3, and
 **Not checked:** `v0.48.1`'s rating, whose run was in progress; the SPRT run's
 attempts (`gh run view --attempt`), taken as one on #235's word; net8's
 `training.json`; anything in S3.
+
+**2026-11-13,** at the end of the same session: `v0.48.1`'s rating, 3178 ± 33,
+recorded in net8's summary row and section from the release notes (four rungs
+of 100 games against Stockfish 19, as the others). net8's `training.json`, not
+read on the 12th, was read for net8x160's comparison: its final held-out loss,
+record and shard counts, 92 held-out workers, `labels`, `datasets` and the
+prepared set's two SHA-256s agree with this ledger, and the six held-out points
+of each net quoted in net8x160's section were checked against the two files by
+script.

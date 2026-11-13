@@ -29,8 +29,8 @@ summarises: each plan as it was written before its run, then the result.
 
 **What was found.**
 
-1. **Two changes passed the gate, H1 in both SPRT legs, and wait for the
-   owner:** an adaptive null-move reduction (#246, **+23.9 ± 9.0** timed,
+1. **Two search changes passed the gate, H1 in both SPRT legs, and wait for
+   the owner:** an adaptive null-move reduction (#246, **+23.9 ± 9.0** timed,
    **+27.7 ± 9.7** at fixed nodes, and +29.4 in a 2,000-game match at 10+0.1),
    and one more ply of late-move reduction at expected cut nodes (#254,
    **+9.8 ± 5.6** and **+10.6 ± 5.8**). They were tested separately against
@@ -46,16 +46,18 @@ summarises: each plan as it was written before its run, then the result.
    at fixed nodes), a fourth ply of null-move reduction (#250: +1.5 ± 3.7
    timed; its fixed-node leg never played), and continuation history four
    plies back (#255: +2.1 ± 3.8 timed, −1.2 ± 4.0 at fixed nodes).
-4. **A net was trained and is under test:** net8x160, net8 at twice the
-   schedule, has a held-out loss 0.58% under net8's on identical records
-   (#256, a draft; its SPRT is the session's last job and was still playing
-   when this was written).
+4. **A net trained overnight passed the gate too:** net8x160, net8's recipe at
+   twice the schedule on identical data, beat net8 by **+11.6 ± 6.1** timed and
+   **+8.2 ± 5.1** at fixed nodes (#256), from a held-out loss 0.58% lower on
+   identical records. net8 was under-trained: its 80 superbatches were 2.6
+   passes over 3.03B positions. #256 is a draft that still needs its gallery
+   entries.
 5. **The search's constants are about right.** net8's pawn is worth about 260
    evaluation units, so every evaluation-based margin is 3.4 times tighter in
    pawns than when it was tuned under PeSTO, and it does not matter: reading
    the evaluation at 125% and at 80% scored −0.6 and +0.6 Elo, and the result
-   of an SPSA run over 17 constants screened at +1.6 ± 9.0. Both gains were
-   structural, not a better value of an existing constant.
+   of an SPSA run over 17 constants screened at +1.6 ± 9.0. Both search gains
+   were structural, not a better value of an existing constant.
 6. **Shallow screens mislead, and the screening rule was amended three times,
    in the open.** Local screens at 40,000 nodes a move had the wrong size or
    sign for all three changes taken from them straight to an SPRT (+13.0 was
@@ -76,28 +78,29 @@ summarises: each plan as it was written before its run, then the result.
 | #249 | Quiescence futility | Draft. Fixed-node H0 | Close |
 | #250 | Null-move base 3 → 4, stacked on #246 | Draft. Timed inconclusive at +1.5; fixed-node leg never played | Close |
 | #255 | Continuation history four plies back | Draft. Both legs inconclusive at the cap, +2.1 and −1.2; a node 6% dearer | Close |
-| #256 | Embed net8x160 | Draft. SPRT in progress: see training T1 | By its SPRT. If it passes it still needs its gallery entries before it can merge |
+| #256 | Embed net8x160 | Draft. Gate met; two checks red by construction (the gallery needs a manifest that names the net's release) | **Merge candidate, once its gallery entries are written** for the release the owner chooses. Tested against `main` alone, as #246 and #254 were |
 | #253 | `nnue-scale`, and the scale of every net | Green. A tool and documentation | Merge candidate; no Elo claim |
 | #251 | `Match` workflow: portable `RUSTFLAGS` | Green. Not exercised end to end | Merge candidate: it removes a failure that cost two retries tonight |
 | #247 | This log, the net8 ledger correction, net8x160's record, the roadmap | Ready for review | Merge after review |
 
-**What it cost.** About $33 of AWS so far at the session's estimates, against a
-self-imposed cap of $40 (the table at the end), with the last SPRT still
-running. Seven SPRTs finished (one with a single leg), twelve matches (three
-more attempts failed, one of them after launching an instance), one training
-run, one local SPSA run and sixteen local screens.
+**What it cost.** About $35.30 of AWS at the session's estimates, against a
+self-imposed cap of $40 (the table at the end); nothing was left running.
+Eight SPRTs (one with a single leg played), twelve matches (three more
+attempts failed, one of them after launching an instance), one training run,
+one local SPSA run and sixteen local screens.
 
 **Where the remaining strength is, on this evidence.**
 - **In structure the search does not have, tested at the gate's budget.** Both
-  gains were of that kind, and the session had time for only a few such ideas.
+  search gains were of that kind, and the session had time for only a few such ideas.
   Screened and close: the two singular-extension variants (+5.2 and +6.4 in
   3,000 games each, never tested together). Built in the lab and never screened
   at 200,000 nodes: capture history in ordering, losing-capture reductions,
   razoring.
 - **Not in the constants,** unless a much longer tuning run says otherwise.
-- **Possibly in the schedule of the net,** which T1 tests, and after that in
-  generation 7, which should be played by an engine that already has #246 and
-  #254: its labels are that engine's searches.
+- **In the net's schedule, and then in its data.** Twice the schedule was
+  worth about +10 for one training run. Generation 7 should be played by an
+  engine that already has #246, #254 and this net (its labels are that engine's
+  searches), and the net trained on it at about five passes over the data.
 - **In how the two SPRT legs are read.** They disagreed in both directions
   tonight, and the session did not explain it. A match of the same change at
   two or three node budgets would.
@@ -469,6 +472,7 @@ fixed-node leg is two identical engines).
 | 5 | #252 | Futility pruning of captures in the main search, the victim valued at the net's scale | 970013 → 970114 | +4.9 ± 3.8, LOS 99.4% (inconclusive at 10,000 games, LLR 2.61) | **+17.7 ± 7.9** (H1, 2,668 games) | **Gate not met as run.** Smarter per node; with match M18's 10,000 more timed games the timed gain is +4.0, 95% interval +1.3 to +6.7. The "inconclusive at high LOS" case: the owner's decision |
 | 6 | #254 | One more ply of late-move reduction at expected cut nodes | 970013 → 988822 | **+9.8 ± 5.6** (H1, 5,004 games) | **+10.6 ± 5.8** (H1, 4,322 games) | **Gate met.** For the owner to merge |
 | 7 | #255 | Continuation history four plies back, in quiet ordering and the LMR history term | 970013 → 1025352 | +2.1 ± 3.8 (inconclusive at 10,000 games) | −1.2 ± 4.0 (inconclusive at 10,000 games) | **Gate not met: dropped.** Recommended for closing |
+| T1 | #256 | The embedded net: net8 → net8x160, net8's recipe with 160 superbatches for 80 | 970013 → 990172 | **+11.6 ± 6.1** (H1, 3,910 games) | **+8.2 ± 5.1** (H1, 6,250 games) | **Gate met.** A draft that needs its gallery entries; for the owner to merge |
 
 #### Experiment 1: adaptive null-move reduction (#246)
 
@@ -1243,6 +1247,43 @@ net8's, the engine check passed (mean 7.28 cp), and the held-out loss is
 better than the plan's 0.2 to 0.5%. Its SPRT is #256, a draft that embeds the
 net; the gate is H1 in both legs against net8.
 
+**The SPRT** ([run 43434302426](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43434302426),
+#256, `44112fb` against `main` at `0a45da0`, which is net8x160 against net8 in
+one engine; elo0 0, elo1 5, α = β = 0.05; on demand, two `c8a.16xlarge` in
+us-east-1a; one attempt; the gate was recorded with the plan, before training;
+the label at 13:30:52 UTC, after experiment 7's instances had terminated):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | **+11.6 ± 6.1** | 100.0% | 3910 | 881 / 750 / 2279 | 2.96 | 34, 392, 995, 477, 57 | H1 |
+| Fixed nodes, 200,000 per move | **+8.2 ± 5.1** | 99.9% | 6250 | 1462 / 1314 / 3474 | 2.95 | 43, 781, 1409, 769, 123 | H1 |
+
+CI bench (base `v0.48.1`): signature 970,013 → 990,172; speed per node
+−0.4% ± 3.4%; time to depth +2.6% ± 3.5%; 4,062 instructions a node;
+fail-high-first 87.5% (87.4%); EBF 1.77 (1.88, marked better); the performance
+gate passed. `Commit messages` and `NNUE diagrams` fail on #256 by
+construction: the gallery wants a manifest for the embedded net, and a
+manifest names the release the net became the default in.
+
+**The recorded gate is met:** H1 in both legs. The comment's reading: "smarter
+per node, and worth its cost at a clock: merge." The agent does not merge, and
+#256 stays a draft: it needs its gallery entries before it can merge, and they
+name a release that does not exist yet.
+
+**Reading it.**
+- **net8 was under-trained.** Twice the schedule on identical data is worth
+  +11.6 ± 6.1 at a clock and +8.2 ± 5.1 per node, with a node costing the
+  same. The ledger's "a longer schedule is saturated" was measured at 1.47B
+  positions, where 80 superbatches were 5.5 passes; at 3.03B they were 2.6.
+- **It needed no new data and no code:** one `Train` run and one SPRT, about
+  $4.20 at the session's estimates.
+- **The loss said so beforehand, and that is not a rule.** −0.58% on identical
+  records came with a gain here, as net2x80's −0.36% did; net7rl012w768's
+  −1.00% lost at a clock, where its node was dearer. The SPRT is the verdict.
+- **Not measured:** how it adds to #246 and #254 (all three were tested against
+  `main` alone); a second training run (this is one run from one seed);
+  anything but self-play against net8.
+
 ### Cost and resources
 
 | Workload | Run | Estimate before | Actual (estimate from run time) |
@@ -1265,15 +1306,21 @@ net; the gate is H1 in both legs against net8.
 | Match M18 | [43402595891](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43402595891) | $2.70 | About $2.60: the task ran 2,630 s |
 | Training T1, net8x160 | [43390801430](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43390801430) | $2.20 | About $1.85: the job ran 2 h 1 min on a `g6.xlarge` |
 | SPRT, experiment 7 (#255) | [43427691305](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43427691305) | $2.30–5.80 | About $4.60: the legs' jobs took 45 min 28 s and 34 min 55 s |
+| SPRT, training T1's net (#256) | [43434302426](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43434302426) | $2.00–6.00 | About $2.35: the legs' jobs took 18 min 53 s and 21 min 54 s |
+| **Total** | | | **About $35.30**, against the session's cap of $40 |
 
-*(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
+On-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for
+instance time, a slight overestimate. Every figure is an estimate from run
+time, not a bill; no instance was left running.
 
 ### Not verified, and open
 
 **Not verified.**
-- **How the two passing changes add.** #246 and #254 were each tested against
-  `main`. Both make the search spend less on what it expects to fail, so they
-  may overlap. #254's SPRT after its rebase onto #246 is that measurement.
+- **How the three passing changes add.** #246, #254 and #256 were each tested
+  against `main` alone. The two search changes both make the search spend less
+  on what it expects to fail, so they may overlap, and a net's gain is measured
+  in the search it was tested with. #254's SPRT after its rebase onto #246 is
+  the first of those measurements.
 - **Anything but self-play against a PR's own base.** No rating run and no
   other engine; self-play overstates gains. One change (#246) was also measured
   at 10+0.1. Nothing was measured at a longer control, and #254 and #252 only
@@ -1334,17 +1381,21 @@ net; the gate is H1 in both legs against net8.
 **Suggested next, in the order the evidence supports.**
 1. **Decide #246, then re-test #254 on top of it.** That SPRT is both #254's
    gate after the rebase and the first measurement of the two together.
-2. **Play generation 7 only after those are decided.** Its labels are the
-   searches of the engine that plays it, so it should be the stronger one.
-3. **Screen at the gate's budget, and expect the best of several to shrink.**
+2. **Decide #256 and its release,** so its gallery entries can be written; a
+   rebase onto the new `main` tests the net again in the search it will ship
+   with.
+3. **Play generation 7 only after those are decided.** Its labels are the
+   searches of the engine that plays it, so it should be the strongest one, and
+   train the net on it at about five passes over the data, not 80 superbatches.
+4. **Screen at the gate's budget, and expect the best of several to shrink.**
    One 200,000-node match (3,000 games, about $0.75) per idea: M15 and M9 are
    ready to dispatch.
-4. **Find out what separates the two legs.** One change that splits them (#248
+5. **Find out what separates the two legs.** One change that splits them (#248
    or #252) as a match at two or three node budgets and at 10+0.1 would say
    whether it is search length. Until then a split verdict cannot be read.
-5. **Record each net's scale when it is trained** (#253's tool), so a change in
+6. **Record each net's scale when it is trained** (#253's tool), so a change in
    the search's effective margins is seen when it happens.
-6. **Not the constants.** Two independent measurements found nothing there; a
+7. **Not the constants.** Two independent measurements found nothing there; a
    tuning run long enough to disagree would be far longer than this one.
 
 ### References
