@@ -87,6 +87,30 @@ const SEE_MAX_DEPTH: u32 = 8;
 /// more than `SEE_QUIET_MARGIN * d` centipawns at depth `d`.
 const SEE_QUIET_MARGIN: i32 = 64;
 
+/// Quiescence futility margin, in evaluation units: a capture is skipped
+/// when the stand pat, what it takes and this much still do not reach alpha.
+/// About a pawn at the network's scale (see `QS_VICTIM_VALUE`).
+const QS_FUTILITY_MARGIN: i32 = 300;
+
+/// What taking a piece is worth to the *evaluation*, indexed by
+/// [`PieceKind`], for adding to a stand pat. These are the network's units,
+/// not the classical values static exchange compares with each other: net8's
+/// evaluation moves by about 300 for a pawn, 775 for a knight, 880 for a
+/// bishop, 1,100 for a rook and 1,680 for a queen (measured by removing each
+/// piece in turn from the bench positions and the SPRT openings;
+/// `docs/research-log.md`, "The net's material scale"). Using the classical
+/// 100 to 900 here would prune recaptures that win the game back. Re-measure
+/// when a net's scale moves; too large only prunes less.
+const QS_VICTIM_VALUE: [i32; 6] = [300, 775, 880, 1100, 1680, 0];
+
+/// The most a quiescence capture of `victim` can be expected to lift a stand
+/// pat of `stand_pat` to: the capture is futile when this does not reach
+/// alpha ("delta pruning").
+#[inline]
+pub fn quiescence_futility_reach(stand_pat: i32, victim: PieceKind) -> i32 {
+    stand_pat + QS_FUTILITY_MARGIN + QS_VICTIM_VALUE[victim.index()]
+}
+
 /// Late move pruning applies up to this depth.
 const LMP_MAX_DEPTH: u32 = 4;
 
@@ -1005,6 +1029,9 @@ impl Searcher {
             generate_captures(board.position(), &mut moves);
             stand_pat
         };
+        // The stand pat (the corrected evaluation) out of check; in check
+        // it is -INFINITY and nothing below reads it.
+        let stand_pat = best;
         let mut scores = [0i32; rusty_chess_core::movegen::MAX_MOVES];
         score_moves(board, &moves, &mut scores);
         if tt_move != Move::NULL {
@@ -1019,6 +1046,30 @@ impl Searcher {
             // A capture that loses material by static exchange evaluation
             // is not going to raise alpha above the stand pat; skip it.
             // Evasions are never skipped: in check every move is searched.
+            // Futility ("delta") pruning: when the stand pat is so far
+            // under alpha that winning the piece on offer and a margin
+            // besides would not reach it, the capture is skipped, and what it
+            // could have reached is the node's bound. Never in check, where
+            // there is no stand pat, and never a promotion, whose gain is not
+            // the piece taken.
+            if !in_check && m.promotion().is_none() {
+                let victim = if m.is_en_passant() {
+                    PieceKind::Pawn
+                } else {
+                    board
+                        .position()
+                        .piece_at(m.to())
+                        .map_or(PieceKind::Pawn, |p| p.kind)
+                };
+                let reach = quiescence_futility_reach(stand_pat, victim);
+                if reach <= alpha {
+                    stat!(self.stats, qfutility_skips);
+                    if reach > best {
+                        best = reach;
+                    }
+                    continue;
+                }
+            }
             if !in_check && !see_ge(board.position(), m, 0) {
                 stat!(self.stats, qsee_skips);
                 continue;

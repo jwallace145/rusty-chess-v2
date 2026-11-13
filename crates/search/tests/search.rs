@@ -528,6 +528,65 @@ fn quiescence_skips_captures_that_lose_material_but_never_evasions() {
 }
 
 #[test]
+fn quiescence_futility_skips_a_capture_that_cannot_reach_alpha() {
+    use rusty_chess_core::types::PieceKind;
+    use rusty_chess_search::search::quiescence_futility_reach;
+    let quiesce = |fen: &str, alpha: i32| {
+        let mut b = board(fen);
+        Searcher::new(Arc::new(AtomicBool::new(false))).quiescence_from_root(
+            &mut b,
+            alpha,
+            alpha + 1,
+        )
+    };
+    // White can take an undefended pawn. `reach` is the most that capture is
+    // credited with: the stand pat, a pawn at the network's scale, a margin.
+    let fen = "4k3/8/8/8/3p4/8/1B6/4K3 w - - 0 1";
+    let stand_pat = board(fen).evaluate();
+    let reach = quiescence_futility_reach(stand_pat, PieceKind::Pawn);
+    assert!(
+        reach > stand_pat + 300,
+        "a pawn and a margin above the stand pat"
+    );
+    // With alpha just under what the capture could reach, it is searched.
+    let (_, qnodes) = quiesce(fen, reach - 1);
+    assert_eq!(qnodes, 2, "a capture that could reach alpha was skipped");
+    // With alpha at or above it, the capture is skipped: one node, and the
+    // bound returned is what the capture could have reached, under alpha.
+    let (score, qnodes) = quiesce(fen, reach);
+    assert_eq!(qnodes, 1, "a futile capture was searched");
+    assert_eq!(score, reach);
+    // A bigger victim reaches further: the same alpha does not prune taking
+    // a queen.
+    let fen = "4k3/8/8/8/3q4/8/1B6/4K3 w - - 0 1";
+    let stand_pat = board(fen).evaluate();
+    let pawn_reach = quiescence_futility_reach(stand_pat, PieceKind::Pawn);
+    assert!(quiescence_futility_reach(stand_pat, PieceKind::Queen) > pawn_reach + 1000);
+    let (_, qnodes) = quiesce(fen, pawn_reach);
+    assert!(
+        qnodes >= 2,
+        "taking the queen was pruned as if it were a pawn"
+    );
+    // A promotion is never futile, however far under alpha the stand pat is:
+    // its gain is not the piece it takes.
+    let fen = "1n2k3/P7/8/8/8/8/8/4K3 w - - 0 1";
+    let (_, qnodes) = quiesce(fen, board(fen).evaluate() + 5_000);
+    assert!(qnodes >= 2, "a promotion was pruned");
+    // In check there is no stand pat and nothing is pruned: black must take
+    // the checking rook or move the king, whatever alpha is.
+    let fen = "4k3/8/8/8/8/8/4R3/4K3 b - - 0 1";
+    let (_, qnodes) = quiesce(fen, 5_000);
+    assert!(qnodes >= 2, "an evasion was pruned");
+    // A real search prunes with it.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(6), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(summary.qfutility_skips > 0, "no futile captures skipped");
+    }
+}
+
+#[test]
 fn quiescence_uses_the_transposition_table() {
     // The second quiescence search of the same position from the same
     // searcher is answered by the table: one node, the same score.
