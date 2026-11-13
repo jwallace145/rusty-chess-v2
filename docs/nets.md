@@ -1167,6 +1167,59 @@ differ.
   max 28).
 - **They weren't kept,** and none was tested in games.
 
+## The evaluation's scale, by net
+
+What each net thinks a piece is worth, in its own units: `nnue-scale` removes
+every piece but the kings in turn from each position and reads the static
+evaluation again. The search's margins (reverse futility's 80 a ply, futility's
+100 + 100, the aspiration window's ±35) are written in these units and have not
+moved since PeSTO, so this table is also the history of how tight they are.
+
+Mean value over the 300 SPRT openings (`tests/openings/openings.epd`), each net
+file read from the bucket and checked against its recorded SHA-256
+(`nnue::RETIRED_NETS`; net7's against its `training.json`). A local measurement
+on 2026-11-13, at `v0.48.1`.
+
+| Evaluation | Pawn | Knight | Bishop | Rook | Queen | Reverse futility's 80 a ply, in pawns |
+|:--|--:|--:|--:|--:|--:|--:|
+| PeSTO (`--pesto`, the control: its own table values) | 77 | 319 | 351 | 457 | 1,011 | 1.04 |
+| `net1-l050-r41022503872` | 148 | 560 | 617 | 755 | 1,667 | 0.54 |
+| `net2x80-l050-r41131366975` | 184 | 562 | 629 | 794 | 1,748 | 0.43 |
+| `net4w512-l050-r41170687764` | 211 | 568 | 647 | 781 | 1,350 | 0.38 |
+| `net5-l050-r41229287546` | 227 | 580 | 651 | 806 | 1,481 | 0.35 |
+| `net6k4-l050-r41282883885` | 238 | 573 | 655 | 777 | 1,109 | 0.34 |
+| `net7-l050-r41363264869` | 242 | 562 | 647 | 761 | 1,179 | 0.33 |
+| `net7rl012-l050-r42054816508` | 263 | 703 | 818 | 981 | 1,455 | 0.30 |
+| `net8-l050-r42564788061` | 263 | 708 | 818 | 955 | 1,500 | 0.30 |
+
+```sh
+cargo run --release -p rusty-chess-tools --bin nnue-scale -- --fens tests/openings/openings.epd \
+  [--net data/nets/<net id>/net.nnue | --pesto]
+```
+
+**Reading it:**
+- **A net's units are win probability's, not a pawn's.** The target is
+  `λ·result + (1 − λ)·sigmoid(score / 400)`, so 400 units is one unit of
+  log-odds, and between engines this strong a clean pawn is worth far more than
+  100 of them. Large pieces read less than the pawn's ratio because the output
+  flattens far from zero.
+- **The pawn has grown with every net,** 148 to 263, so each net made every
+  evaluation-based margin in the search a little tighter in pawns than the last.
+- **The pieces jumped once,** by about a quarter, with net7rl012: the net trained
+  on generations 0–2 relabelled by net7, whose scores are larger than the
+  originals ([datasets.md](datasets.md#net7-l050-r41363264869-n5000)). A net
+  whose evaluation is a quarter larger makes the search's margins a fifth
+  tighter, so that net's SPRT gain (+16.3 timed, #202) can't be read as better
+  labels alone; whether the scale was part of it is not known.
+- **Anything that adds a piece's value to an evaluation has to use this
+  table,** not the classical 100 to 900 that static exchange compares with each
+  other. Mixing the two is wrong by about three times.
+- **Record a new net's scale here when it is trained,** beside its loss, so a
+  change in the search's effective margins is seen when it happens.
+
+**Not measured:** positions that are already unbalanced, where the output is
+flatter; nets that were trained and never a default.
+
 ## What we've learned
 
 | What | Evidence | What it suggests |

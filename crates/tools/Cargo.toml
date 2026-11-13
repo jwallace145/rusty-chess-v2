@@ -45,6 +45,10 @@ name = "nnue-eval"
 path = "src/bin/nnue_eval.rs"
 
 [[bin]]
+name = "nnue-scale"
+path = "src/bin/nnue_scale.rs"
+
+[[bin]]
 name = "speed-report"
 path = "src/bin/speed_report.rs"
 
