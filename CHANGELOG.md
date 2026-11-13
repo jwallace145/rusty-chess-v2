@@ -7,6 +7,12 @@
 
 * **search:** one more ply of late-move reduction at expected cut nodes ([#254](https://github.com/jwallace145/rusty-chess-v2/issues/254)) ([059caa3](https://github.com/jwallace145/rusty-chess-v2/commit/059caa34e1c201f406d3c0c48198b5368d805c83))
 
+### Benchmarks
+
+* bench signature 958,984, instructions per node 4035, search 1.46M NPS, perft 200.28M NPS (pass (63)), fail-high first 87.6%, EBF 1.85, TT hit 55.4%
+* since v0.49.0: fail-high first -0.2 pt, EBF -0.05, instructions per node +0.0%, search NPS −48.6%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.49.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.48.1...v0.49.0) (2026-11-13)
 
 
