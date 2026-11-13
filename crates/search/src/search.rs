@@ -136,6 +136,36 @@ const LMR_MIN_DEPTH: u32 = 3;
 /// settle; 512 makes the adjustment twice as strong.
 const LMR_HISTORY_DIVISOR: i32 = 512;
 
+/// Extra plies of late-move reduction at an expected cut node. Such a node
+/// was reached by a move its parent expected to fail low, so it is expected
+/// to fail high on its first move; a late quiet move here is the least
+/// likely move in the tree to matter, and when the node does fail high
+/// without it nothing was lost by looking at it less.
+const LMR_CUT_NODE_REDUCTION: i32 = 1;
+
+/// Whether the child reached by a search of the given kind is an expected
+/// cut node. In a principal variation search every node off the principal
+/// variation is searched with a null window and is expected either to fail
+/// high (a cut node) or to fail low on every move (an all node), and the two
+/// alternate down a line: a cut node's first move leads to an all node, an
+/// all node's moves to cut nodes.
+///
+/// - A full-window search (`full_window`) is of a principal-variation child:
+///   never an expected cut node.
+/// - A reduced search (`reduced`) is of a move expected to fail low, so the
+///   child is expected to refute it: a cut node, whatever the parent is.
+/// - Any other null-window search flips the parent's expectation.
+#[inline]
+pub fn child_expects_cut(parent_expects_cut: bool, full_window: bool, reduced: bool) -> bool {
+    if full_window {
+        false
+    } else if reduced {
+        true
+    } else {
+        !parent_expects_cut
+    }
+}
+
 /// The reduction table, `[depth][move index]`, in plies: grows with the log
 /// of both, so deep searches of late moves are cut the most.
 static LMR_TABLE: std::sync::LazyLock<[[u8; 64]; 64]> = std::sync::LazyLock::new(|| {
@@ -448,13 +478,13 @@ impl Searcher {
     /// first iterations and mate scores use the full window.
     fn aspirate(&mut self, board: &mut Board, depth: u32, guess: i32) -> i32 {
         if depth < ASPIRATION_MIN_DEPTH || is_mate_score(guess) {
-            return self.negamax(board, depth, -INFINITY, INFINITY, 0, false);
+            return self.negamax(board, depth, -INFINITY, INFINITY, 0, false, false);
         }
         let mut delta = ASPIRATION_DELTA;
         let mut alpha = (guess - delta).max(-INFINITY);
         let mut beta = (guess + delta).min(INFINITY);
         loop {
-            let score = self.negamax(board, depth, alpha, beta, 0, false);
+            let score = self.negamax(board, depth, alpha, beta, 0, false, false);
             if self.aborted {
                 return score;
             }
@@ -514,6 +544,9 @@ impl Searcher {
         self.aborted
     }
 
+    // One argument over clippy's limit: `cut_node` travels with the window
+    // it describes, like `null_ok`, rather than in per-ply state.
+    #[allow(clippy::too_many_arguments)]
     fn negamax(
         &mut self,
         board: &mut Board,
@@ -522,6 +555,7 @@ impl Searcher {
         mut beta: i32,
         ply: usize,
         null_ok: bool,
+        cut_node: bool,
     ) -> i32 {
         self.pv_len[ply] = 0;
         if ply > 0 && (board.is_repetition() || board.is_fifty_moves()) {
@@ -641,6 +675,7 @@ impl Searcher {
                 -beta + 1,
                 ply + 1,
                 false,
+                child_expects_cut(cut_node, false, false),
             );
             board.unmake_null_move(undo);
             if self.aborted {
@@ -694,6 +729,7 @@ impl Searcher {
                 singular_beta,
                 ply,
                 false,
+                cut_node,
             );
             self.excluded[ply] = Move::NULL;
             if self.aborted {
@@ -808,7 +844,10 @@ impl Searcher {
             // it beats alpha, re-searched in full when it does (and might
             // still be below beta).
             let score = if index == 0 {
-                -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true)
+                // The first move of a principal-variation node is searched
+                // with the full window; elsewhere the window is already null.
+                let child_cut = child_expects_cut(cut_node, pv_node, false);
+                -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true, child_cut)
             } else {
                 // Late move reductions: a quiet move late in the list, at a
                 // node not in check and not giving check, is first searched
@@ -822,13 +861,16 @@ impl Searcher {
                     && !board.position().in_check()
                 {
                     // Adjusted by history: one ply less per divisor of good
-                    // history, one more per divisor of bad, never below zero
-                    // or past the depth left.
-                    (lmr_reduction(depth, index) as i32 - history / LMR_HISTORY_DIVISOR)
+                    // history, one more per divisor of bad; and one more at
+                    // an expected cut node. Never below zero or past the
+                    // depth left.
+                    let cut = if cut_node { LMR_CUT_NODE_REDUCTION } else { 0 };
+                    (lmr_reduction(depth, index) as i32 - history / LMR_HISTORY_DIVISOR + cut)
                         .clamp(0, new_depth as i32) as u32
                 } else {
                     0
                 };
+                let null_window_cut = child_expects_cut(cut_node, false, false);
                 let mut probe = if reduction > 0 {
                     stat!(self.stats, lmr_reductions);
                     -self.negamax(
@@ -838,16 +880,34 @@ impl Searcher {
                         -alpha,
                         ply + 1,
                         true,
+                        child_expects_cut(cut_node, false, true),
                     )
                 } else {
-                    -self.negamax(board, new_depth, -alpha - 1, -alpha, ply + 1, true)
+                    -self.negamax(
+                        board,
+                        new_depth,
+                        -alpha - 1,
+                        -alpha,
+                        ply + 1,
+                        true,
+                        null_window_cut,
+                    )
                 };
                 if reduction > 0 && probe > alpha && !self.aborted {
                     stat!(self.stats, lmr_researches);
-                    probe = -self.negamax(board, new_depth, -alpha - 1, -alpha, ply + 1, true);
+                    probe = -self.negamax(
+                        board,
+                        new_depth,
+                        -alpha - 1,
+                        -alpha,
+                        ply + 1,
+                        true,
+                        null_window_cut,
+                    );
                 }
                 if probe > alpha && probe < beta && !self.aborted {
-                    -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true)
+                    let pv_child = child_expects_cut(cut_node, true, false);
+                    -self.negamax(board, new_depth, -beta, -alpha, ply + 1, true, pv_child)
                 } else {
                     probe
                 }
