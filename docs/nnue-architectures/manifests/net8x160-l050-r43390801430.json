@@ -37,8 +37,8 @@
   "experiment": {
     "pr": 256,
     "baseline": "net8-l050-r42564788061",
-    "timed": "+11.6 ± 6.1",
-    "fixed_nodes": "+8.2 ± 5.1",
+    "timed": "+12.3 ± 6.4",
+    "fixed_nodes": "+30.8 ± 10.8",
     "verdict": "kept"
   },
   "ledger_anchor": "net8x160-l050-r43390801430",
@@ -52,6 +52,6 @@
       "crates/search/src/nnue.rs (WIDTHS, OUTPUT_BUCKETS, KING_BUCKETS, net_file_bytes)"
     ],
     "training_json": "s3://jwall-engineering-rusty-chess-nnue/data/nets/net8x160-l050-r43390801430/training.json (in S3; read for the ledger's section, not again for this manifest)",
-    "notes": "The SPRT figures are the first run's, in v0.48.1's search (run 43434302426). #256 was then rebased onto v0.50.0 and its SPRT played again before merging; that run is in #256's description."
+    "notes": "The SPRT figures are the second run's, in v0.50.0's search (run 43474643514), the one #256 merged on. The first run, in v0.48.1's search, read +11.6 ± 6.1 timed and +8.2 ± 5.1 at fixed nodes (run 43434302426)."
   }
 }
