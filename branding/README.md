@@ -1,5 +1,11 @@
 # Branding
 
+> [!IMPORTANT]
+> **The logo is not free to use.** The artwork is copyright © the artist and
+> is used by this project under licence. It is **not** covered by the
+> repository's MIT licence, and no rights to it are granted to anyone else.
+> Forks and redistributions must remove it. See [LICENSE.md](LICENSE.md).
+
 The rusty-chess logo was drawn for this project by an artist commissioned by
 the owner. There are two versions of the mark:
 
@@ -37,6 +43,7 @@ The social preview's title uses Arial Bold from macOS.
 
 ## Licence
 
-The artwork is **not** covered by the repository's MIT licence. All rights to
-the logo are reserved; don't reuse it outside this project without the owner's
-permission.
+All rights reserved. The artist keeps the copyright, and the project owner
+holds a licence to use the artwork, commercial use included. Neither the
+licence nor any other right to the artwork passes to anyone who uses, forks or
+redistributes this repository. The full terms are in [LICENSE.md](LICENSE.md).

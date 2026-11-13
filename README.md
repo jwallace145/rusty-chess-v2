@@ -1,5 +1,6 @@
 <p align="center">
-  <img src="branding/logo.png" alt="rusty-chess logo" width="280">
+  <img src="branding/logo.png" alt="rusty-chess logo" width="280"><br>
+  <sub>Logo © the artist, used under licence. All rights reserved; not covered by the MIT licence (<a href="branding/LICENSE.md">details</a>).</sub>
 </p>
 
 # rusty-chess-v2
@@ -97,4 +98,9 @@ To play it or watch it on Lichess, see [lichess/README.md](lichess/README.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+The code is MIT licensed; see [LICENSE](LICENSE).
+
+The logo and every other file in [`branding/`](branding/) are **excluded** from
+the MIT licence. The artwork is copyright © the artist, used by this project
+under licence, with all rights reserved. Forks and redistributions must remove
+it. See [branding/LICENSE.md](branding/LICENSE.md).
