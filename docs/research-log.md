@@ -84,7 +84,7 @@ summarises: each plan as it was written before its run, then the result.
 | #247 | This log, the net8 ledger correction, net8x160's record, the roadmap | Ready for review | Merge after review |
 
 **Since the session ended:** the owner merged #246 and released it as `v0.49.0`
-(2026-11-13), and #254 was rebased onto it and passed its SPRT again, H1 in both legs: **+8.1 ± 4.9** timed and **+7.6 ± 4.7** at fixed nodes; the owner then merged it (`059caa3`). #256 was rebased onto `v0.50.0` in turn and passed its SPRT again, H1 in both legs: **+12.3 ± 6.4** timed and **+30.8 ± 10.8** at fixed nodes; the owner merged it too (`e80876f`). The
+(2026-11-13), and #254 was rebased onto it and passed its SPRT again, H1 in both legs: **+8.1 ± 4.9** timed and **+7.6 ± 4.7** at fixed nodes; the owner then merged it (`059caa3`). #256 was rebased onto `v0.50.0` in turn and passed its SPRT again, H1 in both legs: **+12.3 ± 6.4** timed and **+30.8 ± 10.8** at fixed nodes; the owner merged it too (`e80876f`). #252 was then rebased onto `v0.51.0` and did not pass its SPRT there: −0.5 ± 3.8, LOS 39.3% (inconclusive at 10,000 games, LLR −1.42) timed and **−4.2 ± 4.4** (H0, 7,038 games) at fixed nodes. The
 table above is the state at the session's end; what followed is in
 [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246).
 
@@ -481,6 +481,7 @@ fixed-node leg is two identical engines).
 | 3 | #249 | Futility pruning in quiescence, the victim valued at the net's scale | 970013 → 990066 | +3.6 ± 3.9 (inconclusive at 10,000 games) | **−10.8 ± 6.7** (H0, 3,290 games) | **Gate not met: dropped.** Recommended for closing |
 | 4 | #250, stacked on #246 | Null-move reduction's base 3 → 4 | 939252 → 925602 (against #246) | +1.5 ± 3.7 (inconclusive at 10,000 games) | Not played (its instance failed to launch) | **Gate not met: dropped.** Recommended for closing |
 | 5 | #252 | Futility pruning of captures in the main search, the victim valued at the net's scale | 970013 → 970114 | +4.9 ± 3.8, LOS 99.4% (inconclusive at 10,000 games, LLR 2.61) | **+17.7 ± 7.9** (H1, 2,668 games) | **Gate not met as run.** Smarter per node; with match M18's 10,000 more timed games the timed gain is +4.0, 95% interval +1.3 to +6.7. The "inconclusive at high LOS" case: the owner's decision |
+| 5, second run (after the session) | #252, rebased onto `v0.51.0` | The same patch, against the engine with #246, #254 and #256 | 919304 → 878901 | −0.5 ± 3.8, LOS 39.3% (inconclusive at 10,000 games, LLR −1.42) | **−4.2 ± 4.4** (H0, 7,038 games) | **Gate not met** against `v0.51.0`. Closed by the owner on 2026-11-13. [Follow-up 2026-11-13](#experiment-5-again-capture-futility-against-v0510-252) |
 | 6 | #254 | One more ply of late-move reduction at expected cut nodes | 970013 → 988822 | **+9.8 ± 5.6** (H1, 5,004 games) | **+10.6 ± 5.8** (H1, 4,322 games) | **Gate met.** For the owner to merge |
 | 6, second run (after the session) | #254, rebased onto #246 | The same patch, against `v0.49.0` | 939252 → 958984 | **+8.1 ± 4.9** (H1, 6,124 games) | **+7.6 ± 4.7** (H1, 6,482 games) | **Gate met again,** on top of #246. Merged by the owner on 2026-11-13 (`059caa3`). [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246) |
 | 7 | #255 | Continuation history four plies back, in quiet ordering and the LMR history term | 970013 → 1025352 | +2.1 ± 3.8 (inconclusive at 10,000 games) | −1.2 ± 4.0 (inconclusive at 10,000 games) | **Gate not met: dropped.** Recommended for closing |
@@ -1564,6 +1565,7 @@ the owner's release workflow; figures from the release notes):
 | `v0.48.1` | The session's baseline | 3178 ± 33 |
 | `v0.49.0` | The same, with #246 | 3181 ± 30 |
 | `v0.50.0` (added when its run finished) | With #246 and #254 | 3219 ± 32 |
+| `v0.51.0` (added when its run finished) | With #246, #254 and net8x160 | 3220 ± 35 |
 
 - **The ladder neither shows #246's gain nor contradicts it.** The two
   readings differ by +3, and the difference of two such readings carries an
@@ -1587,6 +1589,14 @@ the owner's release workflow; figures from the release notes):
   results, not a confirmation of them. The rungs moved unevenly (the 3100 and
   3190 rungs read 3264 and 3246 where `v0.49.0`'s read 3189 and 3176, and the
   2950 rung read lower, 3150 for 3175), which is what 100 games a rung gives.
+- **`v0.51.0`, added when its run finished** (`Rating` run
+  [43481823225](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43481823225),
+  19:18 UTC): 3220 ± 35 for the engine with all three gains. That is +1 over
+  `v0.50.0`, with an error of about ±47 for the difference, and +42 over
+  `v0.48.1`, with about ±48. The net's gain in self-play (+12.3 ± 6.4 at a
+  clock) is far below what this ladder resolves; over the three releases
+  together the ladder moved in the direction the SPRTs say and by an amount
+  its own error still covers.
 
 ### Training T1's net again: net8x160 against net8 in `v0.50.0`'s search (#256)
 
@@ -1697,3 +1707,38 @@ branch was pushed.
 | Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80, likely near the top, since the timed leg is expected to run long. Asked for by the owner; the session and the re-tests since stand at about $39.80, so this one takes the total past the $40 the agent had set for the session. No SPRT or match is running, and no instance but the Lichess bot's (`describe-instances`, 18:34 UTC) |
 
 Local checks on `1aa1655` before the push: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings` (exit 0), `cargo test --workspace --locked` (271 passed) and with `--features stats` (272 passed), `npm test` (59 pass); the signature is 878901 in two runs and in the `stats` build.
+
+**Result** ([run 43484214994](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43484214994),
+#252, `1aa1655` against `main` at `363e172`; elo0 0, elo1 5, α = β = 0.05; on
+demand, two `c8a.16xlarge` in us-east-1a; one attempt; the plan's commit
+`1f16417` at 18:34:43 UTC, the push at 18:36:02):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | −0.5 ± 3.8 | 39.3% | 10000 | 1964 / 1979 / 6057 | −1.42 | 111, 1100, 2594, 1083, 112 | Inconclusive at the 5,000-round cap |
+| Fixed nodes, 200,000 per move | **−4.2 ± 4.4** | 3.3% | 7038 | 1371 / 1455 / 4212 | −2.95 | 71, 799, 1864, 713, 72 | H0 |
+
+CI bench (base `v0.51.0`): signature 919,304 → 878,901; speed per node −4.2% ± 6.4% and time to depth +0.1% ± 7.0% (a noisy runner: neither says anything at that width); 4,039 instructions a node (4,016 for `v0.51.0`); fail-high-first 88.0% (87.8%); EBF 1.85 (1.86); perft pass; the performance gate passed. These are the second attempt of the push's bench job: a bench job started by the description's edit just before the push ran on the old commit and overwrote the comment, and the job was re-run to restore it.
+Every CI check on `1aa1655` passed.
+
+**The gate is not met:** H0 in a leg. By the plan the change loses on this engine and is recommended for closing. The comment's reading: "Gate: fail: no gain at a clock: do not merge"
+
+**Reading it.**
+- **On the engine as it is now the rule does not gain, and per node it reads as a loss:** −4.2 ± 4.4 at fixed nodes (LOS 3.3%), where H0 was accepted after 7,038 games, and −0.5 ± 3.8 at a clock (LOS 39.3%) after the full 10,000.
+- **That is not the first run repeated with worse luck, and it is the fixed-node leg that says so.** The same patch read +17.7 ± 7.9 there against `v0.48.1`; this run is 21.9 lower, against an error of about ±9.0 for the difference of two such readings. At a clock the 20,000 earlier games read +4.0 (+1.3 to +6.7) and this run is 4.5 lower, against about ±4.7: at the edge of what chance allows, so the clock alone would not have shown it.
+- **So the gain belonged to the engine it was measured in.** Three things changed underneath it (#246, #254 and the net), and which of them took it away was not measured. Two things are on record and neither is an explanation: the table of piece values was measured on net8 and not re-measured, and the rule now removes 4.4% of the bench tree where on `v0.48.1` it left the tree's size alone.
+- **The expectation written before the run was wrong:** it was the first run's result again (H1 at fixed nodes, about +4 at a clock).
+- **What the repository's rule bought.** On the first run's evidence a merge over the failed timed check was defensible: H1 at fixed nodes, LOS 99.4% at a clock, a pooled interval clear of zero. The rebase and its re-test are what showed the rule does not belong in this engine.
+- **Not measured:** the rule with its table re-measured for net8x160; a version acting at fewer depths or with a wider margin; which of the three merged changes it overlaps. Each would be a new variant with its own plan, not a reading of this one.
+
+**Cost:** about $3.95 (the legs' jobs took 45 min 1 s and 24 min 0 s, at
+about $3.45 an hour a leg; an estimate from run time, not a bill). With the
+session's $35.30 and the two re-tests before it, about $43.75 in all, past
+the $40 the agent had set for the session; this run was the owner's request.
+Both instances terminated (19:00:04 and 19:21:03 UTC).
+
+**Closed.** The owner read the result and asked for #252 to be commented on and
+closed; the agent posted the comment and closed it at 19:23:58 UTC. The branch
+is kept (`feat/capture-futility` at `1aa1655`, the commit the SPRT tested).
+What was not tried, each a new variant that would need its own plan: the
+piece-value table re-measured for net8x160; fewer depths or a wider margin.
