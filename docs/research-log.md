@@ -153,6 +153,7 @@ Exploratory, local, fixed nodes; candidate against the default parameters.
 | `sc-fp200` | `FP_BASE=200 FP_MARGIN=200`: futility 100 + 100 a ply → 200 + 200 | 40,000 | 2,000 | −0.3 ± 9.8 | 47.2% | 516 / 518 / 966 | 54, 215, 452, 237, 42 | −0.25 | Game cap. **Dropped**: no difference |
 | `c1-tteval-on-nmp` | `TT_EVAL=1` **with experiment 1's null-move form on both sides** (`NMP_BASE=3 NMP_DIV=3 NMP_EVAL_DIV=200`) | 40,000 | 2,000 | +7.1 ± 9.7 | 92.5% | 520 / 479 / 1001 | 42, 222, 425, 275, 36 | 0.72 | Game cap. A stacking check, not a candidate: experiment 2's change reads about half its stand-alone screen on top of experiment 1 |
 | `s2-qsfut-net300` | `QS_FUT=300 QS_FUT_NET=1`: quiescence futility with a margin of 300 and the victim at the net's measured values (300, 775, 880, 1,100, 1,680) | 40,000 | 2,000 | **+12.7 ± 10.1** | 99.3% | 543 / 470 / 987 | 38, 229, 417, 254, 62 | 1.38 | Game cap. **Put forward: experiment 3 (#249)** |
+| `s3-probcut200` | `PC_MARGIN=200`: ProbCut at depth ≥ 5, any capture that does not lose material, its search at depth − 4 against beta + 200 | 40,000 | 2,000 | −15.7 ± 9.8 | 0.1% | 472 / 562 / 966 | 60, 254, 429, 230, 27 | −2.23 | Game cap. **Dropped as built.** A stricter capture filter (`PC_SEE_DIV=3`) is in the lab build but was not screened here: ProbCut acts at depth, so its test belongs on the instance at 200,000 nodes |
 <!-- screens:end -->
 
 The table is rendered from each screen's fastchess log by a script
@@ -427,6 +428,13 @@ act at depth.
 | Why not straight to an SPRT | It is the second value tried on one axis: a screen first keeps the SPRT a test of one pre-chosen variant |
 | Cost estimate | About 14 minutes of one instance: $0.80 |
 
+**Attempts.**
+
+| Run | Started (UTC) | Outcome |
+|:--|:--|:--|
+| [43383364015](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43383364015) | 2026-11-13 07:06 | **Failed in the settings job, before any instance:** `rustc` crashed inside the `serde_derive` proc macro while building `match-report` on the GitHub-hosted runner ("could not compile `rusty-chess-search`"). The same job had passed twice 25 minutes earlier, so this reads as a runner or build-cache fault, not the branch. No cost |
+| [43384379664](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43384379664) | 07:15 | The same inputs again; the settings job passed. Pending |
+
 #### SPSA run S1: the margins and reduction constants together
 
 Recorded on 2026-11-13 at 00:01 MST, before the run. **Exploratory and local.**
@@ -440,6 +448,19 @@ Recorded on 2026-11-13 at 00:01 MST, before the run. **Exploratory and local.**
 | Parameters (start; range; final perturbation) | Reverse futility margin (80; 40–150; 8) and depth (6; 3–10; 0.5). Futility base (100; 0–260; 14), margin (100; 40–200; 10) and depth (6; 3–10; 0.5). Late move pruning base (3; 1–8; 0.5), depth (4; 2–9; 0.5) and scale (100%; 40–170; 8). SEE quiet margin (64; 20–140; 8) and depth (8; 4–12; 0.5). LMR table base (0.75; 0.20–1.50; 0.08) and divisor (2.25; 1.50–3.30; 0.12), and its history divisor (512; 128–2,048; 48). Aspiration half-width (35; 8–80; 4). Null move: base (192/64; 96–330; 12), depth slope (22/64; 8–44; 2) and evaluation divisor (200; 80–400; 20) |
 | What the result becomes | The parameters at the stop, rounded, first play a fresh local screen against the base (2,000 games at 40,000 nodes, not the tuning games). At +8 or more they become one PR stacked on #246, gate H1 in both SPRT legs against #246's head. Below that, the run is recorded and no PR is opened |
 | Risks named beforehand | Tuned at 40,000 nodes, where depth-dependent constants (the LMR table, the null-move slope) are under-read or mis-read; 72,000 games is a short run for 17 parameters, so the result is a direction more than an optimum; one PR that moves many constants cannot say which one mattered |
+
+**Amended on 2026-11-13 at 00:17 MST, before the run started.** Experiment
+2's SPRT arrived after the plan above: its change read +15.8 at 40,000 nodes
+and is reading about +3 at 200,000, the opposite error to experiment 1's
+(+13.0 against +27.7). A 40,000-node game misjudges depth-dependent changes in
+both directions, and seven of S1's parameters are depth-dependent. So S1 runs
+at **100,000 nodes** a move instead: the same 17 parameters, starts, ranges
+and schedule, **1,500 iterations of 24 games (36,000 games)** or until 05:15
+MST. And one rule is added for what the result becomes: **a parameter changes
+in the PR only if the run moved it by at least its final perturbation**; the
+rest stay as they are, and the fresh screen (also at 100,000 nodes) is of that
+reduced set. Fewer games at more nodes is a noisier run; the risk named above
+about a direction rather than an optimum is larger.
 
 ### Cost and resources
 
