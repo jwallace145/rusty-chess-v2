@@ -84,7 +84,7 @@ summarises: each plan as it was written before its run, then the result.
 | #247 | This log, the net8 ledger correction, net8x160's record, the roadmap | Ready for review | Merge after review |
 
 **Since the session ended:** the owner merged #246 and released it as `v0.49.0`
-(2026-11-13), and #254 was rebased onto it and passed its SPRT again, H1 in both legs: **+8.1 ± 4.9** timed and **+7.6 ± 4.7** at fixed nodes. The
+(2026-11-13), and #254 was rebased onto it and passed its SPRT again, H1 in both legs: **+8.1 ± 4.9** timed and **+7.6 ± 4.7** at fixed nodes; the owner then merged it (`059caa3`). The
 table above is the state at the session's end; what followed is in
 [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246).
 
@@ -482,7 +482,7 @@ fixed-node leg is two identical engines).
 | 4 | #250, stacked on #246 | Null-move reduction's base 3 → 4 | 939252 → 925602 (against #246) | +1.5 ± 3.7 (inconclusive at 10,000 games) | Not played (its instance failed to launch) | **Gate not met: dropped.** Recommended for closing |
 | 5 | #252 | Futility pruning of captures in the main search, the victim valued at the net's scale | 970013 → 970114 | +4.9 ± 3.8, LOS 99.4% (inconclusive at 10,000 games, LLR 2.61) | **+17.7 ± 7.9** (H1, 2,668 games) | **Gate not met as run.** Smarter per node; with match M18's 10,000 more timed games the timed gain is +4.0, 95% interval +1.3 to +6.7. The "inconclusive at high LOS" case: the owner's decision |
 | 6 | #254 | One more ply of late-move reduction at expected cut nodes | 970013 → 988822 | **+9.8 ± 5.6** (H1, 5,004 games) | **+10.6 ± 5.8** (H1, 4,322 games) | **Gate met.** For the owner to merge |
-| 6, second run (after the session) | #254, rebased onto #246 | The same patch, against `v0.49.0` | 939252 → 958984 | **+8.1 ± 4.9** (H1, 6,124 games) | **+7.6 ± 4.7** (H1, 6,482 games) | **Gate met again,** on top of #246. For the owner to merge. [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246) |
+| 6, second run (after the session) | #254, rebased onto #246 | The same patch, against `v0.49.0` | 939252 → 958984 | **+8.1 ± 4.9** (H1, 6,124 games) | **+7.6 ± 4.7** (H1, 6,482 games) | **Gate met again,** on top of #246. Merged by the owner on 2026-11-13 (`059caa3`). [Follow-up 2026-11-13](#follow-up-2026-11-13-experiment-6-again-on-top-of-246) |
 | 7 | #255 | Continuation history four plies back, in quiet ordering and the LMR history term | 970013 → 1025352 | +2.1 ± 3.8 (inconclusive at 10,000 games) | −1.2 ± 4.0 (inconclusive at 10,000 games) | **Gate not met: dropped.** Recommended for closing |
 | T1 | #256 | The embedded net: net8 → net8x160, net8's recipe with 160 superbatches for 80 | 970013 → 990172 | **+11.6 ± 6.1** (H1, 3,910 games) | **+8.2 ± 5.1** (H1, 6,250 games) | **Gate met.** A draft that needs its gallery entries; for the owner to merge |
 
@@ -1540,6 +1540,12 @@ CI bench (base `v0.49.0`): signature 939,252 → 958,984; speed per node +0.8% �
 about $3.45 an hour a leg; an estimate from run time, not a bill), outside the
 session's table. With the session's $35.30, about $38.30 in all. Both
 instances terminated (16:06:35 and 16:11:10 UTC).
+
+**Merged.** The owner merged #254 at 17:04:18 UTC as `059caa3`. Its tree is the
+tested commit's (`git rev-parse` gives the same tree for `059caa3` and
+`695192d`), and `main`'s bench after the merge reads 958984, so the engine on
+`main` is the one that played. Its release, `v0.50.0`, was an open release pull
+request (#258) when this was written.
 
 ### `v0.49.0` on the ladder: the first reading of #246 that is not self-play
 
