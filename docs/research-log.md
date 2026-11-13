@@ -380,7 +380,7 @@ fixed-node leg is two identical engines).
 | 3 | #249 | Futility pruning in quiescence, the victim valued at the net's scale | 970013 → 990066 | +3.6 ± 3.9 (inconclusive at 10,000 games) | **−10.8 ± 6.7** (H0, 3,290 games) | **Gate not met: dropped.** Recommended for closing |
 | 4 | #250, stacked on #246 | Null-move reduction's base 3 → 4 | 939252 → 925602 (against #246) | +1.5 ± 3.7 (inconclusive at 10,000 games) | Not played (its instance failed to launch) | **Gate not met: dropped.** Recommended for closing |
 
-| 5 | #252 | Futility pruning of captures in the main search, the victim valued at the net's scale | 970013 → 970114 | Pending | Pending | Pending |
+| 5 | #252 | Futility pruning of captures in the main search, the victim valued at the net's scale | 970013 → 970114 | +4.9 ± 3.8, LOS 99.4% (inconclusive at 10,000 games, LLR 2.61) | **+17.7 ± 7.9** (H1, 2,668 games) | **Gate not met as run.** Smarter per node; a timed gain the SPRT's cap could not settle. Match M18 adds timed games for the owner's decision |
 
 #### Experiment 1: adaptive null-move reduction (#246)
 
@@ -620,6 +620,57 @@ Recorded on 2026-11-13 at 01:34 MST, before the `sprt` label was added.
 | Risks named beforehand | Experiment 3 was the same idea in quiescence and lost at 200,000 nodes; this one has been screened there and read positive, which is a reason to test it and not a reason to expect it to pass. M6 is the best of the five 200,000-node screens read so far (M2 to M6), so its +12.2 is inflated by that choice; the SPRT is a fresh sample. (The first push of this row said "nine matches", a miscount, corrected in the next commit.) The values belong to this net |
 | Cost estimate | Two on-demand `c8a.16xlarge` for 15 to 50 minutes: $1.70 to $5.80. No other SPRT is running; a match and the training run are, which leaves room under the account's quota |
 
+**Result** ([run 43394229688](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43394229688),
+#252, `cb6dfbc` against `main` at `0a45da0`; elo0 0, elo1 5, α = β = 0.05; on
+demand, two `c8a.16xlarge`; one attempt; the plan's commit `08ec8d8` at 08:34:03
+UTC, the label at 08:34:06):
+
+| Leg | Elo | LOS | Games | W / L / D | LLR | Pentanomial (LL, LD, WL+DD, WD, WW) | Result |
+|:--|--:|--:|--:|:-:|--:|:--|:--|
+| Timed, 5+0.05 | +4.9 ± 3.8 | 99.4% | 10000 | 2050 / 1908 / 6042 | 2.61 | 105, 1071, 2512, 1201, 111 | Inconclusive at the 5,000-round cap |
+| Fixed nodes, 200,000 per move | **+17.7 ± 7.9** | 100.0% | 2668 | 642 / 506 / 1520 | 2.95 | 36, 263, 613, 373, 49 | H1 |
+
+CI bench (base `v0.48.1`): signature 970,013 → 970,114; speed per node
++0.8% ± 10.1% and time to depth −0.2% ± 9.9% (a noisy runner: no information
+about cost at that width); 4,124 instructions a node; fail-high-first 87.4%;
+EBF 1.90 (1.88, marked worse, inside the bar); the performance gate passed.
+
+**The recorded gate is not met:** the timed leg reached the cap with LLR 2.61
+of the 2.94 it needed. By the plan the change does not pass. The comment's
+reading: "smarter per node, but the extra cost per node eats the gain at a
+clock: do not merge; worth a `perf` pass to make it cheaper and a re-test."
+
+**Reading it.**
+- **Per node the gain is real and repeated:** +17.7 ± 7.9 here, +12.2 in match
+  M6 at the same budget, three positive screens at 40,000 nodes.
+- **At a clock it is small and probably not zero:** +4.9 with a 95% interval of
+  +1.1 to +8.7. `elo1` is 5, and a true gain of 5 reaches the cap without a
+  verdict about half the time; this is that case, not evidence of no gain.
+- **The comment's stock explanation, a dearer node, is not supported by a
+  measurement:** the bench's speed figures are ±10% and say nothing. The rule
+  adds a table read and an addition for a capture at a shallow node. Why a
+  change worth 17 per node is worth 5 at a clock is not known; experiment 4
+  showed the same shape (+8.1 in a fixed-node match, +1.5 timed), and
+  experiment 2 the opposite one.
+- **The SPRT is not re-run.** A second attempt at the same test after an
+  inconclusive first is a second chance at a 5% error, and the first 10,000
+  games would be thrown away. More games are what the verdict asks for, so
+  they are added as a fixed-size measurement instead (match M18, below) and
+  read together with these.
+
+#### Match M18: more timed games for experiment 5
+
+Recorded on 2026-11-13 at 02:21 MST, before the dispatch.
+
+| | |
+|:--|:--|
+| Question | The timed leg ended at the cap at +4.9 ± 3.8. With twice the games, is the timed gain clear of zero? |
+| What runs | `Match` from `main`: `feat/capture-futility` (`cb6dfbc`) against `main`, **5+0.05, 10,000 games, hash 16 MB** (the SPRT's settings, where a match's default hash is 64), 95% interval; one on-demand `c8a.16xlarge` |
+| How it is read, fixed here | The two samples (the SPRT's timed leg and this match) are pooled by inverse variance; they are independent games at the same settings. **A pooled 95% interval that excludes zero** says the change gains at a clock by a small amount: with the fixed-node H1 that is the "inconclusive at high LOS" case in which the repository's rules let the owner merge over a failed check, and #252 is put to him as that. **An interval that includes zero** says the timed gain is not shown, and the recommendation is to drop it. Either way the gate as run stays not met; this match does not change the SPRT's verdict |
+| Cost estimate | About 47 minutes of one instance: $2.70. To pay for it, matches M13 and M14 (the improving heuristic at LMR and at late move pruning) are withdrawn unrun: M12 has just read −12.2 for the heuristic at its main site, they could not become PRs under the bars' rules without it, and they were the lowest-ranked in the queue |
+
+#### Match M1: experiment 1 at 10+0.1
+
 #### Match M1: experiment 1 at 10+0.1
 
 Recorded on 2026-11-12 at 23:41 MST, before the dispatch.
@@ -763,6 +814,13 @@ budget rather than a dismissal at the wrong one.
 | M12 | `research/lab-rfp-improving` (`d3dcc6b`, bench 879,149) | Reverse futility with one ply less margin when improving | −9.9 ± 10.6 |
 | M13 | `research/lab-lmr-improving` (`1bc202d`, bench 851,461) | One more ply of late-move reduction when not improving | −5.9 ± 10.0 |
 | M14 | `research/lab-lmp-improving` (`98deaa7`, bench 896,900) | Late move pruning from half the index when not improving | Not screened |
+
+**Results** (each run's report):
+
+| Match | Run | Elo (candidate − baseline) | 99% interval | LOS | Games | W / L / D | Pentanomial (LL, LD, WL+DD, WD, WW) | By the rule |
+|:--|:--|--:|:-:|--:|--:|:-:|:--|:--|
+| M12, reverse futility with improving | [43397194328](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43397194328) | −12.2 | −22.2 to −2.2 | 0.1% | 3000 | 580 / 685 / 1735 | 70, 365, 705, 320, 40 | Weaker, the 99% interval below zero: **dropped**, now on a measurement at the SPRT's budget |
+<!-- matches:m11-m14 -->
 
 Each: `Match` from `main`, 200,000 nodes a move, 3,000 games, hash 64 MB. +8 or
 more: a clean branch, a plan and an SPRT. Under +8: recorded, no PR; for the
@@ -921,6 +979,9 @@ The plan is in [nets.md](nets.md#net8x160-planned), recorded in `2160aea` at
 | SPRT, experiment 4 (#250) | [43386646994](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43386646994) | $2.30–5.80 | About $2.60: one instance for 45 minutes (the timed leg); the fixed-node leg launched nothing |
 
 | Match M6 | [43391890629](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43391890629) | $0.70 | About $0.80: the task ran 679 s |
+
+| SPRT, experiment 5 (#252) | [43394229688](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43394229688) | $1.70–5.80 | About $3.20: the legs' jobs took 10 min 23 s and 45 min 26 s |
+| Matches M16, M17 and M12 | [43393664014](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43393664014), [43395387426](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43395387426), [43397194328](https://github.com/jwallace145/rusty-chess-v2/actions/runs/43397194328) | $2.10 | About $2.25: the tasks ran 649 s, 680 s and 619 s |
 
 *(more rows as workloads run; on-demand `c8a.16xlarge` at about $3.45 an hour a leg; job time is used for instance time, a slight overestimate)*
 
