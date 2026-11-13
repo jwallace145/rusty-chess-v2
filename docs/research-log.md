@@ -1571,3 +1571,50 @@ the owner's release workflow; figures from the release notes):
   several thousand games a release to resolve 25 Elo.
 - **Not a result of this session:** the run is the release's, started by the
   owner's merge. It is recorded in [nets.md](nets.md) with the other releases.
+
+### Training T1's net again: net8x160 against net8 in `v0.50.0`'s search (#256)
+
+The owner released #254 as `v0.50.0` (`4451cfe`, 17:21:47 UTC) and asked for
+#256 to be rebased so the net ships in `v0.51.0`. That answers what #256 was
+waiting for (the release its gallery entries name), and by the repository's
+rule the rebase's push plays the SPRT again: the net against net8 in the
+search that now has both of the session's search changes, the last of the
+"how do the three add" measurements the session left open.
+
+Recorded on 2026-11-13 at 10:37 MST (17:37 UTC), before the rebased
+branch was pushed. The same plan is in `docs/nets.md` on #256's branch
+(`35fbdc9`), which is where the ledger's copy of this net's record now
+travels.
+
+| | |
+|:--|:--|
+| Question | Does net8x160 still beat net8 when both play in `v0.50.0`'s search, which has the adaptive null-move reduction (#246) and one more ply of late-move reduction at expected cut nodes (#254)? A net's gain is measured in the search it was tested with |
+| The one change from the first run | The base: `main` at `4451cfe` (`v0.50.0`) for `0a45da0` (`v0.48.1`). The net is the same file (SHA-256 `8ea67605…556c`). The commit that embeds it is the first run's, rebased without conflict (`62bdf9f`; `git range-diff` reports the two equal); a second commit (`35fbdc9`) adds the gallery and ledger entries and changes no engine code |
+| Held the same | The SPRT's settings (elo0 0, elo1 5, α = β = 0.05; 5+0.05 and 200,000 nodes a move; the same openings and cap), the instance type and market |
+| Bench, local | 958984 → 919304 (−4.1% nodes to depth 10: the main search 0.5% smaller, quiescence 7.3% smaller); fail-high-first 0.8756 → 0.8778 (bar 0.87); EBF 1.846 → 1.861 (bar 2.0); both bars pass. The base's figures are the release's own record (`benchmarks/v0.50.0/`); they are counts, the same on any machine |
+| Expectation | Positive, +5 to +10 in both legs. The first run's readings stopped at H1, which reads high, so the lower half is the likelier, and a leg reaching the cap without a verdict is a real possibility |
+| Gate | H1 in both legs, against this base. The first run's pass does not carry over: the net is judged in the engine it would ship in |
+| What each outcome means | **H1 in both:** the net is the default from `v0.51.0`. **H0 in either:** #256 is closed and the net is recorded as dropped in this search, whatever it did in the earlier one. **Inconclusive in either:** the check fails, and whether to merge at a high LOS is the owner's decision under AGENTS.md |
+| Cost estimate | Two on-demand `c8a.16xlarge` for 10 to 50 minutes: $1.20 to $5.80, asked for by the owner; with what came before, about $38.30 so far. No SPRT or match is running, and no instance but the Lichess bot's (`describe-instances`, 17:36 UTC); `v0.50.0`'s rating ladder runs on a GitHub-hosted runner |
+
+**What the push carries besides the rebase.** The gallery entries #256 could
+not have until the release was named: net8x160's manifest and diagram
+("default since `v0.51.0`"), net8's manifest moved to "superseded" (default in
+`v0.48.0`–`v0.50.0`; it played no generation), the regenerated gallery page,
+four test expectations, and the ledger: net8x160's Summary row and section in
+`docs/nets.md`, and its row in `docs/datasets.md`.
+
+- **`docs/nets.md` on #256 is this branch's copy plus the swap.** The gallery
+  check needs the net's row and section in #256's own tree, and net8's row
+  could not be rewritten truthfully on `main`'s copy, which still says "SPRT
+  pending". So #256 also carries this branch's corrections of net8's and
+  net7rl012's records.
+- **The two pull requests now overlap in that file,** and whichever merges
+  second needs a rebase. For this branch that is free; for #256 it is a push,
+  which plays the SPRT again. #256 should merge first.
+- **The manifest quotes the first SPRT's figures,** because it is committed
+  before the second is played, and says so. The second run's figures reach the
+  ledger through this branch after #256 merges (agreed with the owner
+  beforehand).
+
+Local checks on `35fbdc9` before the push: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings` (exit 0), `cargo test --workspace --locked` (270 passed) and with `--features stats` (271 passed), `npm test` (59 pass) and `npm run nnue:diagrams:check` (19 snapshots current); the signature is 919304 in two runs and in the `stats` build.
