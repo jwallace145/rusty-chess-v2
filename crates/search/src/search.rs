@@ -90,6 +90,35 @@ const FP_MAX_DEPTH: u32 = 6;
 const FP_BASE: i32 = 100;
 const FP_MARGIN: i32 = 100;
 
+/// Futility pruning of captures applies up to this depth.
+const CAPTURE_FP_MAX_DEPTH: u32 = 6;
+
+/// Capture futility margin, in evaluation units: a capture at depth `d` is
+/// skipped when the static evaluation, what it takes and
+/// `CAPTURE_FP_BASE + CAPTURE_FP_MARGIN * d` still do not reach alpha. About
+/// one pawn and two thirds of a pawn a ply at the network's scale.
+const CAPTURE_FP_BASE: i32 = 300;
+const CAPTURE_FP_MARGIN: i32 = 200;
+
+/// What taking a piece is worth to the *evaluation*, indexed by
+/// [`PieceKind`]. These are the network's units, not the classical values
+/// static exchange compares with each other: net8's evaluation moves by about
+/// 300 for a pawn, 775 for a knight, 880 for a bishop, 1,100 for a rook and
+/// 1,680 for a queen (measured by removing each piece in turn from the bench
+/// positions and the SPRT openings; `docs/research-log.md`, "The net's
+/// material scale"). A rule that added the classical 100 to 900 to an
+/// evaluation would prune captures that win the material back. Re-measure
+/// when a net's scale moves; values that are too large only prune less.
+const CAPTURE_VALUE: [i32; 6] = [300, 775, 880, 1100, 1680, 0];
+
+/// The most a capture of `victim` at `depth` can be expected to lift a
+/// static evaluation of `static_eval` to: the capture is futile when this
+/// does not reach alpha.
+#[inline]
+pub fn capture_futility_reach(static_eval: i32, victim: PieceKind, depth: u32) -> i32 {
+    static_eval + CAPTURE_FP_BASE + CAPTURE_FP_MARGIN * depth as i32 + CAPTURE_VALUE[victim.index()]
+}
+
 /// Singular extensions apply from this depth.
 const SE_MIN_DEPTH: u32 = 8;
 
@@ -828,6 +857,36 @@ impl Searcher {
                 stat!(self.stats, see_skips);
                 index += 1;
                 continue;
+            }
+            // Futility pruning of captures: the counterpart of the rule
+            // for quiets above. At a shallow null-window node whose static
+            // evaluation is so far below alpha that winning the piece on
+            // offer and a margin for the depth left would not reach it, the
+            // capture is skipped. Not the first move, not a promotion (whose
+            // gain is not the piece taken), not in check or while being
+            // mated. The victim is valued at the network's scale
+            // (`CAPTURE_VALUE`), not the classical one.
+            if !quiet
+                && prunable
+                && !pv_node
+                && index > 0
+                && depth <= CAPTURE_FP_MAX_DEPTH
+                && m.promotion().is_none()
+                && !is_mate_score(best)
+            {
+                let victim = if m.is_en_passant() {
+                    PieceKind::Pawn
+                } else {
+                    board
+                        .position()
+                        .piece_at(m.to())
+                        .map_or(PieceKind::Pawn, |p| p.kind)
+                };
+                if capture_futility_reach(static_eval, victim, depth) <= alpha {
+                    stat!(self.stats, capture_futility_skips);
+                    index += 1;
+                    continue;
+                }
             }
             // The quiet move's history, read before the move is made, for the
             // late move reduction below.

@@ -144,6 +144,8 @@ pub struct SearchStats {
     pub se_extensions: u64,
     /// Nodes cut by a singular-extension search clearing beta without the table move.
     pub se_multicuts: u64,
+    /// Captures skipped by futility pruning in the main search.
+    pub capture_futility_skips: u64,
     /// Correction-history reads: every corrected static evaluation.
     pub corr_reads: u64,
     /// The sum of the corrections applied, in centipawns, absolute.
@@ -186,6 +188,7 @@ impl Default for SearchStats {
             see_skips: 0,
             se_extensions: 0,
             se_multicuts: 0,
+            capture_futility_skips: 0,
             corr_reads: 0,
             corr_applied_abs: 0,
             corr_updates: [0; 3],
@@ -238,6 +241,7 @@ impl SearchStats {
             see_skips: self.see_skips,
             se_extensions: self.se_extensions,
             se_multicuts: self.se_multicuts,
+            capture_futility_skips: self.capture_futility_skips,
             correction: CorrectionSummary {
                 reads: self.corr_reads,
                 mean_abs_correction: ratio(self.corr_applied_abs, self.corr_reads),
@@ -345,6 +349,9 @@ pub struct StatsSummary {
     /// Singular-extension multi-cuts. Absent in records written before it existed.
     #[serde(default)]
     pub se_multicuts: u64,
+    /// Captures skipped by futility pruning in the main search. Absent in records written before it existed.
+    #[serde(default)]
+    pub capture_futility_skips: u64,
     /// What the pawn-structure correction history did. Absent in records
     /// written before it existed.
     #[serde(default)]

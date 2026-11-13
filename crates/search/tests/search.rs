@@ -676,6 +676,68 @@ fn futility_pruning_skips_hopeless_quiets_but_keeps_mates() {
 }
 
 #[test]
+fn capture_futility_prunes_hopeless_captures_but_keeps_mates_and_big_captures() {
+    use rusty_chess_core::types::PieceKind;
+    use rusty_chess_search::search::capture_futility_reach;
+    // What a capture is credited with grows with the victim and the depth,
+    // and is always more than the piece's classical value above the
+    // evaluation: the network's scale, and a margin.
+    for depth in 1..=6 {
+        let mut last = i32::MIN;
+        for (victim, classical) in [
+            (PieceKind::Pawn, 100),
+            (PieceKind::Knight, 320),
+            (PieceKind::Bishop, 330),
+            (PieceKind::Rook, 500),
+            (PieceKind::Queen, 900),
+        ] {
+            let reach = capture_futility_reach(0, victim, depth);
+            assert!(reach > last, "{victim:?} at depth {depth}");
+            assert!(reach > 2 * classical, "{victim:?} at depth {depth}");
+            last = reach;
+        }
+        assert!(
+            capture_futility_reach(0, PieceKind::Pawn, depth + 1)
+                > capture_futility_reach(0, PieceKind::Pawn, depth)
+        );
+    }
+    assert_eq!(
+        capture_futility_reach(-500, PieceKind::Rook, 3),
+        capture_futility_reach(0, PieceKind::Rook, 3) - 500
+    );
+    // Mates through captures and sacrifices stay exact.
+    for (fen, best, mate) in [
+        (
+            "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1",
+            "d5f6",
+            2,
+        ),
+        ("r5rk/5p1p/5R2/4B3/8/8/7P/7K w - - 0 1", "f6a6", 3),
+    ] {
+        let r = search(fen, depth(8));
+        assert_eq!(
+            (r.best.to_string(), mate_in(r.score)),
+            (best.into(), Some(mate)),
+            "{fen}"
+        );
+    }
+    // A side a queen down still finds the capture that wins it back: the
+    // queen on d5 hangs to the knight, and no margin may prune that.
+    let r = search("4k3/8/8/3q4/8/2N5/8/4K3 w - - 0 1", depth(6));
+    assert_eq!(r.best.to_string(), "c3d5", "{}", r.pv);
+    // A middlegame skips captures at shallow nodes far below alpha.
+    let mut b = board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    let mut s = Searcher::new(Arc::new(AtomicBool::new(false)));
+    s.search(&mut b, &depth(8), &mut |_| {});
+    if let Some(summary) = s.stats().summary() {
+        assert!(
+            summary.capture_futility_skips > 0,
+            "no capture futility skips"
+        );
+    }
+}
+
+#[test]
 fn null_move_pruning_does_not_lose_a_known_zugzwang() {
     // White to move; every move loses the rook except Rf1 (Rh1 by the rook's path); the king
     // on h1 is stalemated apart from pawn moves. With naive null-move pruning white would

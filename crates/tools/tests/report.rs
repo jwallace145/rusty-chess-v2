@@ -34,6 +34,7 @@ fn stats(fh_first: f64) -> StatsSummary {
         see_skips: 0,
         se_extensions: 0,
         se_multicuts: 0,
+        capture_futility_skips: 0,
         correction: Default::default(),
     }
 }
