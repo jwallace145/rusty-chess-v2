@@ -9,11 +9,11 @@
 
 use std::sync::Arc;
 
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::Color;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::Network;
-use rusty_chess_search::search::{Limits, Searcher, is_mate_score};
+use braveheart_core::position::Position;
+use braveheart_core::types::Color;
+use braveheart_search::board::Board;
+use braveheart_search::nnue::Network;
+use braveheart_search::search::{Limits, Searcher, is_mate_score};
 use serde::Serialize;
 
 use crate::datagen::parse_record;

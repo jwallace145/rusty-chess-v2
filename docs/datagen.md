@@ -174,7 +174,7 @@ correctness checks, quality bars and generation 0's reference results.
 Locally, for a pilot:
 
 ```sh
-cargo run --release -p rusty-chess-tools --bin datagen -- \
+cargo run --release -p braveheart-tools --bin datagen -- \
   --config datagen.toml --out /tmp/datagen --run pilot --task local \
   --threads 8 --max-minutes 1
 ```

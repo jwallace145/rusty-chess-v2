@@ -1,10 +1,10 @@
 //! Head-to-head match settings, fastchess arguments and the report.
 
-use rusty_chess_tools::matchup::{
+use braveheart_tools::matchup::{
     Limit, Meta, Settings, Side, fastchess_args, headline, read, render, verdict,
 };
-use rusty_chess_tools::sprt::{MatchResult, parse_match};
-use rusty_chess_tools::stats::Confidence;
+use braveheart_tools::sprt::{MatchResult, parse_match};
+use braveheart_tools::stats::Confidence;
 
 const LOG: &str = "\
 Started game 1 of 400 (candidate vs baseline)

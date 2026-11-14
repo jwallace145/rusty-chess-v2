@@ -1,5 +1,5 @@
 {
-  "name": "rusty-chess-v2",
+  "name": "braveheart",
   "version": "0.0.0",
   "private": true,
   "description": "Tooling for commit message linting and the NNUE architecture diagrams. The engine itself is Rust; see README.md.",

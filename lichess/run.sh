@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run rusty-chess as a Lichess bot.
+# Run braveheart as a Lichess bot.
 #
 #   LICHESS_TOKEN=lip_... lichess/run.sh            # build, set up lichess-bot, play
 #   LICHESS_TOKEN=lip_... lichess/run.sh --upgrade  # one-time: turn a fresh account into a bot
@@ -18,7 +18,7 @@ work="$here/.lichess-bot"
 
 : "${LICHESS_TOKEN:?set LICHESS_TOKEN to a Lichess API token with the bot:play scope}"
 
-echo "==> building rusty-chess (release)"
+echo "==> building braveheart (release)"
 (cd "$root" && cargo build --release --locked)
 
 if [ ! -d "$work" ]; then
@@ -36,10 +36,10 @@ if [ ! -d "$work/venv" ]; then
 fi
 
 mkdir -p "$work/engines"
-cp "$root/target/release/rusty-chess" "$work/engines/rusty-chess"
-# The token, and the engine's version for the chat greeting (`rusty-chess
-# --version` prints `rusty-chess 0.46.2`).
-version="v$("$work/engines/rusty-chess" --version | awk '{print $2}')"
+cp "$root/target/release/braveheart" "$work/engines/braveheart"
+# The token, and the engine's version for the chat greeting (`braveheart
+# --version` prints `braveheart 0.46.2`).
+version="v$("$work/engines/braveheart" --version | awk '{print $2}')"
 sed -e "s|LICHESS_TOKEN_PLACEHOLDER|$LICHESS_TOKEN|" -e "s|__VERSION__|$version|g" "$here/config.yml" > "$work/config.yml"
 
 cd "$work"

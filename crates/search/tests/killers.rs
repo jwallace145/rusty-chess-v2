@@ -1,10 +1,10 @@
 //! Killer moves: quiet moves that caused a beta cutoff at a ply, tried early
 //! at that ply in sibling nodes.
 
-use rusty_chess_core::r#move::{Move, MoveFlag};
-use rusty_chess_core::position::Position;
-use rusty_chess_search::killers::Killers;
-use rusty_chess_search::movepick::{MovePicker, Stage};
+use braveheart_core::r#move::{Move, MoveFlag};
+use braveheart_core::position::Position;
+use braveheart_search::killers::Killers;
+use braveheart_search::movepick::{MovePicker, Stage};
 
 fn mv(uci: &str, pos: &Position) -> Move {
     pos.parse_uci_move(uci).unwrap_or_else(|| panic!("{uci}"))

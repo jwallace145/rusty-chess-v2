@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use rusty_chess_tools::datagen::{Provenance, Run, Settings, net_provenance, run};
+use braveheart_tools::datagen::{Provenance, Run, Settings, net_provenance, run};
 
 fn main() -> ExitCode {
     match main_inner(std::env::args().skip(1).collect()) {

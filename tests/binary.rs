@@ -1,10 +1,10 @@
-//! Smoke tests that drive the `rusty-chess` binary as a UCI GUI would.
+//! Smoke tests that drive the `braveheart` binary as a UCI GUI would.
 
 use std::io::Write;
 use std::process::{Command, Stdio};
 
 fn bin() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_rusty-chess"))
+    Command::new(env!("CARGO_BIN_EXE_braveheart"))
 }
 
 fn run_uci(input: &str) -> String {
@@ -12,7 +12,7 @@ fn run_uci(input: &str) -> String {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
-        .expect("spawn rusty-chess");
+        .expect("spawn braveheart");
     child
         .stdin
         .take()
@@ -30,7 +30,7 @@ fn uci_handshake() {
     let lines: Vec<&str> = out.lines().collect();
     assert_eq!(
         lines[0],
-        format!("id name rusty-chess {}", env!("CARGO_PKG_VERSION"))
+        format!("id name Braveheart {}", env!("CARGO_PKG_VERSION"))
     );
     assert!(lines[1].starts_with("id author "));
     assert!(lines.contains(&"uciok"));
@@ -65,7 +65,7 @@ fn go_depth_answers_with_info_lines_and_a_legal_bestmove() {
     let best = lines.last().unwrap();
     assert!(best.starts_with("bestmove "), "{out}");
     let mv = best.split(' ').nth(1).unwrap();
-    let pos = rusty_chess_core::position::Position::from_fen(
+    let pos = braveheart_core::position::Position::from_fen(
         "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
     )
     .unwrap();
@@ -132,7 +132,7 @@ fn version_flag() {
     assert!(out.status.success());
     assert_eq!(
         String::from_utf8_lossy(&out.stdout).trim(),
-        format!("rusty-chess {}", env!("CARGO_PKG_VERSION"))
+        format!("braveheart {}", env!("CARGO_PKG_VERSION"))
     );
 }
 
@@ -156,7 +156,7 @@ fn bad_arguments_fail_with_a_usage_error() {
 
 #[test]
 fn bench_prints_the_signature_and_writes_jsonl() {
-    let dir = std::env::temp_dir().join(format!("rusty-chess-bench-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("braveheart-bench-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let out_path = dir.join("bench.jsonl");
     let out = bin()
@@ -175,7 +175,7 @@ fn bench_prints_the_signature_and_writes_jsonl() {
     assert!(text.contains("bestmove "), "{text}");
     assert!(text.contains("Positions       : 50"), "{text}");
 
-    let records = rusty_chess_search::telemetry::read_records(std::io::BufReader::new(
+    let records = braveheart_search::telemetry::read_records(std::io::BufReader::new(
         std::fs::File::open(&out_path).unwrap(),
     ))
     .unwrap();
@@ -183,11 +183,11 @@ fn bench_prints_the_signature_and_writes_jsonl() {
     assert!(records.len() > 51, "{}", records.len());
     let iters = records
         .iter()
-        .filter(|r| matches!(r, rusty_chess_search::telemetry::Record::Iter(_)))
+        .filter(|r| matches!(r, braveheart_search::telemetry::Record::Iter(_)))
         .count();
     assert_eq!(iters, 50, "one iteration record per position at depth 1");
     match records.last().unwrap() {
-        rusty_chess_search::telemetry::Record::Bench(b) => {
+        braveheart_search::telemetry::Record::Bench(b) => {
             assert_eq!(b.v, 1);
             assert_eq!(b.positions, 50);
             assert_eq!(b.depth, 1);
@@ -217,7 +217,7 @@ fn perft_divides_a_position() {
 
 #[test]
 fn perft_runs_the_suite_and_writes_jsonl() {
-    let dir = std::env::temp_dir().join(format!("rusty-chess-perft-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("braveheart-perft-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let out_path = dir.join("perft.jsonl");
     let suite = dir.join("suite.epd");
@@ -240,12 +240,12 @@ fn perft_runs_the_suite_and_writes_jsonl() {
             && text.contains("Checks          : 4 passed, 0 failed"),
         "{text}"
     );
-    let records = rusty_chess_search::telemetry::read_records(std::io::BufReader::new(
+    let records = braveheart_search::telemetry::read_records(std::io::BufReader::new(
         std::fs::File::open(&out_path).unwrap(),
     ))
     .unwrap();
     match &records[0] {
-        rusty_chess_search::telemetry::Record::Perft(p) => {
+        braveheart_search::telemetry::Record::Perft(p) => {
             assert_eq!((p.positions, p.max_depth, p.failures), (2, 2, 0));
             assert_eq!(p.nodes, 20 + 400 + 3 + 7);
         }

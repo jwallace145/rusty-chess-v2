@@ -1,8 +1,8 @@
 //! Static exchange evaluation: the material outcome of a capture sequence on
 //! one square when both sides capture only while it pays.
 
-use rusty_chess_core::position::Position;
-use rusty_chess_search::see::{see, see_ge};
+use braveheart_core::position::Position;
+use braveheart_search::see::{see, see_ge};
 
 fn eval(fen: &str, uci: &str) -> i32 {
     let p = Position::from_fen(fen).unwrap_or_else(|e| panic!("{fen}: {e}"));

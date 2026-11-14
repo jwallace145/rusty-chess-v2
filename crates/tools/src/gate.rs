@@ -13,7 +13,7 @@
 
 use std::fmt;
 
-use rusty_chess_search::telemetry::Record;
+use braveheart_search::telemetry::Record;
 use serde::Deserialize;
 
 /// A bar with a value per environment. An environment the file does not

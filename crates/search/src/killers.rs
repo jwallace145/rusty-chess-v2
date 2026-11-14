@@ -2,7 +2,7 @@
 //! beta cutoff. A move that refutes one line at a ply often refutes its
 //! siblings too, so the picker tries killers right after the good captures.
 
-use rusty_chess_core::r#move::Move;
+use braveheart_core::r#move::Move;
 
 use crate::stats::MAX_PLY;
 

@@ -14,9 +14,9 @@
 
 use std::process::ExitCode;
 
-use rusty_chess_tools::matchup::{Meta, Settings, Side, fastchess_args, headline, render};
-use rusty_chess_tools::sprt::parse_match;
-use rusty_chess_tools::stats::Confidence;
+use braveheart_tools::matchup::{Meta, Settings, Side, fastchess_args, headline, render};
+use braveheart_tools::sprt::parse_match;
+use braveheart_tools::stats::Confidence;
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {

@@ -12,8 +12,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::process::ExitCode;
 
-use rusty_chess_search::telemetry::read_records;
-use rusty_chess_tools::gate::{Measured, Targets, evaluate};
+use braveheart_search::telemetry::read_records;
+use braveheart_tools::gate::{Measured, Targets, evaluate};
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {

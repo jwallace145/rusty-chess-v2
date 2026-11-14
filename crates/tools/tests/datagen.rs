@@ -3,17 +3,17 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::Color;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{DEFAULT_NET_GENERATION, NETS, network_by_id};
-use rusty_chess_search::search::Searcher;
-use rusty_chess_tools::datagen::{
+use braveheart_core::position::Position;
+use braveheart_core::types::Color;
+use braveheart_search::board::Board;
+use braveheart_search::nnue::{DEFAULT_NET_GENERATION, NETS, network_by_id};
+use braveheart_search::search::Searcher;
+use braveheart_tools::datagen::{
     Adjudicator, Manifest, Provenance, SCHEMA, Settings, Termination, board_termination,
     insufficient_material, net_provenance, parse_record, play_game, record_line, shard_name,
     write_shard,
 };
-use rusty_chess_tools::openings::Rng;
+use braveheart_tools::openings::Rng;
 
 fn repo_settings() -> Settings {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../datagen.toml");
@@ -30,7 +30,7 @@ fn quick() -> Settings {
 }
 
 fn searcher() -> Searcher {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     Searcher::new(Arc::new(AtomicBool::new(false)))
 }
 
@@ -185,7 +185,7 @@ fn a_shard_is_three_whole_files_whose_counts_agree() {
 }
 
 fn board_at(fen: &str) -> Board {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     Board::from_position(Position::from_fen(fen).unwrap())
 }
 
@@ -389,7 +389,7 @@ fn a_manifest_carries_the_sha256_of_each_record_file() {
 
 #[test]
 fn manifests_name_the_net_that_played_and_none_for_pesto() {
-    use rusty_chess_search::nnue::NETS;
+    use braveheart_search::nnue::NETS;
     use sha2::{Digest, Sha256};
     assert_eq!(net_provenance(0), None, "generation 0 is PeSTO");
     assert_eq!(net_provenance(99), None);
@@ -404,7 +404,7 @@ fn manifests_name_the_net_that_played_and_none_for_pesto() {
     }
     // Retired generations are no longer embedded, so they name no net here;
     // their data was played, and is audited, by a build at its own commit.
-    use rusty_chess_search::nnue::RETIRED_NETS;
+    use braveheart_search::nnue::RETIRED_NETS;
     for retired in &RETIRED_NETS {
         assert_eq!(net_provenance(retired.generation), None, "{}", retired.id);
     }

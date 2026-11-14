@@ -13,7 +13,7 @@
 min_perft_nps = { local = 100_000_000, ci = 100_000_000 }
 
 [search]
-# `rusty-chess bench` at its default depth. Roadmap Phase 2 target: 2M NPS with
+# `braveheart bench` at its default depth. Roadmap Phase 2 target: 2M NPS with
 # PeSTO eval. The Phase 2 baseline does about 8M on an M-series laptop; the bar
 # starts at the roadmap figure because Phase 3's transposition table and move
 # picker add per-node work before they pay it back in depth.

@@ -41,9 +41,9 @@
 
 use std::sync::{Arc, OnceLock};
 
-use rusty_chess_core::bitboard::Bitboard;
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::{Color, PieceKind, Square};
+use braveheart_core::bitboard::Bitboard;
+use braveheart_core::position::Position;
+use braveheart_core::types::{Color, PieceKind, Square};
 
 /// A net embedded in the binary.
 pub struct EmbeddedNet {

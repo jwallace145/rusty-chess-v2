@@ -7,9 +7,9 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use rusty_chess_core::position::Position;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::search::{Limits, Searcher};
+use braveheart_core::position::Position;
+use braveheart_search::board::Board;
+use braveheart_search::search::{Limits, Searcher};
 
 struct Counting;
 
@@ -30,7 +30,7 @@ static GLOBAL: Counting = Counting;
 
 #[test]
 fn the_search_path_does_not_allocate_per_node() {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
     let mut board = Board::from_position(Position::from_fen(fen).unwrap());
     let mut searcher = Searcher::new(Arc::new(AtomicBool::new(false)));

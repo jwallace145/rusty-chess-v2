@@ -1,10 +1,10 @@
 //! PeSTO tapered evaluation and the incrementally updated search board.
 
-use rusty_chess_core::movegen::MoveList;
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::{Color, PieceKind};
-use rusty_chess_search::board::Board;
-use rusty_chess_search::eval::{self, Eval};
+use braveheart_core::movegen::MoveList;
+use braveheart_core::position::Position;
+use braveheart_core::types::{Color, PieceKind};
+use braveheart_search::board::Board;
+use braveheart_search::eval::{self, Eval};
 
 fn board(fen: &str) -> Board {
     Board::from_position(Position::from_fen(fen).unwrap_or_else(|e| panic!("{fen}: {e}")))

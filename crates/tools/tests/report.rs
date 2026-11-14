@@ -1,9 +1,9 @@
 //! The PR bench report: a compact Markdown comparison of two runs.
 
-use rusty_chess_search::stats::StatsSummary;
-use rusty_chess_search::telemetry::{BenchRecord, PerftRecord, Record};
-use rusty_chess_tools::gate::{Measured, Targets};
-use rusty_chess_tools::report::{Meta, render};
+use braveheart_search::stats::StatsSummary;
+use braveheart_search::telemetry::{BenchRecord, PerftRecord, Record};
+use braveheart_tools::gate::{Measured, Targets};
+use braveheart_tools::report::{Meta, render};
 
 fn stats(fh_first: f64) -> StatsSummary {
     StatsSummary {

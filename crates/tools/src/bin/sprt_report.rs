@@ -17,8 +17,8 @@
 
 use std::process::ExitCode;
 
-use rusty_chess_tools::gate::Targets;
-use rusty_chess_tools::sprt::{
+use braveheart_tools::gate::Targets;
+use braveheart_tools::sprt::{
     Meta, Notes, fastchess_args, parse, passes, render, render_dual_with_notes,
 };
 

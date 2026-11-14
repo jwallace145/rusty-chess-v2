@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 /// The usage text printed by `--help` and after a usage error.
 pub const USAGE: &str = "\
-Usage: rusty-chess [COMMAND] [OPTIONS]
+Usage: braveheart [COMMAND] [OPTIONS]
 
 With no command, speaks UCI on stdin/stdout.
 

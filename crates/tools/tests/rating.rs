@@ -1,10 +1,10 @@
 //! The rating ladder: parsing non-SPRT match logs, combining levels, bounds.
 
-use rusty_chess_tools::gate::{Rating, Targets};
-use rusty_chess_tools::rating::{
+use braveheart_tools::gate::{Rating, Targets};
+use braveheart_tools::rating::{
     Level, Meta, estimate, fastchess_args, headline, render, render_json,
 };
-use rusty_chess_tools::sprt::{MatchResult, parse_match};
+use braveheart_tools::sprt::{MatchResult, parse_match};
 
 fn level(elo: u32, diff: f64, err: f64, w: u32, l: u32, d: u32) -> Level {
     Level {
@@ -24,7 +24,7 @@ fn level(elo: u32, diff: f64, err: f64, w: u32, l: u32, d: u32) -> Level {
 
 #[test]
 fn a_plain_match_log_parses_without_an_sprt() {
-    let log = "Started game 1 of 100 (rusty-chess vs stockfish-1800)\n--------------------------------------------------\nResults of rusty-chess vs stockfish-1800 (10+0.1, NULL, 64MB, openings.epd):\nElo: 120.50 +/- 45.20, nElo: 150.00 +/- 50.00\nLOS: 100.00 %, DrawRatio: 20.00 %, PairsRatio: 3.00\nGames: 100, Wins: 60, Losses: 27, Draws: 13, Points: 66.5 (66.50 %)\nPtnml(0-2): [2, 5, 10, 15, 18], WL/DD Ratio: 2.00\n--------------------------------------------------\n";
+    let log = "Started game 1 of 100 (braveheart vs stockfish-1800)\n--------------------------------------------------\nResults of braveheart vs stockfish-1800 (10+0.1, NULL, 64MB, openings.epd):\nElo: 120.50 +/- 45.20, nElo: 150.00 +/- 50.00\nLOS: 100.00 %, DrawRatio: 20.00 %, PairsRatio: 3.00\nGames: 100, Wins: 60, Losses: 27, Draws: 13, Points: 66.5 (66.50 %)\nPtnml(0-2): [2, 5, 10, 15, 18], WL/DD Ratio: 2.00\n--------------------------------------------------\n";
     let m = parse_match(log).unwrap();
     assert_eq!((m.elo, m.elo_error), (120.5, 45.2));
     assert_eq!((m.games, m.wins, m.losses, m.draws), (100, 60, 27, 13));
@@ -125,7 +125,7 @@ fn the_committed_ladder_is_inside_stockfish_range_and_ascending() {
     // outside that range would silently play a different level than it says.
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../perf-targets.toml");
     let targets =
-        rusty_chess_tools::gate::Targets::parse(&std::fs::read_to_string(path).unwrap()).unwrap();
+        braveheart_tools::gate::Targets::parse(&std::fs::read_to_string(path).unwrap()).unwrap();
     let levels = &targets.rating.levels;
     assert!(!levels.is_empty());
     assert!(

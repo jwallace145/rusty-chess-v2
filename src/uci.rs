@@ -19,14 +19,14 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::Color;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{
+use braveheart_core::position::Position;
+use braveheart_core::types::Color;
+use braveheart_search::board::Board;
+use braveheart_search::nnue::{
     Network, default_network, network_by_id, retired_net, retired_net_message,
 };
-use rusty_chess_search::search::{DEFAULT_HASH_MB, Limits, Searcher, mate_in};
-use rusty_chess_search::telemetry::IterRecord;
+use braveheart_search::search::{DEFAULT_HASH_MB, Limits, Searcher, mate_in};
+use braveheart_search::telemetry::IterRecord;
 
 /// Read commands until `quit` or end of input, writing replies to `out`.
 /// Returns the writer when done.
@@ -43,7 +43,7 @@ where
         match words.next() {
             Some("uci") => {
                 let mut o = out.lock().unwrap();
-                writeln!(o, "id name rusty-chess {}", env!("CARGO_PKG_VERSION"))?;
+                writeln!(o, "id name Braveheart {}", env!("CARGO_PKG_VERSION"))?;
                 writeln!(o, "id author {}", env!("CARGO_PKG_AUTHORS"))?;
                 writeln!(
                     o,
@@ -398,7 +398,7 @@ mod tests {
     #[test]
     fn handshake() {
         let out = drive("uci\n");
-        assert!(out.starts_with("id name rusty-chess "));
+        assert!(out.starts_with("id name Braveheart "));
         assert!(out.ends_with("uciok\n"));
     }
 
@@ -450,7 +450,7 @@ mod tests {
             ebf: None,
             fh_first: None,
             tt_hit: None,
-            score_cp: rusty_chess_search::search::MATE - 3,
+            score_cp: braveheart_search::search::MATE - 3,
             pv: "d5f6 g7f6 c4f7".into(),
         };
         assert_eq!(
@@ -503,7 +503,7 @@ mod tests {
 
     #[test]
     fn eval_file_loads_a_network_and_reports_a_bad_one() {
-        use rusty_chess_search::nnue::FILE_BYTES;
+        use braveheart_search::nnue::FILE_BYTES;
         let dir = std::env::temp_dir().join(format!("uci-evalfile-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         // An all-zero network of the right size: legal, if not very good.
@@ -528,7 +528,7 @@ mod tests {
 
     #[test]
     fn eval_file_selects_an_embedded_net_by_id_and_pesto_by_name() {
-        use rusty_chess_search::nnue::NETS;
+        use braveheart_search::nnue::NETS;
         let out = drive(&format!(
             "setoption name EvalFile value {}\nposition startpos\ngo depth 3\nsetoption name EvalFile value pesto\nposition startpos\ngo depth 3\n",
             NETS[0].id
@@ -542,7 +542,7 @@ mod tests {
 
     #[test]
     fn eval_file_names_where_a_retired_net_is() {
-        use rusty_chess_search::nnue::RETIRED_NETS;
+        use braveheart_search::nnue::RETIRED_NETS;
         let id = RETIRED_NETS[0].id;
         let out = drive(&format!("setoption name EvalFile value {id}\nisready\n"));
         assert!(

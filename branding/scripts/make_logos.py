@@ -72,7 +72,7 @@ font_paths = ["/System/Library/Fonts/Supplemental/Arial Bold.ttf",
               "/System/Library/Fonts/Helvetica.ttc"]
 font = next(ImageFont.truetype(p, 92) for p in font_paths if Path(p).exists())
 sub = next(ImageFont.truetype(p, 36) for p in font_paths if Path(p).exists())
-draw.text((670, 250), "rusty-chess", font=font, fill=(18, 10, 10))
+draw.text((670, 250), "Braveheart", font=font, fill=(18, 10, 10))
 draw.text((674, 370), "A UCI chess engine in Rust", font=sub,
           fill=(60, 60, 60))
 card.convert("RGB").save(out_dir / "social-preview.png", optimize=True)

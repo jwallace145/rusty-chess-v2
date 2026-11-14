@@ -354,7 +354,7 @@ dataset bucket as `data/nets/<net id>/net.nnue` beside its `training.json`
   - `<default>`, or an empty value, to return to the default net.
 
   A file of the wrong size is reported in an `info string` and ignored.
-- **Bench:** `rusty-chess bench` uses the default net, and its signature is
+- **Bench:** `braveheart bench` uses the default net, and its signature is
   the net's. `--eval-file` takes a file, an embedded net's id or `pesto`.
   PeSTO's signature is unchanged since `v0.24.0` (1697503).
 - **Self-play:** `datagen.toml`'s `generation` picks the player:

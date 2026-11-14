@@ -7,8 +7,8 @@
 //! a node's result. The design, its constants and the measurement behind
 //! them were fixed before the code, in the design note.
 
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::{Color, PieceKind};
+use braveheart_core::position::Position;
+use braveheart_core::types::{Color, PieceKind};
 
 use crate::search::MATE_BOUND;
 use crate::tt::Bound;

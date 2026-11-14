@@ -105,7 +105,7 @@ pub fn empty_document() -> String {
         "# Benchmark history\n\n\
 Every release, measured on a standardized `ubuntu-latest` runner from the shipped build (`x86-64-v3`). \
 Rows are written by the `Release benchmarks` workflow into the Release Please PR, so each one is reviewed before its release is cut. \
-Each release's raw data (`bench.jsonl`, `stats.jsonl`, `perft.jsonl`, logs and `summary.json`) is attached to its [GitHub release](https://github.com/jwallace145/rusty-chess-v2/releases) as files and as one tarball, and kept in [benchmarks/](../benchmarks/) at each tag. \
+Each release's raw data (`bench.jsonl`, `stats.jsonl`, `perft.jsonl`, logs and `summary.json`) is attached to its [GitHub release](https://github.com/jwallace145/braveheart/releases) as files and as one tarball, and kept in [benchmarks/](../benchmarks/) at each tag. \
 The bench is 50 positions at a fixed depth with a fixed hash; the perft suite is `tests/perft.epd`. \
 NPS varies between runner instances by up to 2x, so compare signatures and efficiency first and NPS only for large changes. \
 What each column means is explained in [CONTRIBUTING.md](../CONTRIBUTING.md#coverage-suites-and-performance-bars).\n\n\

@@ -4,7 +4,7 @@
 # https://github.com/jwallace145/jwall-engineering-infra/blob/main/docs/lichess-bot.md
 version: 1
 project: rusty-chess
-repository: jwallace145/rusty-chess-v2
+repository: jwallace145/braveheart
 
 # The six tags every resource carries (through the provider's default_tags).
 # Project, Repository, Environment=prod and ManagedBy=terraform are cross-checked.
@@ -12,7 +12,7 @@ tags:
   Organization: jwall-engineering
   Project: rusty-chess
   Environment: prod
-  Repository: jwallace145/rusty-chess-v2
+  Repository: jwallace145/braveheart
   ManagedBy: terraform
   Owner: jwallace145
 
@@ -20,9 +20,9 @@ components:
   - kind: container-image
     architecture: x86_64            # x86_64 | arm64; must match the release asset
     artifact:                       # the release asset the image ships (never a rebuild)
-      asset: rusty-chess-{version}-x86_64-unknown-linux-gnu.tar.gz
-      checksum: rusty-chess-{version}-x86_64-unknown-linux-gnu.tar.gz.sha256
-      binary: rusty-chess
+      asset: braveheart-{version}-x86_64-unknown-linux-gnu.tar.gz
+      checksum: braveheart-{version}-x86_64-unknown-linux-gnu.tar.gz.sha256
+      binary: braveheart
     # dockerfile: docker/Dockerfile # optional: replace the harness-owned Dockerfile
 
   - kind: lichess-bot

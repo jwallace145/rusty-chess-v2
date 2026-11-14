@@ -1,11 +1,11 @@
 //! The staged move picker: TT move, good captures, killers, history quiets,
 //! bad captures; every legal move exactly once.
 
-use rusty_chess_core::r#move::Move;
-use rusty_chess_core::movegen::MoveList;
-use rusty_chess_core::position::Position;
-use rusty_chess_search::movepick::{MovePicker, Stage};
-use rusty_chess_search::see::see;
+use braveheart_core::r#move::Move;
+use braveheart_core::movegen::MoveList;
+use braveheart_core::position::Position;
+use braveheart_search::movepick::{MovePicker, Stage};
+use braveheart_search::see::see;
 
 fn pos(fen: &str) -> Position {
     Position::from_fen(fen).unwrap_or_else(|e| panic!("{fen}: {e}"))
@@ -51,7 +51,7 @@ fn a_tt_move_that_is_not_legal_is_skipped() {
     let bogus = Move::new(
         "a1".parse().unwrap(),
         "a8".parse().unwrap(),
-        rusty_chess_core::r#move::MoveFlag::Capture,
+        braveheart_core::r#move::MoveFlag::Capture,
     );
     let picked = drain(&p, bogus);
     let mut legal = MoveList::new();

@@ -17,7 +17,7 @@ gh workflow run Datagen --ref main -f instances=1 -f minutes=5 -f note="smoke te
 gh workflow run Datagen --ref main -f instances=3 -f minutes=180 -f note="gen N for net N+1"
 # 4. Audit a sample, from a checkout of the data's engine_sha (printed in every manifest).
 ci/datagen-sample.sh s3://jwall-engineering-rusty-chess-nnue/data/selfplay/v1/gen=N/run=RUN/ /tmp/sample
-cargo run --release -p rusty-chess-tools --bin datagen-audit -- check /tmp/sample --research 2000 --bullet
+cargo run --release -p braveheart-tools --bin datagen-audit -- check /tmp/sample --research 2000 --bullet
 # 5. Train only on a run whose audit says GO, or INVESTIGATE with every warning explained.
 ```
 
@@ -404,7 +404,7 @@ understate.
 
 ## Preparing the data for training
 
-`rusty-chess-trainer prepare` does all of this ([training.md](training.md)):
+`braveheart-trainer prepare` does all of this ([training.md](training.md)):
 
 - **Splits:** whole *workers* (`run/task/worker`) go to training or
   validation by a seeded hash, never individual records. A game never spans

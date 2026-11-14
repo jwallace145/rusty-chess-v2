@@ -23,8 +23,8 @@
 # 1. downloads every complete shard's positions and manifest under each
 #    --dataset (repeat it to train on several generations at once);
 # 2. prepares train.data and val.data: whole workers per split, a seeded
-#    shuffle, every record parsed by bulletformat (rusty-chess-trainer prepare);
-# 3. trains the (768 × K → H) × 2 → B net (rusty-chess-trainer train; H =
+#    shuffle, every record parsed by bulletformat (braveheart-trainer prepare);
+# 3. trains the (768 × K → H) × 2 → B net (braveheart-trainer train; H =
 #    --hidden, B = --output-buckets, one output chosen by piece count, K =
 #    --king-buckets, docs/king-buckets.md), saving a
 #    checkpoint every --checkpoint-every superbatches and scoring each on
@@ -153,7 +153,7 @@ if [ "$backend" = cuda ] && [ -z "${CUDA_PATH:-}" ]; then
   export CUDA_PATH
 fi
 (cd trainer && cargo build --release --locked --quiet --features "$backend")
-cargo build --release --locked --quiet -p rusty-chess-tools --bin nnue-eval
+cargo build --release --locked --quiet -p braveheart-tools --bin nnue-eval
 
 # One directory per dataset (its generation's folder name, gen=N), so shards
 # of different generations never share a path; prepare walks them all, and
@@ -170,13 +170,13 @@ for d in "${sources[@]}"; do
 done
 
 echo "-- preparing ($(since)s)"
-trainer/target/release/rusty-chess-trainer prepare --shards "$scratch/shards" --out "$scratch/data" \
+trainer/target/release/braveheart-trainer prepare --shards "$scratch/shards" --out "$scratch/data" \
   --val-fraction "$val_fraction" --split-seed "$split_seed" --shuffle-seed "$shuffle_seed"
 rm -rf "$scratch/shards"
 
 echo "-- training ($(since)s)"
 threads=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-trainer/target/release/rusty-chess-trainer train --data "$scratch/data" --net-id "$net_id" --wdl "$wdl" \
+trainer/target/release/braveheart-trainer train --data "$scratch/data" --net-id "$net_id" --wdl "$wdl" \
   --superbatches "$superbatches" --batches-per-superbatch "$batches" --threads "$threads" --out "$scratch/out" \
   --checkpoint-every "$checkpoint_every" --val-positions "$val_positions" --hidden "$hidden" \
   --output-buckets "$buckets" --king-buckets "$king_buckets" 2>&1 | tee "$scratch/train.log"

@@ -15,7 +15,7 @@
 use std::fmt;
 use std::time::{Duration, Instant};
 
-use rusty_chess_search::telemetry::{PerftRecord, SCHEMA_VERSION};
+use braveheart_search::telemetry::{PerftRecord, SCHEMA_VERSION};
 
 /// One suite position with its expected counts, in increasing depth order.
 #[derive(Clone, Debug, PartialEq, Eq)]

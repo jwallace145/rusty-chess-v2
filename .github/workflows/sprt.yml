@@ -107,8 +107,8 @@ jobs:
       - name: Build the PR engine and the tools
         run: |
           cargo build --release --locked --quiet
-          cargo build --release --locked --quiet -p rusty-chess-tools --bin sprt-report
-          mkdir -p engines && cp target/release/rusty-chess engines/pr
+          cargo build --release --locked --quiet -p braveheart-tools --bin sprt-report
+          mkdir -p engines && cp target/release/braveheart engines/pr
           echo "PR engine: $(engines/pr --version), bench $(engines/pr bench | awk -F: '/Nodes searched/ {gsub(/ /, "", $2); print $2}')"
       - name: Build the base engine from the PR's merge base
         env:
@@ -117,7 +117,8 @@ jobs:
           git fetch --no-tags --depth=1 --quiet origin "$BASE_SHA"
           git worktree add --quiet base "$BASE_SHA"
           cargo build --release --locked --quiet --manifest-path base/Cargo.toml --target-dir target/base
-          cp target/base/release/rusty-chess engines/base
+          # Bases from v0.52.0 and earlier build the engine as `rusty-chess`.
+          cp "$(ls target/base/release/braveheart target/base/release/rusty-chess 2>/dev/null | head -1 || true)" engines/base
           echo "Base engine at ${BASE_SHA:0:7}: $(engines/base --version), bench $(engines/base bench | awk -F: '/Nodes searched/ {gsub(/ /, "", $2); print $2}')"
       - name: Fetch fastchess ${{ env.FASTCHESS_VERSION }}
         run: |
@@ -197,7 +198,7 @@ jobs:
           NODES_OUTCOME: ${{ needs.nodes.outputs.outcome }}
           NODES_AT: ${{ needs.nodes.outputs.interrupted-at }}
         run: |
-          cargo build --release --locked --quiet -p rusty-chess-tools --bin sprt-report
+          cargo build --release --locked --quiet -p braveheart-tools --bin sprt-report
           smoke=""; if [ "$QUICK" = "true" ]; then smoke="--smoke --max-rounds 50"; fi
           # A leg the infrastructure stopped gets a note instead of a result;
           # its partial log (the -interrupted artifact) is never read for one.

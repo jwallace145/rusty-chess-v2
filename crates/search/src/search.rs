@@ -12,10 +12,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use rusty_chess_core::r#move::Move;
-use rusty_chess_core::movegen::{MoveList, generate_captures};
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::PieceKind;
+use braveheart_core::r#move::Move;
+use braveheart_core::movegen::{MoveList, generate_captures};
+use braveheart_core::position::Position;
+use braveheart_core::types::PieceKind;
 
 use crate::board::Board;
 use crate::corrhist::CorrectionHistory;
@@ -1085,7 +1085,7 @@ impl Searcher {
             generate_captures(board.position(), &mut moves);
             stand_pat
         };
-        let mut scores = [0i32; rusty_chess_core::movegen::MAX_MOVES];
+        let mut scores = [0i32; braveheart_core::movegen::MAX_MOVES];
         score_moves(board, &moves, &mut scores);
         if tt_move != Move::NULL {
             if let Some(i) = moves.iter().position(|&m| m == tt_move) {

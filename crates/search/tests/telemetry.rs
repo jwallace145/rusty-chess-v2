@@ -1,6 +1,6 @@
 //! JSON lines telemetry: one record per line, versioned, round-trippable.
 
-use rusty_chess_search::telemetry::{
+use braveheart_search::telemetry::{
     BenchRecord, IterRecord, JsonlWriter, Record, SCHEMA_VERSION, SummaryRecord, read_records,
 };
 

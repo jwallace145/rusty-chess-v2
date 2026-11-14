@@ -5,17 +5,17 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use rusty_chess_core::movegen::MoveList;
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::Color;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{
+use braveheart_core::movegen::MoveList;
+use braveheart_core::position::Position;
+use braveheart_core::types::Color;
+use braveheart_search::board::Board;
+use braveheart_search::nnue::{
     DEFAULT_NET_ID, INPUTS, KING_BUCKET_LAYOUT, KING_BUCKETS, MAX_OUTPUT_WEIGHT, NET_STORE, NETS,
     Network, OUTPUT_BUCKETS, QA, QB, RETIRED_NETS, SCALE, WIDTHS, bucketed_file_bytes,
     default_network, file_bytes, king_view, net_file_bytes, network_by_id, output_bucket,
     retired_net, retired_net_message,
 };
-use rusty_chess_search::search::{Limits, Searcher};
+use braveheart_search::search::{Limits, Searcher};
 
 struct Rng(u64);
 impl Rng {

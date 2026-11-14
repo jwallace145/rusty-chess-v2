@@ -61,7 +61,7 @@ t0=$(date +%s)
 since() { echo $(( $(date +%s) - t0 )); }
 sha=$(git rev-parse HEAD)
 
-cargo build --release --locked --quiet -p rusty-chess-tools --bin relabel
+cargo build --release --locked --quiet -p braveheart-tools --bin relabel
 label_id=$(target/release/relabel --net default --nodes "$nodes" --print-label-id)
 out_root="$labels/$label_id"
 echo "== relabel: $label_id, generations $generations, task $index of $tasks, $minutes minutes; commit ${sha:0:7} ($(since)s)"

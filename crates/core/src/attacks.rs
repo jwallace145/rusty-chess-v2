@@ -304,7 +304,7 @@ pub fn init() {
 #[cfg(test)]
 mod find {
     //! The magic finder that produced `magics.rs`. Run it with
-    //! `cargo test -p rusty-chess-core --release -- --ignored find_magics --nocapture`
+    //! `cargo test -p braveheart-core --release -- --ignored find_magics --nocapture`
     //! and paste the output; it is deterministic for a given seed.
     use super::*;
 

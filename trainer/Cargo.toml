@@ -1,8 +1,8 @@
 [package]
-name = "rusty-chess-trainer"
+name = "braveheart-trainer"
 version = "0.1.0"
 edition = "2024"
-description = "Trains rusty-chess NNUE nets with bullet; kept out of the engine's workspace so the engine never needs a GPU toolkit to build"
+description = "Trains braveheart NNUE nets with bullet; kept out of the engine's workspace so the engine never needs a GPU toolkit to build"
 license = "MIT"
 publish = false
 

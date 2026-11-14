@@ -19,13 +19,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use rusty_chess_core::r#move::Move;
-use rusty_chess_core::movegen::MoveList;
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::{Color, PieceKind};
-use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{NETS, Network, network_for_generation};
-use rusty_chess_search::search::{Limits, Searcher, is_mate_score};
+use braveheart_core::r#move::Move;
+use braveheart_core::movegen::MoveList;
+use braveheart_core::position::Position;
+use braveheart_core::types::{Color, PieceKind};
+use braveheart_search::board::Board;
+use braveheart_search::nnue::{NETS, Network, network_for_generation};
+use braveheart_search::search::{Limits, Searcher, is_mate_score};
 use serde::{Deserialize, Serialize};
 
 use crate::openings::Rng;
@@ -531,7 +531,7 @@ pub struct Totals {
 /// every `report` interval. Workers finish their current game and write
 /// their last, partial shard before returning.
 pub fn run(r: &Run, report: Duration) -> std::io::Result<Totals> {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     std::fs::create_dir_all(&r.out)?;
     let started = Instant::now();
     let stop = AtomicBool::new(false);

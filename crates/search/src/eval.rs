@@ -4,7 +4,7 @@
 //! Chess Programming Wiki. The evaluation is frozen here until the Phase 4
 //! exit gate holds; strength comes from search first.
 
-use rusty_chess_core::types::{Color, PieceKind, Square};
+use braveheart_core::types::{Color, PieceKind, Square};
 
 /// Middlegame piece values, indexed by [`PieceKind`].
 pub const MG_VALUE: [i32; 6] = [82, 337, 365, 477, 1025, 0];

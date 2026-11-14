@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use rusty_chess_core::position::Position;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::search::{Limits, MATE, SearchResult, Searcher, mate_in, time_plan};
+use braveheart_core::position::Position;
+use braveheart_search::board::Board;
+use braveheart_search::search::{Limits, MATE, SearchResult, Searcher, mate_in, time_plan};
 
 fn board(fen: &str) -> Board {
     Board::from_position(Position::from_fen(fen).unwrap_or_else(|e| panic!("{fen}: {e}")))
@@ -229,7 +229,7 @@ fn killer_moves_produce_cutoffs_on_a_real_search() {
     // Depth 7: pruning removes the shallow nodes where quiet moves cut off.
     s.search(&mut b, &depth(7), &mut |_| {});
     if let Some(summary) = s.stats().summary() {
-        let killers = summary.cutoffs_by_stage[rusty_chess_search::stats::Stage::Killers as usize];
+        let killers = summary.cutoffs_by_stage[braveheart_search::stats::Stage::Killers as usize];
         assert!(
             killers > 0,
             "the killer stage produced no cutoffs: {:?}",
@@ -309,7 +309,7 @@ fn null_move_pruning_cuts_nodes_but_never_in_check_or_pawn_endings() {
 
 #[test]
 fn the_null_move_reduction_grows_with_depth_and_with_the_margin_over_beta() {
-    use rusty_chess_search::search::null_move_reduction;
+    use braveheart_search::search::null_move_reduction;
     // Deeper nodes are reduced at least as much, at any margin.
     for margin in [0, 150, 400, 5_000] {
         for d in 3..40 {
@@ -719,7 +719,7 @@ fn late_move_reductions_reduce_and_research_without_losing_mates() {
         );
     }
     // The reduction table is monotone in depth and move index.
-    use rusty_chess_search::search::lmr_reduction;
+    use braveheart_search::search::lmr_reduction;
     assert_eq!(lmr_reduction(3, 2), lmr_reduction(3, 2));
     assert!(lmr_reduction(12, 30) >= lmr_reduction(6, 30));
     assert!(lmr_reduction(6, 40) >= lmr_reduction(6, 4));
@@ -728,7 +728,7 @@ fn late_move_reductions_reduce_and_research_without_losing_mates() {
 
 #[test]
 fn expected_cut_nodes_alternate_down_a_line_and_follow_reduced_moves() {
-    use rusty_chess_search::search::child_expects_cut;
+    use braveheart_search::search::child_expects_cut;
     // A full-window search is of a principal-variation child, whatever the
     // parent was expected to be: never an expected cut node.
     for parent in [false, true] {
@@ -933,5 +933,5 @@ fn a_pondering_search_ignores_the_clock_until_ponderhit() {
         took < hit_after + Duration::from_millis(400),
         "ran on after the ponderhit: {took:?}"
     );
-    assert!(r.best != rusty_chess_core::r#move::Move::NULL);
+    assert!(r.best != braveheart_core::r#move::Move::NULL);
 }

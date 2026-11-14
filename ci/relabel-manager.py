@@ -35,7 +35,7 @@ import subprocess
 import sys
 import time
 
-REPO = 'jwallace145/rusty-chess-v2'
+REPO = 'jwallace145/braveheart'
 DATASET = 's3://jwall-engineering-rusty-chess-nnue/data/selfplay'
 TITLE = re.compile(r'^Relabel: gen ([0-9,]+), (\d+) × (\d+) min, (\d+) nodes(?:, slots ([0-9,]+))?')
 INTERRUPTED = re.compile(r'warning: interrupted by spot reclamation')

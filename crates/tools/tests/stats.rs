@@ -1,6 +1,6 @@
 //! Pentanomial interval estimates, checked against fastchess's own numbers.
 
-use rusty_chess_tools::stats::{Confidence, elo_of, from_pentanomial, games_for, normal_cdf};
+use braveheart_tools::stats::{Confidence, elo_of, from_pentanomial, games_for, normal_cdf};
 
 #[test]
 fn the_95_percent_interval_matches_fastchess_on_real_runs() {

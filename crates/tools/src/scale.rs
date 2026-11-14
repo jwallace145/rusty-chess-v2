@@ -14,10 +14,10 @@
 
 use std::sync::Arc;
 
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::{PieceKind, Square};
-use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::Network;
+use braveheart_core::position::Position;
+use braveheart_core::types::{PieceKind, Square};
+use braveheart_search::board::Board;
+use braveheart_search::nnue::Network;
 
 /// The kinds measured, in [`PieceKind`] order: every piece but the king.
 pub const KINDS: [PieceKind; 5] = [

@@ -9,10 +9,10 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use rusty_chess_core::movegen::MoveList;
-use rusty_chess_core::position::Position;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::search::{Limits, Searcher};
+use braveheart_core::movegen::MoveList;
+use braveheart_core::position::Position;
+use braveheart_search::board::Board;
+use braveheart_search::search::{Limits, Searcher};
 
 /// Generation settings.
 #[derive(Clone, Debug)]
@@ -66,7 +66,7 @@ impl Rng {
 
 /// Generate the openings as FEN strings, in generation order.
 pub fn generate(settings: &Settings) -> Vec<String> {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let mut rng = Rng::seeded(settings.seed);
     let mut searcher = Searcher::new(Arc::new(AtomicBool::new(false)));
     let limits = Limits {

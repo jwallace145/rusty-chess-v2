@@ -1,6 +1,6 @@
 name: Bench
 
-# Runs `rusty-chess bench` in release mode, with and without the `stats`
+# Runs `braveheart bench` in release mode, with and without the `stats`
 # feature, on every PR and on every push to main. Uploads bench.jsonl and
 # stats.jsonl as artifacts. Gates only on the node signature: NPS on shared
 # runners is noisy, so it is reported but never compared.
@@ -47,9 +47,9 @@ jobs:
       - name: Bench
         id: bench
         run: |
-          target/release/rusty-chess bench --out bench.jsonl | tee bench.log
-          target/stats/release/rusty-chess bench --out stats.jsonl > stats.log
-          target/release/rusty-chess perft --suite tests/perft.epd --out perft.jsonl | tee perft.log
+          target/release/braveheart bench --out bench.jsonl | tee bench.log
+          target/stats/release/braveheart bench --out stats.jsonl > stats.log
+          target/release/braveheart perft --suite tests/perft.epd --out perft.jsonl | tee perft.log
           nodes=$(sed -n 's/^Nodes searched  : //p' bench.log)
           nps=$(sed -n 's/^Nodes\/second    : //p' bench.log)
           stats_nodes=$(sed -n 's/^Nodes searched  : //p' stats.log)
@@ -72,7 +72,7 @@ jobs:
         run: |
           sudo apt-get update -qq > /dev/null
           sudo apt-get install -y -qq valgrind > /dev/null
-          cargo run --release --locked -p rusty-chess-tools --bin speed-report -- instructions --bin target/release/rusty-chess --out instructions.jsonl
+          cargo run --release --locked -p braveheart-tools --bin speed-report -- instructions --bin target/release/braveheart --out instructions.jsonl
       - name: Paired speed against the merge base (same runner)
         # Alternate bench runs of the base build and this build on this
         # runner; the runner's own speed cancels out of the ratio.
@@ -83,9 +83,11 @@ jobs:
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
           git worktree add base-src "$BASE_SHA"
           cargo build --release --locked --manifest-path base-src/Cargo.toml --target-dir target/base
+          # Bases from v0.52.0 and earlier build the engine as `rusty-chess`.
+          base_bin=$(ls target/base/release/braveheart target/base/release/rusty-chess 2>/dev/null | head -1 || true)
           cpu=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)
-          cargo run --release --locked -p rusty-chess-tools --bin speed-report -- paired \
-            --base target/base/release/rusty-chess --pr target/release/rusty-chess --rounds 5 --cpu "$cpu" --out speed.jsonl
+          cargo run --release --locked -p braveheart-tools --bin speed-report -- paired \
+            --base "$base_bin" --pr target/release/braveheart --rounds 5 --cpu "$cpu" --out speed.jsonl
       - name: Check the Bench line in the PR description
         # The claim is the LAST `Bench: <n>` in the body (the templates list
         # "before" then "after"). The placeholder `Bench: <nodes>` is not a
@@ -125,7 +127,7 @@ jobs:
         run: |
           args="--targets perf-targets.toml --env ci $ENFORCE"
           if [ -f base-perf-targets.toml ]; then args="$args --ratchet-from base-perf-targets.toml"; fi
-          if cargo run --release --locked -p rusty-chess-tools --bin perf-gate -- $args bench.jsonl stats.jsonl perft.jsonl > gate.md; then
+          if cargo run --release --locked -p braveheart-tools --bin perf-gate -- $args bench.jsonl stats.jsonl perft.jsonl > gate.md; then
             echo "passed=true" >> "$GITHUB_OUTPUT"
           else
             echo "passed=false" >> "$GITHUB_OUTPUT"
@@ -180,7 +182,7 @@ jobs:
           for f in perft.jsonl instructions.jsonl speed.jsonl; do cp "$f" head/ 2>/dev/null || true; done
           args=(--targets perf-targets.toml --head head --head-label "${HEAD_SHA:0:7}" --gate gate.md --gate-passed "$GATE_PASSED" $NOISY)
           if [ -n "$BASE_LABEL" ]; then args+=(--base base --base-label "$BASE_LABEL"); fi
-          cargo run --release --locked -p rusty-chess-tools --bin bench-report -- "${args[@]}" > comment.md
+          cargo run --release --locked -p braveheart-tools --bin bench-report -- "${args[@]}" > comment.md
           cat comment.md
       - name: Post the bench comment (refreshed on every push)
         if: github.event_name == 'pull_request'

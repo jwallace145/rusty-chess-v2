@@ -81,7 +81,7 @@ The `commit-msg` hook runs commitlint on every commit; the `pre-commit` hook run
 | `Format` | `cargo fmt --all --check` |
 | `Clippy` | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
 | `Tests` | `cargo test --workspace --locked`, with and without `--features stats` |
-| `Bench` | `rusty-chess bench` in release mode; uploads `bench.jsonl` and `stats.jsonl`; checks a `Bench:` line in the PR body if present; runs `perf-gate` against `perf-targets.toml` |
+| `Bench` | `braveheart bench` in release mode; uploads `bench.jsonl` and `stats.jsonl`; checks a `Bench:` line in the PR body if present; runs `perf-gate` against `perf-targets.toml` |
 
 NPS on shared runners is noisy, so CI reports it but gates only on the node signature. Compare NPS on a quiet local machine.
 
@@ -91,14 +91,14 @@ Each measured layer has a coverage suite that only grows and a performance bar t
 
 | Layer | Coverage | Measured by | Bar |
 | --- | --- | --- | --- |
-| Move generation | `tests/perft.epd` (append positions; never remove or change a line) | `rusty-chess perft --suite`, `perft.jsonl` | `movegen.min_perft_nps` |
-| Search speed | the bench positions in `src/positions.rs` | `rusty-chess bench`, `bench.jsonl` | `search.min_nps` |
+| Move generation | `tests/perft.epd` (append positions; never remove or change a line) | `braveheart perft --suite`, `perft.jsonl` | `movegen.min_perft_nps` |
+| Search speed | the bench positions in `src/positions.rs` | `braveheart bench`, `bench.jsonl` | `search.min_nps` |
 | Search efficiency | the same bench, built with `--features stats` | `stats.jsonl` | `efficiency.min_fail_high_first`, `efficiency.max_ebf` |
 
 The bars are committed in `perf-targets.toml`, per environment for speed (`local` for a quiet machine, `ci` for shared runners). `perf-gate` (in `crates/tools`) compares a run's JSON lines to them:
 
 ```sh
-cargo run --release -p rusty-chess-tools --bin perf-gate -- \
+cargo run --release -p braveheart-tools --bin perf-gate -- \
   --targets perf-targets.toml --env local --enforce-noisy bench.jsonl stats.jsonl perft.jsonl
 ```
 
@@ -109,13 +109,13 @@ In CI the `Bench` job runs the gate with `--env ci`. Speed bars are reported on 
 Every PR gets one bench comment, posted by the `Bench` job and refreshed in place on every push. Speed is judged in two hardware-independent ways, because GitHub's runners are a mix of CPU models: **Speed vs base** alternates bench runs of the PR and its merge base on the same runner and reports the ratio with a 95% interval, so the runner's speed cancels out; **Instructions / node** counts instructions with cachegrind, which is the same on any x86-64 machine and so compares exactly against the release. The absolute NPS rows are informational and never marked better or worse. Otherwise the comment compares the PR's run with the latest release's telemetry assets (`bench.jsonl`, `stats.jsonl`, `perft.jsonl` attached to the GitHub release by the `telemetry` job; for a release that predates them, the tagged commit's Bench run; failing both, the latest run on the base branch, labelled `main@<sha>`): the bench signature, search NPS, perft NPS and suite result, fail-high first and EBF, each with a delta and a marker (🟢 improved, 🔴 regressed, ⚪ unchanged or within noise, 🆕 no baseline). Rows appear only for layers that are measured. The noise thresholds are the `[comment]` section of `perf-targets.toml`; the gate's verdict is one line and its table is folded into the details. `bench-report` in `crates/tools` renders it, so it can also be run locally against two directories of JSON lines:
 
 ```sh
-cargo run --release -p rusty-chess-tools --bin bench-report -- \
+cargo run --release -p braveheart-tools --bin bench-report -- \
   --targets perf-targets.toml --head runs/pr --base runs/v0.1.0 --base-label v0.1.0
 ```
 
 ## Strength tests: SPRT on CI
 
-Every `feat` that touches search or evaluation must gain Elo. Add the `sprt` label to the PR and the `SPRT` workflow builds the PR and its merge base on the same machine with the same flags, then plays fastchess games between them from `tests/openings/openings.epd` (positions our own engine generated; regenerate with `cargo run --release -p rusty-chess-tools --bin openings -- --out tests/openings/openings.epd`). The settings live under `[sprt]` in `perf-targets.toml`:
+Every `feat` that touches search or evaluation must gain Elo. Add the `sprt` label to the PR and the `SPRT` workflow builds the PR and its merge base on the same machine with the same flags, then plays fastchess games between them from `tests/openings/openings.epd` (positions our own engine generated; regenerate with `cargo run --release -p braveheart-tools --bin openings -- --out tests/openings/openings.epd`). The settings live under `[sprt]` in `perf-targets.toml`:
 
 - Each leg runs on its own dedicated 64-core `c8a.16xlarge`, launched for the job and terminated after it by jwall-engineering-infra's `remote-task.yml`, and plays 60 games at once. Both legs gate, so the `sprt` task profile in `jwall-engineering-sites.yaml` runs them on demand (about $3.45 an hour each, against about $1.27 on spot): a spot reclamation cannot leave a PR without a verdict. The work is `ci/strength-task.sh`, run at the PR's head commit; the job log streams it live. A spot interruption or a launch with no capacity shows in the comment as such, with no verdict, and fails the check: re-run it. Setting the repository variable `SPRT_RUNNER` to `github` switches back to GitHub-hosted runners at 4 games at once. Fork PRs cannot use the instances.
 - Two SPRTs run at once and post one comment. **SPRT (timed)** plays at the `[sprt] tc` time control (5+0.05): what the engine does at a clock, its cost per node included. **SPRT (fixed nodes)** plays at `nodes_per_move` (200,000): whether the search got smarter per node, whatever a node costs. **Both gate** (since 2026-11-02): only an accepted H1 in both passes the check.
@@ -177,5 +177,5 @@ If a merged release PR has no tag and no GitHub release (GitHub occasionally dro
 Every release records its numbers so improvements are preserved across versions:
 
 - When the Release Please PR opens or updates, the `Release benchmarks` workflow builds the code that will ship with the release CPU baseline and runs the bench, the stats bench and the perft suite **once**. It commits that run to the release PR with the release bot's token: the raw files under `benchmarks/v<version>/` (`bench.jsonl`, `stats.jsonl`, `perft.jsonl`, their logs and `summary.json`), a row in [docs/benchmarks.md](docs/benchmarks.md), and a `### Benchmarks` section under the version's heading in `CHANGELOG.md` with deltas against the previous release. Every number is derived from those files. Review them with the rest of the release PR. Release Please still writes everything else in the changelog; the workflow only adds that section, and records a version once.
-- When the release is cut, the `telemetry` job attaches that same `benchmarks/v<version>/` directory to the GitHub release, file by file and as one `rusty-chess-v<version>-benchmarks.tar.gz`, and appends a Benchmarks table with deltas to the release notes. Historical analysis is a matter of downloading the tarballs (or `summary.json`) from the releases page; the same files are in the repo at each tag.
-- `bench-history` in `crates/tools` does the rendering; `cargo run -p rusty-chess-tools --bin bench-history -- notes --version X --dir run --prev-dir prev --prev-version Y` previews it locally.
+- When the release is cut, the `telemetry` job attaches that same `benchmarks/v<version>/` directory to the GitHub release, file by file and as one `braveheart-v<version>-benchmarks.tar.gz`, and appends a Benchmarks table with deltas to the release notes. Historical analysis is a matter of downloading the tarballs (or `summary.json`) from the releases page; the same files are in the repo at each tag.
+- `bench-history` in `crates/tools` does the rendering; `cargo run -p braveheart-tools --bin bench-history -- notes --version X --dir run --prev-dir prev --prev-version Y` previews it locally.

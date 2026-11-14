@@ -1,7 +1,7 @@
 //! The openings generator: deterministic, balanced, distinct, parseable.
 
-use rusty_chess_core::position::Position;
-use rusty_chess_tools::openings::{Settings, generate};
+use braveheart_core::position::Position;
+use braveheart_tools::openings::{Settings, generate};
 
 #[test]
 fn openings_are_deterministic_distinct_balanced_and_parse() {

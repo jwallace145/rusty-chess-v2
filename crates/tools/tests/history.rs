@@ -1,9 +1,9 @@
 //! Release benchmark history: the table, the changelog section, the notes.
 
-use rusty_chess_search::stats::StatsSummary;
-use rusty_chess_search::telemetry::{BenchRecord, PerftRecord, Record};
-use rusty_chess_tools::gate::Measured;
-use rusty_chess_tools::history::{
+use braveheart_search::stats::StatsSummary;
+use braveheart_search::telemetry::{BenchRecord, PerftRecord, Record};
+use braveheart_tools::gate::Measured;
+use braveheart_tools::history::{
     changelog_section, empty_document, insert_into_changelog, release_notes, row, upsert_row,
 };
 
@@ -153,7 +153,7 @@ fn release_notes_show_deltas_against_the_previous_release() {
 #[test]
 fn the_summary_is_machine_readable_json() {
     let m = measured(14_942_735, 11_100_000, 0.856, 4.74);
-    let text = rusty_chess_tools::history::summary_json("0.5.0", "2026-10-28", &m);
+    let text = braveheart_tools::history::summary_json("0.5.0", "2026-10-28", &m);
     let v: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert_eq!(v["version"], "v0.5.0");
     assert_eq!(v["bench"]["signature"], 14_942_735);

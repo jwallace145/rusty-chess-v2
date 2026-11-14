@@ -5,16 +5,16 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::time::Instant;
 
-use rusty_chess_core::movegen::{perft, perft_divide};
-use rusty_chess_core::position::Position;
-use rusty_chess_search::telemetry::{JsonlWriter, Record};
-use rusty_chess_tools::perft::{Suite, run as run_suite};
+use braveheart_core::movegen::{perft, perft_divide};
+use braveheart_core::position::Position;
+use braveheart_search::telemetry::{JsonlWriter, Record};
+use braveheart_tools::perft::{Suite, run as run_suite};
 
 use crate::cli::PerftArgs;
 
 /// Run perft. Returns `Ok(false)` if the suite had failures.
 pub fn run<W: Write>(args: &PerftArgs, out: &mut W) -> io::Result<bool> {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     match &args.suite {
         Some(path) => suite(args, path, out),
         None => divide(args, out).map(|()| true),

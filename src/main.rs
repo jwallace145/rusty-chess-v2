@@ -1,11 +1,11 @@
-//! The `rusty-chess` binary (the workspace root package): a UCI engine with
+//! The `braveheart` binary (the workspace root package): a UCI engine with
 //! `bench` and `perft` subcommands.
 //!
 //! ```text
-//! rusty-chess                     # UCI loop on stdin/stdout
-//! rusty-chess bench [--depth N] [--hash MB] [--out FILE]
-//! rusty-chess perft [--depth N] [--fen FEN]
-//! rusty-chess --version | --help
+//! braveheart                     # UCI loop on stdin/stdout
+//! braveheart bench [--depth N] [--hash MB] [--out FILE]
+//! braveheart perft [--depth N] [--fen FEN]
+//! braveheart --version | --help
 //! ```
 
 mod bench;
@@ -28,7 +28,7 @@ fn main() -> ExitCode {
     let command = match cli::parse(std::env::args().skip(1)) {
         Ok(command) => command,
         Err(err) => {
-            eprintln!("rusty-chess: {err}");
+            eprintln!("braveheart: {err}");
             eprintln!("{}", cli::USAGE);
             return ExitCode::from(EXIT_USAGE);
         }
@@ -36,7 +36,7 @@ fn main() -> ExitCode {
 
     let result = match command {
         Command::Version => {
-            println!("rusty-chess {}", env!("CARGO_PKG_VERSION"));
+            println!("braveheart {}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
         Command::Help => {
@@ -55,7 +55,7 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("rusty-chess: {err}");
+            eprintln!("braveheart: {err}");
             ExitCode::FAILURE
         }
     }

@@ -34,13 +34,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
+use braveheart_core::movegen::MoveList;
+use braveheart_core::position::Position;
+use braveheart_core::types::{Color, PieceKind};
+use braveheart_search::board::Board;
+use braveheart_search::nnue::Network;
+use braveheart_search::search::{Limits, MATE_BOUND, Searcher, is_mate_score};
 use flate2::read::GzDecoder;
-use rusty_chess_core::movegen::MoveList;
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::{Color, PieceKind};
-use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::Network;
-use rusty_chess_search::search::{Limits, MATE_BOUND, Searcher, is_mate_score};
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -114,7 +114,7 @@ fn dataset_net(shards: &[Shard]) -> Option<Arc<Network>> {
             .all(|s| &s.manifest["settings"]["generation"] == generation),
         "the shards mix generations; audit one at a time"
     );
-    let settings: rusty_chess_tools::datagen::Settings =
+    let settings: braveheart_tools::datagen::Settings =
         serde_json::from_value(shards[0].manifest["settings"].clone()).unwrap();
     settings.network()
 }
@@ -195,7 +195,7 @@ fn quantile(v: &mut [i64], q: f64) -> i64 {
 }
 
 fn replay(dir: &Path, bc: &Bars) -> (u64, u32) {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let shards = load(dir);
     let mut c: BTreeMap<&str, u64> = BTreeMap::new();
     let inc = |c: &mut BTreeMap<&str, u64>, k: &'static str, n: u64| *c.entry(k).or_insert(0) += n;
@@ -840,7 +840,7 @@ fn b_wins(r: &BTreeMap<String, [u64; 3]>) -> u64 {
 
 /// Returns the correlation within ±1500, the same-sign share and the median depth.
 fn research(dir: &Path, n: usize) -> (f64, f64, f64) {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let shards = load(dir);
     let nodes = shards[0].manifest["settings"]["nodes"].as_u64().unwrap();
     let net = dataset_net(&shards);
@@ -968,9 +968,9 @@ fn research(dir: &Path, n: usize) -> (f64, f64, f64) {
 /// a different net or setting changes the moves within a few games. Returns
 /// the number of workers whose games differ.
 fn determinism(dir: &Path, n: usize) -> usize {
-    use rusty_chess_tools::datagen::{Settings, net_provenance, play_game};
-    use rusty_chess_tools::openings::Rng;
-    rusty_chess_core::attacks::init();
+    use braveheart_tools::datagen::{Settings, net_provenance, play_game};
+    use braveheart_tools::openings::Rng;
+    braveheart_core::attacks::init();
     let shards = load(dir);
     let firsts: Vec<&Shard> = shards
         .iter()
@@ -1619,7 +1619,7 @@ fn category(term: &str) -> &'static str {
 }
 
 fn outcomes(dir: &Path) {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let shards = load(dir);
     let edges = [-700, -300, -100, -25, 25, 100, 300, 700];
     let label = |s: i32| -> usize { edges.iter().position(|&e| s < e).unwrap_or(edges.len()) };
@@ -1722,7 +1722,7 @@ fn outcomes(dir: &Path) {
 }
 
 fn adjudication(dir: &Path, n: usize) {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let shards = load(dir);
     let dataset = dataset_net(&shards);
     let net = &dataset;
@@ -1874,7 +1874,7 @@ fn adjudication(dir: &Path, n: usize) {
 }
 
 fn repetition(dir: &Path, n: usize) {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let shards = load(dir);
     let dataset = dataset_net(&shards);
     let net = &dataset;
@@ -1974,7 +1974,7 @@ fn repetition(dir: &Path, n: usize) {
 }
 
 fn openings(dir: &Path) {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let shards = load(dir);
     let games: Vec<&Value> = shards.iter().flat_map(|s| s.games.iter()).collect();
     let n = games.len() as u64;

@@ -1,9 +1,9 @@
-# The workspace root is also a package: the `rusty-chess` engine binary (UCI
+# The workspace root is also a package: the `braveheart` engine binary (UCI
 # front end, `bench` and `perft` subcommands). Release Please's `rust`
 # strategy bumps the root package and every member together, and the root
 # `tests/` and `benches/` directories belong to this package.
 [package]
-name = "rusty-chess"
+name = "braveheart"
 version = "0.52.0"
 description = "A UCI chess engine in Rust: classical search measured to be strong before NNUE"
 edition.workspace = true
@@ -14,17 +14,17 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "rusty-chess"
+name = "braveheart"
 path = "src/main.rs"
 
 [features]
 # Search statistics counters; forwarded to the search crate.
-stats = ["rusty-chess-search/stats"]
+stats = ["braveheart-search/stats"]
 
 [dependencies]
-rusty-chess-core = { path = "crates/core" }
-rusty-chess-search = { path = "crates/search" }
-rusty-chess-tools = { path = "crates/tools" }
+braveheart-core = { path = "crates/core" }
+braveheart-search = { path = "crates/search" }
+braveheart-tools = { path = "crates/tools" }
 
 [lints]
 workspace = true
@@ -44,7 +44,7 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT"
 authors = ["Jimmy Wallace <jimmy.wallace145@gmail.com>"]
-repository = "https://github.com/jwallace145/rusty-chess-v2"
+repository = "https://github.com/jwallace145/braveheart"
 publish = false
 
 [workspace.lints.rust]

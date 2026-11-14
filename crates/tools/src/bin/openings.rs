@@ -7,7 +7,7 @@
 use std::io::Write;
 use std::process::ExitCode;
 
-use rusty_chess_tools::openings::{Settings, generate};
+use braveheart_tools::openings::{Settings, generate};
 
 fn main() -> ExitCode {
     let mut settings = Settings::default();
