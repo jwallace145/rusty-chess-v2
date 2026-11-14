@@ -41,7 +41,7 @@ cand_label=${cand_label:-${candidate:0:7}}
 base_label=${base_label:-${baseline:0:7}}
 
 FASTCHESS_VERSION=v1.8.2-alpha
-REPO_URL=https://github.com/jwallace145/rusty-chess-v2
+REPO_URL=https://github.com/jwallace145/braveheart
 OPENINGS=tests/openings/openings.epd
 export RUSTFLAGS="-C target-cpu=x86-64-v3" CARGO_TERM_COLOR=never
 work=$(mktemp -d /tmp/match.XXXXXX)
@@ -58,7 +58,7 @@ echo "== match: $cand_label (${candidate:0:7}) vs $base_label (${baseline:0:7}),
 echo "   $cpu, $cores cores, $concurrency games at once${note:+; note: $note}"
 
 # Validate the settings before spending minutes on builds.
-cargo build --release --locked --quiet -p rusty-chess-tools --bin match-report
+cargo build --release --locked --quiet -p braveheart-tools --bin match-report
 settings=(--tc "$tc" --nodes "$nodes" --games "$games" --concurrency "$concurrency" --hash "$hash" --openings "$OPENINGS" --confidence "$confidence")
 read -ra args <<< "$(target/release/match-report args "${settings[@]}")"
 
@@ -82,7 +82,8 @@ done
 mkdir -p "$work/engines"
 declare -A bench
 for side in candidate baseline; do
-  cp "$work/$side-target/release/rusty-chess" "$work/engines/$side"
+  # Refs from v0.52.0 and earlier build the engine as `rusty-chess`.
+  cp "$(ls "$work/$side-target/release/braveheart" "$work/$side-target/release/rusty-chess" 2>/dev/null | head -1 || true)" "$work/engines/$side"
   out=$("$work/engines/$side" bench)
   bench[$side]=$(awk -F: '/Nodes searched/ {gsub(/ /, "", $2); print $2}' <<< "$out")
   echo "$side: $("$work/engines/$side" --version), bench signature ${bench[$side]}"

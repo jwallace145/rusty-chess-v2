@@ -25,14 +25,14 @@ Squash merges use the title as the commit message.
 
 ## Bench signature
 
-<!-- From `rusty-chess bench` on a quiet machine, before and after this change. A changed signature means search behaviour changed. CI checks the LAST `Bench:` line (the after) against its own run. -->
+<!-- From `braveheart bench` on a quiet machine, before and after this change. A changed signature means search behaviour changed. CI checks the LAST `Bench:` line (the after) against its own run. -->
 
 - Bench before: `Bench: <nodes>`
 - Bench after: `Bench: <nodes>`
 
 ## NPS
 
-<!-- `rusty-chess bench` on a quiet machine, same signature before and after. -->
+<!-- `braveheart bench` on a quiet machine, same signature before and after. -->
 
 - NPS before: `<nps>`
 - NPS after: `<nps>`

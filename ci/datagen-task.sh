@@ -69,9 +69,9 @@ else
 fi
 
 cargo build --release --locked --quiet
-cargo build --release --locked --quiet -p rusty-chess-tools --bin datagen
-bench=$(target/release/rusty-chess bench | awk -F: '/Nodes searched/ {gsub(/ /, "", $2); print $2}')
-echo "engine $(target/release/rusty-chess --version), bench $bench ($(since)s)"
+cargo build --release --locked --quiet -p braveheart-tools --bin datagen
+bench=$(target/release/braveheart bench | awk -F: '/Nodes searched/ {gsub(/ /, "", $2); print $2}')
+echo "engine $(target/release/braveheart --version), bench $bench ($(since)s)"
 
 uploaded=0
 # The AWS CLI uploads a directory's files concurrently; 32 at once keeps a

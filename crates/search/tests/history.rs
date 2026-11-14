@@ -1,10 +1,10 @@
 //! Butterfly history with gravity, and quiet ordering by it.
 
-use rusty_chess_core::r#move::Move;
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::Color;
-use rusty_chess_search::history::{Continuation, History, MAX_HISTORY, PieceTo};
-use rusty_chess_search::movepick::{MovePicker, Stage};
+use braveheart_core::r#move::Move;
+use braveheart_core::position::Position;
+use braveheart_core::types::Color;
+use braveheart_search::history::{Continuation, History, MAX_HISTORY, PieceTo};
+use braveheart_search::movepick::{MovePicker, Stage};
 
 fn mv(uci: &str, pos: &Position) -> Move {
     pos.parse_uci_move(uci).unwrap_or_else(|| panic!("{uci}"))

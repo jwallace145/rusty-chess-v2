@@ -1,9 +1,9 @@
 //! The perft suite against the engine's move generator.
 //!
-//! `tests/perft.epd` is the coverage set; `rusty_chess_tools::perft` runs it
-//! against `rusty_chess_core::movegen::perft`.
+//! `tests/perft.epd` is the coverage set; `braveheart_tools::perft` runs it
+//! against `braveheart_core::movegen::perft`.
 
-use rusty_chess_tools::perft::{Suite, run};
+use braveheart_tools::perft::{Suite, run};
 
 const EPD: &str = include_str!("perft.epd");
 
@@ -45,7 +45,7 @@ fn no_position_appears_twice() {
 }
 
 /// The real check. Depth is capped so the suite runs in seconds in a debug
-/// build; `rusty-chess perft --suite tests/perft.epd` runs every depth in
+/// build; `braveheart perft --suite tests/perft.epd` runs every depth in
 /// release mode and is what CI measures.
 #[test]
 fn every_count_matches() {
@@ -55,8 +55,8 @@ fn every_count_matches() {
         .unwrap_or(4);
     let report = run(&suite(), max_depth, |fen, depth| {
         let mut pos =
-            rusty_chess_core::position::Position::from_fen(fen).map_err(|e| e.to_string())?;
-        Ok::<u64, String>(rusty_chess_core::movegen::perft(&mut pos, depth))
+            braveheart_core::position::Position::from_fen(fen).map_err(|e| e.to_string())?;
+        Ok::<u64, String>(braveheart_core::movegen::perft(&mut pos, depth))
     });
     for failure in report.failures() {
         eprintln!(

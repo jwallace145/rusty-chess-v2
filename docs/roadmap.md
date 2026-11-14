@@ -39,8 +39,8 @@ The goal is a single-threaded Rust UCI engine whose classical search is measurab
 
 | Layer | What it measures | How | Bar (`perf-targets.toml`) |
 | --- | --- | --- | --- |
-| Move generation | Perft NPS (bulk counting) over `tests/perft.epd` | `rusty-chess perft --suite` | `movegen.min_perft_nps` 100M local and CI |
-| Search speed | Paired NPS ratio against the base on one runner; instructions per node (cachegrind, chip-independent); absolute NPS with the CPU model, informational | `speed-report paired`, `speed-report instructions`, `rusty-chess bench` | `search.min_nps` 2M local, 1M CI (absolute, release PRs) |
+| Move generation | Perft NPS (bulk counting) over `tests/perft.epd` | `braveheart perft --suite` | `movegen.min_perft_nps` 100M local and CI |
+| Search speed | Paired NPS ratio against the base on one runner; instructions per node (cachegrind, chip-independent); absolute NPS with the CPU model, informational | `speed-report paired`, `speed-report instructions`, `braveheart bench` | `search.min_nps` 2M local, 1M CI (absolute, release PRs) |
 | Search efficiency | Fail-high-first, EBF, TT hit rate, qsearch share, cutoffs by stage | `bench` with `--features stats` | `efficiency.min_fail_high_first`, `max_ebf` (set at the Phase 3 gate) |
 | Strength | Elo against the PR's base, timed (5+0.05) and at fixed nodes (200k), bounds [0, 5], at most 5000 pairs | fastchess SPRT on dedicated 64-core instances, `sprt` label | H1 accepted in both the timed and the fixed-node test, or the PR does not merge |
 | Head-to-head | Elo between any two refs with a 99% pentanomial interval | the `Match` workflow, on a dedicated instance | A measurement, not a gate |
@@ -144,7 +144,7 @@ The standard techniques the engine still lacked, each worth 10–40 Elo and all 
 - [ ] Homebrew tap bumped by the `release` job after the Release Please PR merges (release notes already carry the signature and telemetry since Phase 0)
 - [x] Lichess bot account: `lichess/run.sh` connects the engine through lichess-bot for development (see `lichess/README.md`), and an always-on `c8a.medium` run by jwall-engineering-infra plays every published release automatically (#74). The rating it earns is the real-world number; it is not comparable to the ladder's or CCRL's
 - [x] The bot's openings: Lichess's opening explorer (masters games, the best-scoring move played at least 50 times) through lichess-bot, never the engine (#86, v0.19.0); pondering on the opponent's clock (#108, v0.25.0)
-- [ ] Opening book as a release asset: a from-scratch Polyglot book builder in `crates/tools` from a master-games collection (data credited like PeSTO), published as `rusty-chess-book.bin` beside the binaries; the Lichess bot plays it through lichess-bot's polyglot setting with weighted random selection. The engine itself stays book-free: SPRT, the ladder and CCRL testers all play from their own openings. **Decided 2026-10-28:** no `OwnBook` in the binary; a book built from the engine's own games replaces the master-games book after Phase 6
+- [ ] Opening book as a release asset: a from-scratch Polyglot book builder in `crates/tools` from a master-games collection (data credited like PeSTO), published as `braveheart-book.bin` beside the binaries; the Lichess bot plays it through lichess-bot's polyglot setting with weighted random selection. The engine itself stays book-free: SPRT, the ladder and CCRL testers all play from their own openings. **Decided 2026-10-28:** no `OwnBook` in the binary; a book built from the engine's own games replaces the master-games book after Phase 6
 - [ ] Release matrix for CCRL testers: a Windows x86-64 build and a baseline x86-64 build beside the x86-64-v3 one, named by CPU level
 - [ ] Optional: submission to CCRL testers
 - [ ] **Exit:** `brew install` works on macOS arm64 and x86_64; the engine is publicly rated somewhere
@@ -214,8 +214,8 @@ The destination named in the goals: our own network, trained on our own games. *
 ## Repo layout and conventions
 
 ```
-rusty-chess-v2/
-  Cargo.toml   # root package `rusty-chess` (the binary) plus the [workspace]
+braveheart/
+  Cargo.toml   # root package `braveheart` (the binary) plus the [workspace]
   src/         # UCI protocol (pondering, EvalFile) + binary entry point (bench, perft subcommands)
   crates/
     core/      # board, bitboards, magics, movegen, zobrist, make/unmake (no deps)

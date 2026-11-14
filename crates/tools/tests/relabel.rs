@@ -5,11 +5,11 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use rusty_chess_core::types::Color;
-use rusty_chess_search::search::{MATE, Searcher};
-use rusty_chess_tools::datagen::{Settings, play_game, record_line};
-use rusty_chess_tools::openings::Rng;
-use rusty_chess_tools::relabel::{MATE_CLAMP, relabel_shard, white_label};
+use braveheart_core::types::Color;
+use braveheart_search::search::{MATE, Searcher};
+use braveheart_tools::datagen::{Settings, play_game, record_line};
+use braveheart_tools::openings::Rng;
+use braveheart_tools::relabel::{MATE_CLAMP, relabel_shard, white_label};
 
 fn quick() -> Settings {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../datagen.toml");
@@ -21,7 +21,7 @@ fn quick() -> Settings {
 }
 
 fn searcher() -> Searcher {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     Searcher::new(Arc::new(AtomicBool::new(false)))
 }
 

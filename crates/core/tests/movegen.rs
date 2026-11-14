@@ -1,9 +1,9 @@
 //! Legal move generation and perft on positions with known answers. The full
 //! suite runs from the root crate's `tests/perft.rs`.
 
-use rusty_chess_core::r#move::Move;
-use rusty_chess_core::movegen::{MoveList, perft, perft_divide};
-use rusty_chess_core::position::Position;
+use braveheart_core::r#move::Move;
+use braveheart_core::movegen::{MoveList, perft, perft_divide};
+use braveheart_core::position::Position;
 
 fn pos(fen: &str) -> Position {
     Position::from_fen(fen).unwrap_or_else(|e| panic!("{fen}: {e}"))
@@ -116,7 +116,7 @@ fn uci_moves_parse_against_the_position() {
     let p = pos("4k3/1P6/8/8/8/8/8/4K3 w - - 0 1");
     assert_eq!(
         p.parse_uci_move("b7b8n").unwrap().promotion(),
-        Some(rusty_chess_core::types::PieceKind::Knight)
+        Some(braveheart_core::types::PieceKind::Knight)
     );
     assert!(p.parse_uci_move("b7b8").is_none());
 }
@@ -170,7 +170,7 @@ fn perft_divide_sums_to_perft() {
 
 #[test]
 fn captures_and_quiets_partition_the_legal_moves() {
-    use rusty_chess_core::movegen::{generate_captures, generate_quiets};
+    use braveheart_core::movegen::{generate_captures, generate_quiets};
     for fen in [
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
         "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",

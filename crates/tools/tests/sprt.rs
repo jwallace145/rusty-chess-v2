@@ -1,7 +1,7 @@
 //! Parsing fastchess output and rendering the SPRT comment.
 
-use rusty_chess_tools::gate::{Sprt, Targets};
-use rusty_chess_tools::sprt::{
+use braveheart_tools::gate::{Sprt, Targets};
+use braveheart_tools::sprt::{
     Meta, Notes, Verdict, fastchess_args, gate_passes, interpret, parse, passes, render,
     render_dual, render_dual_with_notes,
 };

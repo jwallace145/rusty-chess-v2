@@ -10,11 +10,11 @@
 
 use std::process::ExitCode;
 
-use rusty_chess_tools::gate::Targets;
-use rusty_chess_tools::rating::{
+use braveheart_tools::gate::Targets;
+use braveheart_tools::rating::{
     Level, Meta, estimate, fastchess_args, headline, render, render_json,
 };
-use rusty_chess_tools::sprt::parse_match;
+use braveheart_tools::sprt::parse_match;
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {

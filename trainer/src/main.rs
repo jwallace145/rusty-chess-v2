@@ -1,13 +1,13 @@
-//! `rusty-chess-trainer`: prepare self-play data and train NNUE nets with
+//! `braveheart-trainer`: prepare self-play data and train NNUE nets with
 //! bullet.
 //!
 //! ```text
-//! rusty-chess-trainer prepare --shards DIR --out DIR [--val-fraction 0.05] [--split-seed 1] [--shuffle-seed 1] [--threads N]
-//! rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--output-buckets 1] [--king-buckets 1] [--scale 400]
+//! braveheart-trainer prepare --shards DIR --out DIR [--val-fraction 0.05] [--split-seed 1] [--shuffle-seed 1] [--threads N]
+//! braveheart-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--output-buckets 1] [--king-buckets 1] [--scale 400]
 //!                           [--batches-per-superbatch 6104] [--batch-size 16384] [--lr 0.001]
 //!                           [--lr-gamma 0.1] [--lr-step N] [--threads 4] [--out DIR]
 //!                           [--checkpoint-every 4] [--val-positions 4000000]
-//! rusty-chess-trainer validate --net FILE --data DIR --wdl λ [--positions 4000000] [--threads 4]
+//! braveheart-trainer validate --net FILE --data DIR --wdl λ [--positions 4000000] [--threads 4]
 //! ```
 //!
 //! `prepare` reads every shard under `--shards` (the S3 layout:
@@ -115,12 +115,12 @@ fn main() {
         Some("train") => train(&args[1..]),
         Some("validate") => validate(&args[1..]),
         _ => Err(
-            "usage: rusty-chess-trainer prepare ... | train ... | validate ... (see the source's header)"
+            "usage: braveheart-trainer prepare ... | train ... | validate ... (see the source's header)"
                 .into(),
         ),
     };
     if let Err(e) = result {
-        eprintln!("rusty-chess-trainer: {e}");
+        eprintln!("braveheart-trainer: {e}");
         std::process::exit(2);
     }
 }

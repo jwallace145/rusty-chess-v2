@@ -12,7 +12,7 @@
 //! original window, and a shallower non-exact store never overwrites a
 //! deeper entry for the same key.
 
-use rusty_chess_core::r#move::Move;
+use braveheart_core::r#move::Move;
 
 use crate::search::MATE_BOUND;
 

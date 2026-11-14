@@ -1,6 +1,6 @@
 //! Paired speed ratios, bench output and cachegrind parsing.
 
-use rusty_chess_tools::speed::{
+use braveheart_tools::speed::{
     BenchRun, paired_ratio, parse_bench_output, parse_bench_run, parse_cachegrind_summary,
 };
 
@@ -26,7 +26,7 @@ fn bench_output_yields_nodes_nps_and_time() {
 
 #[test]
 fn cachegrind_summary_is_the_total_instruction_count() {
-    let text = "desc: I1 cache: ...\ncmd: rusty-chess bench --depth 6\nevents: Ir\nfl=???\nfn=main\n1 5\nsummary: 12345678901\n";
+    let text = "desc: I1 cache: ...\ncmd: braveheart bench --depth 6\nevents: Ir\nfl=???\nfn=main\n1 5\nsummary: 12345678901\n";
     assert_eq!(parse_cachegrind_summary(text), Some(12_345_678_901));
     assert_eq!(parse_cachegrind_summary("events: Ir\n"), None);
 }

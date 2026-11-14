@@ -1,6 +1,6 @@
 # Local engine battles with EngineBattle
 
-Play rusty-chess against other UCI engines on your own machine, watch the
+Play braveheart against other UCI engines on your own machine, watch the
 games live on a board, and keep the PGNs. It uses
 [EngineBattle](https://github.com/lepned/EngineBattle), a web GUI with a
 console (`eb-cli`), installed as an external program and never vendored here.
@@ -24,7 +24,7 @@ this does the following in about half a minute:
 1. **Downloads EngineBattle v1.13.0** (the self-contained build, so no .NET
    needed), Stockfish 19 and Viridithas 20. Viridithas is Apple silicon only.
    Every download is pinned to a release and checked against its SHA-256.
-2. **Builds this working tree's rusty-chess** in release mode.
+2. **Builds this working tree's braveheart** in release mode.
 3. **Registers the engines.** EngineBattle starts each one over UCI and writes
    an engine definition from what it reports. Every engine gets one thread and
    64 MB of hash.
@@ -47,13 +47,13 @@ committed or redistributed.
 
 | Command | Registers |
 |:--|:--|
-| `eb.sh add-rusty` | this working tree's build, as `rusty-chess-dev-<sha>` (`-dirty` with uncommitted engine changes) |
-| `eb.sh add-rusty --ref v0.30.0` | any tag, branch or commit, built in a temporary worktree, as `rusty-chess-v0.30.0` |
-| `eb.sh add-rusty --net net1-l050-r41022503872` | a build with another evaluation, through the UCI `EvalFile` option: an embedded net's id, `pesto`, or a `.nnue` path |
+| `eb.sh add-braveheart` | this working tree's build, as `braveheart-dev-<sha>` (`-dirty` with uncommitted engine changes) |
+| `eb.sh add-braveheart --ref v0.30.0` | any tag, branch or commit, built in a temporary worktree, as `braveheart-v0.30.0` |
+| `eb.sh add-braveheart --net net1-l050-r41022503872` | a build with another evaluation, through the UCI `EvalFile` option: an embedded net's id, `pesto`, or a `.nnue` path |
 | `eb.sh add-engine NAME PATH [--uci OPTION=VALUE ...]` | any UCI executable, e.g. `--uci UCI_LimitStrength=true --uci UCI_Elo=2800` |
 | `eb.sh list` | lists what's registered |
 
-**Each Rusty Chess build is kept as its own binary,** so versions and nets
+**Each Braveheart build is kept as its own binary,** so versions and nets
 stay separate competitors and nothing in the engine's source changes to switch
 between them.
 
@@ -66,17 +66,17 @@ between them.
 
 ```sh
 # Watch a 2+1 blitz match live: opens EngineBattle in the browser; press Ctrl+R to start
-tools/engine-battle/eb.sh play --engines rusty-chess-dev-75017a5,stockfish-19-elo3000
+tools/engine-battle/eb.sh play --engines braveheart-dev-75017a5,stockfish-19-elo3000
 
 # The same in the terminal, 4 games at a time
-tools/engine-battle/eb.sh play --engines rusty-chess-dev-75017a5,stockfish-19-elo3000 --console --parallel 4
+tools/engine-battle/eb.sh play --engines braveheart-dev-75017a5,stockfish-19-elo3000 --console --parallel 4
 
 # A gauntlet (the first engine plays each of the others) at a fixed 100k nodes a move
 tools/engine-battle/eb.sh play --mode gauntlet --nodes 100000 --rounds 20 \
-  --engines rusty-chess-dev-75017a5,rusty-chess-v0.30.0,stockfish-19-elo3000,viridithas-20
+  --engines braveheart-dev-75017a5,braveheart-v0.30.0,stockfish-19-elo3000,viridithas-20
 
 # A round robin of three builds
-tools/engine-battle/eb.sh play --mode rr --engines rusty-chess-v0.30.0,rusty-chess-dev-75017a5,rusty-chess-dev-75017a5-net1-l050-r41022503872
+tools/engine-battle/eb.sh play --mode rr --engines braveheart-v0.30.0,braveheart-dev-75017a5,braveheart-dev-75017a5-net1-l050-r41022503872
 ```
 
 | Option | Default | |
@@ -118,7 +118,7 @@ EngineBattle, which opens `http://localhost:5018`.
 
 **After the tournament:**
 - the GUI's game review (Analysis and PGN tools) replays the games;
-- Rusty Chess reports everything EngineBattle shows except selective depth
+- Braveheart reports everything EngineBattle shows except selective depth
   (the PGN's `sd=0`).
 
 `eb.sh gui` reopens the app with the last tournament.
@@ -148,5 +148,5 @@ generated tournament, and `eb.sh play` runs that check before every start.
 again. A changed EngineBattle version reinstalls the app. Engine definitions
 and results are kept.
 
-**Rusty Chess:** to pick up new engine changes, run `eb.sh add-rusty` again.
+**Braveheart:** to pick up new engine changes, run `eb.sh add-braveheart` again.
 A new commit gets a new name, and older builds stay registered.

@@ -5,9 +5,9 @@
 //! victim then attacker, killers, the remaining quiets ordered by history,
 //! and finally the losing captures. Each move is scored once.
 
-use rusty_chess_core::r#move::Move;
-use rusty_chess_core::movegen::{MAX_MOVES, MoveList, generate_captures, generate_quiets};
-use rusty_chess_core::position::Position;
+use braveheart_core::r#move::Move;
+use braveheart_core::movegen::{MAX_MOVES, MoveList, generate_captures, generate_quiets};
+use braveheart_core::position::Position;
 
 use crate::see::{SEE_VALUE, see};
 pub use crate::stats::Stage;

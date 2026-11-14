@@ -3,7 +3,7 @@
 The files in this directory are **not open source** and are **not** covered by
 the MIT licence in the repository root. That licence applies to the code only.
 
-- **Copyright:** the rusty-chess logo artwork, in every version and every
+- **Copyright:** the Braveheart logo artwork, in every version and every
   file derived from it in this directory, is copyright © 2026 the artist who
   created it. The artist keeps the copyright.
 - **Licensee:** Jimmy Wallace uses the artwork under a licence from the artist

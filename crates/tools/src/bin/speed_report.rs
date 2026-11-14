@@ -10,8 +10,8 @@ use std::io::BufWriter;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use rusty_chess_search::telemetry::{JsonlWriter, Record};
-use rusty_chess_tools::speed::{measure_instructions, measure_paired};
+use braveheart_search::telemetry::{JsonlWriter, Record};
+use braveheart_tools::speed::{measure_instructions, measure_paired};
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {

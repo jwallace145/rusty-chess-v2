@@ -13,9 +13,9 @@ use std::io::BufReader;
 use std::path::Path;
 use std::process::ExitCode;
 
-use rusty_chess_search::telemetry::read_records;
-use rusty_chess_tools::gate::{Measured, Targets};
-use rusty_chess_tools::report::{Meta, render};
+use braveheart_search::telemetry::read_records;
+use braveheart_tools::gate::{Measured, Targets};
+use braveheart_tools::report::{Meta, render};
 
 const FILES: [&str; 5] = [
     "bench.jsonl",

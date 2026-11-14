@@ -72,12 +72,12 @@ jobs:
           cargo build --release --locked --features stats --target-dir target/stats
           run="benchmarks/v${{ steps.version.outputs.version }}"
           mkdir -p "$run"
-          target/release/rusty-chess bench --out "$run/bench.jsonl" > "$run/bench.log"
-          target/stats/release/rusty-chess bench --out "$run/stats.jsonl" > "$run/stats.log"
-          target/release/rusty-chess perft --suite tests/perft.epd --out "$run/perft.jsonl" > "$run/perft.log"
+          target/release/braveheart bench --out "$run/bench.jsonl" > "$run/bench.log"
+          target/stats/release/braveheart bench --out "$run/stats.jsonl" > "$run/stats.log"
+          target/release/braveheart perft --suite tests/perft.epd --out "$run/perft.jsonl" > "$run/perft.log"
           sudo apt-get update -qq > /dev/null
           sudo apt-get install -y -qq valgrind > /dev/null
-          cargo run --release --locked -p rusty-chess-tools --bin speed-report -- instructions --bin target/release/rusty-chess --out "$run/instructions.jsonl"
+          cargo run --release --locked -p braveheart-tools --bin speed-report -- instructions --bin target/release/braveheart --out "$run/instructions.jsonl"
           tail -3 "$run/bench.log"; tail -3 "$run/perft.log"
       - name: Record into docs/benchmarks.md and CHANGELOG.md
         if: steps.version.outputs.recorded != 'true'
@@ -92,8 +92,8 @@ jobs:
           if [ -n "$prev" ] && gh release download "$prev" --repo "$GITHUB_REPOSITORY" --dir prev --pattern '*.jsonl' 2>/dev/null; then
             args+=(--prev-dir prev --prev-version "$prev")
           fi
-          cargo run --release --locked -p rusty-chess-tools --bin bench-history -- record "${args[@]}"
-          cargo run --release --locked -p rusty-chess-tools --bin bench-history -- summary --version "$VERSION" --date "$date" --dir "$run" > "$run/summary.json"
+          cargo run --release --locked -p braveheart-tools --bin bench-history -- record "${args[@]}"
+          cargo run --release --locked -p braveheart-tools --bin bench-history -- summary --version "$VERSION" --date "$date" --dir "$run" > "$run/summary.json"
           git status --short
       - name: Commit to the release PR
         if: steps.version.outputs.recorded != 'true'

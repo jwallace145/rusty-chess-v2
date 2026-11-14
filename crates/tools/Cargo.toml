@@ -1,5 +1,5 @@
 [package]
-name = "rusty-chess-tools"
+name = "braveheart-tools"
 version = "0.52.0"
 description = "Developer tools: perft suite runner, performance gate, bench and stats diffing, data generation"
 edition.workspace = true
@@ -10,7 +10,7 @@ repository.workspace = true
 publish.workspace = true
 
 [lib]
-name = "rusty_chess_tools"
+name = "braveheart_tools"
 
 [[bin]]
 name = "perf-gate"
@@ -65,8 +65,8 @@ name = "sprt-report"
 path = "src/bin/sprt_report.rs"
 
 [dependencies]
-rusty-chess-core = { path = "../core" }
-rusty-chess-search = { path = "../search" }
+braveheart-core = { path = "../core" }
+braveheart-search = { path = "../search" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.11"

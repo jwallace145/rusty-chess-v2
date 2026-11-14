@@ -1,4 +1,4 @@
-# lichess-bot configuration for rusty-chess. Copied next to the lichess-bot
+# lichess-bot configuration for braveheart. Copied next to the lichess-bot
 # checkout by lichess/run.sh, which also fills in the token from the
 # LICHESS_TOKEN environment variable. Everything else lives here, versioned.
 
@@ -7,7 +7,7 @@ url: "https://lichess.org/"
 
 engine:
   dir: "./engines/"
-  name: "rusty-chess"
+  name: "braveheart"
   working_dir: ""
   protocol: "uci"
   ponder: true                     # think on the opponent's clock (go ponder / ponderhit)
@@ -91,16 +91,16 @@ challenge:
   max_simultaneous_games_per_user: 1
 
 # Chat messages. __VERSION__ is filled in by lichess/run.sh (and by the
-# deployed bot's entrypoint) from `rusty-chess --version`, so a game's chat
+# deployed bot's entrypoint) from `braveheart --version`, so a game's chat
 # says which release is playing; lichess-bot itself only substitutes {me} and
 # {opponent}. Lichess caps a chat message at 140 characters and lichess-bot
 # drops a longer one without sending it, so each line below must fit with a
 # version up to 9 characters long (`npm test` checks).
 greeting:
-  hello: "Hi! I'm Rusty Chess __VERSION__: from-scratch Rust alpha-beta + NNUE, trained on billions of my own self-play positions, all labelled by me."
-  goodbye: "Thanks for the game! Source and story: github.com/jwallace145/rusty-chess-v2"
-  hello_spectators: "Rusty Chess __VERSION__ here: from-scratch Rust alpha-beta + NNUE, trained on billions of its own self-play positions, all self-labelled."
-  goodbye_spectators: "Thanks for watching! Source and story: github.com/jwallace145/rusty-chess-v2"
+  hello: "Hi! I'm Braveheart __VERSION__: from-scratch Rust alpha-beta + NNUE, trained on billions of my own self-play positions, all labelled by me."
+  goodbye: "Thanks for the game! Source and story: github.com/jwallace145/braveheart"
+  hello_spectators: "Braveheart __VERSION__ here: from-scratch Rust alpha-beta + NNUE, trained on billions of its own self-play positions, all self-labelled."
+  goodbye_spectators: "Thanks for watching! Source and story: github.com/jwallace145/braveheart"
 
 pgn_directory: "game_records"
 pgn_file_grouping: "game"

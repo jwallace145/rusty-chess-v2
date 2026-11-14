@@ -22,9 +22,9 @@
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use rusty_chess_core::position::Position;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::Network;
+use braveheart_core::position::Position;
+use braveheart_search::board::Board;
+use braveheart_search::nnue::Network;
 
 fn main() -> ExitCode {
     match run() {
@@ -65,7 +65,7 @@ fn run() -> Result<ExitCode, String> {
             other => return Err(format!("unknown option `{other}`")),
         }
     }
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let net_path = net.ok_or("--net is required")?;
     let bytes = std::fs::read(&net_path).map_err(|e| format!("{net_path}: {e}"))?;
     let net = Arc::new(Network::from_bytes(&bytes).map_err(|e| format!("{net_path}: {e}"))?);

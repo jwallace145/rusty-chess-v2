@@ -22,14 +22,14 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use braveheart_search::nnue::{
+    DEFAULT_NET_ID, NETS, Network, network_by_id, retired_net, retired_net_message,
+};
+use braveheart_search::search::Searcher;
+use braveheart_tools::relabel::{RelabelStats, relabel_shard};
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use rusty_chess_search::nnue::{
-    DEFAULT_NET_ID, NETS, Network, network_by_id, retired_net, retired_net_message,
-};
-use rusty_chess_search::search::Searcher;
-use rusty_chess_tools::relabel::{RelabelStats, relabel_shard};
 use sha2::{Digest, Sha256};
 
 fn hex(bytes: &[u8]) -> String {
@@ -242,7 +242,7 @@ fn main() {
             },
         },
     };
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let (input, output) = (PathBuf::from(input), PathBuf::from(output));
     let todo = manifests(&input);
     let job = Job {

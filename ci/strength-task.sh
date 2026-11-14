@@ -30,7 +30,7 @@ case "$mode" in timed) flag="--timed" ;; nodes) flag="" ;; *) echo "strength-tas
 : "${OUT_DIR:?OUT_DIR is not set}"
 
 FASTCHESS_VERSION=v1.8.2-alpha
-REPO_URL=https://github.com/jwallace145/rusty-chess-v2
+REPO_URL=https://github.com/jwallace145/braveheart
 export RUSTFLAGS="-C target-cpu=x86-64-v3" CARGO_TERM_COLOR=never
 work=$(mktemp -d /tmp/strength.XXXXXX)
 t0=$(date +%s)
@@ -48,7 +48,7 @@ echo "-- building the PR engine and the tools, and the base engine ($(since)s)"
 git fetch --quiet --depth 1 "$REPO_URL" "$base"
 git worktree add --quiet --detach "$work/base" FETCH_HEAD
 ( cargo build --release --locked --quiet \
-    && cargo build --release --locked --quiet -p rusty-chess-tools --bin sprt-report ) > "$work/build-pr.log" 2>&1 &
+    && cargo build --release --locked --quiet -p braveheart-tools --bin sprt-report ) > "$work/build-pr.log" 2>&1 &
 pr_build=$!
 cargo build --release --locked --quiet --manifest-path "$work/base/Cargo.toml" --target-dir "$work/base-target" > "$work/build-base.log" 2>&1 &
 base_build=$!
@@ -57,8 +57,9 @@ wait "$pr_build" || { echo "PR build failed:"; tail -40 "$work/build-pr.log"; ok
 wait "$base_build" || { echo "base build failed:"; tail -40 "$work/build-base.log"; ok=1; }
 [ "$ok" = 0 ] || exit 1
 mkdir -p "$work/engines"
-cp target/release/rusty-chess "$work/engines/pr"
-cp "$work/base-target/release/rusty-chess" "$work/engines/base"
+cp target/release/braveheart "$work/engines/pr"
+# Bases from v0.52.0 and earlier build the engine as `rusty-chess`.
+cp "$(ls "$work/base-target/release/braveheart" "$work/base-target/release/rusty-chess" 2>/dev/null | head -1 || true)" "$work/engines/base"
 signature() { "$1" bench | awk -F: '/Nodes searched/ {gsub(/ /, "", $2); print $2}'; }
 echo "PR engine: $("$work/engines/pr" --version), bench $(signature "$work/engines/pr")"
 echo "Base engine at ${base:0:7}: $("$work/engines/base" --version), bench $(signature "$work/engines/base")"

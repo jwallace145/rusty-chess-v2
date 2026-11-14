@@ -1,9 +1,9 @@
 //! The position: FEN in and out, Zobrist keys, attacks, make and unmake.
 
-use rusty_chess_core::bitboard::Bitboard;
-use rusty_chess_core::r#move::{Move, MoveFlag};
-use rusty_chess_core::position::{CastleRights, Piece, Position};
-use rusty_chess_core::types::{Color, PieceKind, Square};
+use braveheart_core::bitboard::Bitboard;
+use braveheart_core::r#move::{Move, MoveFlag};
+use braveheart_core::position::{CastleRights, Piece, Position};
+use braveheart_core::types::{Color, PieceKind, Square};
 
 const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const KIWIPETE: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
@@ -101,7 +101,7 @@ fn gives_check_agrees_with_making_the_move_everywhere_in_the_perft_suite() {
     // ply below it: direct checks, discovered checks, en passant, castling
     // and promotions are all in the suite.
     fn check_all(p: &mut Position, depth: u32, checked: &mut u64) {
-        let mut list = rusty_chess_core::movegen::MoveList::new();
+        let mut list = braveheart_core::movegen::MoveList::new();
         p.legal_moves(&mut list);
         for &m in list.iter() {
             let predicted = p.gives_check(m);

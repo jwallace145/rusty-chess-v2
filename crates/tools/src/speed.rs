@@ -13,7 +13,7 @@
 use std::path::Path;
 use std::process::Command;
 
-use rusty_chess_search::telemetry::{InstructionsRecord, SCHEMA_VERSION, SpeedRecord};
+use braveheart_search::telemetry::{InstructionsRecord, SCHEMA_VERSION, SpeedRecord};
 
 /// The summary of one bench run: nodes, nodes per second and wall time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

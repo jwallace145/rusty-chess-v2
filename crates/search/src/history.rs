@@ -6,8 +6,8 @@
 //! malus. Gravity, `h += bonus - h * |bonus| / MAX`, keeps every score in
 //! `[-MAX, MAX]` and makes recent evidence count more than old evidence.
 
-use rusty_chess_core::r#move::Move;
-use rusty_chess_core::types::Color;
+use braveheart_core::r#move::Move;
+use braveheart_core::types::Color;
 
 /// The bound every score stays within.
 pub const MAX_HISTORY: i32 = 16_384;
@@ -74,7 +74,7 @@ impl History {
 }
 
 /// A move as the continuation tables see it: the piece that moved (a
-/// [`Piece::index`](rusty_chess_core::position::Piece::index), 0..12) and
+/// [`Piece::index`](braveheart_core::position::Piece::index), 0..12) and
 /// its destination. [`PieceTo::NONE`] stands for "no previous move" (the
 /// root, or a null move) and never matches anything.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,7 +91,7 @@ impl PieceTo {
 
     /// The moved piece and destination of `m` in `pos`, before it is made.
     #[inline]
-    pub fn of(pos: &rusty_chess_core::position::Position, m: Move) -> PieceTo {
+    pub fn of(pos: &braveheart_core::position::Position, m: Move) -> PieceTo {
         match pos.piece_at(m.from()) {
             Some(p) => PieceTo {
                 piece: (p.color.index() * 6 + p.kind.index()) as u8,

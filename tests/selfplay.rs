@@ -7,10 +7,10 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use rusty_chess_core::movegen::MoveList;
-use rusty_chess_core::position::Position;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::search::{Limits, Searcher};
+use braveheart_core::movegen::MoveList;
+use braveheart_core::position::Position;
+use braveheart_search::board::Board;
+use braveheart_search::search::{Limits, Searcher};
 
 fn play(fen: &str, depth: u32, max_plies: usize) -> (usize, &'static str) {
     let mut board = Board::from_position(Position::from_fen(fen).unwrap());

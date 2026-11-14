@@ -49,7 +49,7 @@ echo "==> building relabel at ${sha:0:7}, the commit in the manifests"
 rm -rf "$out/build/src"; mkdir -p "$out/build/src"
 git -C "$repo" archive "$sha" | tar -x -C "$out/build/src"
 (cd "$out/build/src" && RUSTFLAGS="${RUSTFLAGS:--C target-cpu=native}" CARGO_TARGET_DIR="$out/build/target" \
-  cargo build --release --locked --quiet -p rusty-chess-tools --bin relabel)
+  cargo build --release --locked --quiet -p braveheart-tools --bin relabel)
 relabel="$out/build/target/release/relabel"
 nodes=${label##*-n}
 built=$("$relabel" --net default --nodes "$nodes" --print-label-id)

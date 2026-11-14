@@ -1,7 +1,7 @@
 //! Squares, colors, pieces and bitboards.
 
-use rusty_chess_core::bitboard::Bitboard;
-use rusty_chess_core::types::{Color, PieceKind, Square};
+use braveheart_core::bitboard::Bitboard;
+use braveheart_core::types::{Color, PieceKind, Square};
 
 #[test]
 fn squares_index_a1_to_h8_file_first() {

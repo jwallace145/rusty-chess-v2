@@ -20,9 +20,9 @@ components:
   - kind: container-image
     architecture: x86_64            # x86_64 | arm64; must match the release asset
     artifact:                       # the release asset the image ships (never a rebuild)
-      asset: rusty-chess-{version}-x86_64-unknown-linux-gnu.tar.gz
-      checksum: rusty-chess-{version}-x86_64-unknown-linux-gnu.tar.gz.sha256
-      binary: rusty-chess
+      asset: braveheart-{version}-x86_64-unknown-linux-gnu.tar.gz
+      checksum: braveheart-{version}-x86_64-unknown-linux-gnu.tar.gz.sha256
+      binary: braveheart
     # dockerfile: docker/Dockerfile # optional: replace the harness-owned Dockerfile
 
   - kind: lichess-bot

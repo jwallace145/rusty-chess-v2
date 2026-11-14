@@ -13,7 +13,7 @@ on a Mac) never touch the engine's build. The network it trains is the one
 shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train ──▶ net.nnue ──▶ check ──▶ data/nets/<net id>/
 ```
 
-1. **`rusty-chess-trainer prepare --shards DIR --out DIR`**
+1. **`braveheart-trainer prepare --shards DIR --out DIR`**
    - **Split:** every *worker's* shards go wholly to validation or training,
      by `splitmix(fnv("run/task/worker") ^ splitmix(split_seed))`. A game
      never spans shards, so it never spans the split.
@@ -35,7 +35,7 @@ shards in S3 ──▶ prepare ──▶ train.data, val.data ──▶ train �
      written.
      `bullet-utils shuffle` seeds itself from the clock, which is why the
      trainer shuffles itself.
-2. **`rusty-chess-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--output-buckets 1] [--king-buckets 1] [--checkpoint-every 4] [--val-positions 4000000]`**
+2. **`braveheart-trainer train --data DIR --net-id ID --wdl λ --superbatches N [--hidden 128] [--output-buckets 1] [--king-buckets 1] [--checkpoint-every 4] [--val-positions 4000000]`**
    - **Width:** `--hidden` sets the hidden neurons per perspective (a
      multiple of 16, up to 1024; 128 by default). The `Train` workflow's
      `hidden` input passes it on, and `training.json` records it.
@@ -185,9 +185,9 @@ overwritten.
 
 ```sh
 cd trainer && cargo build --release --features metal
-target/release/rusty-chess-trainer prepare --shards /path/to/gen=0 --out /tmp/prepared
-target/release/rusty-chess-trainer train --data /tmp/prepared --net-id net1-l050 --wdl 0.5 --superbatches 40 --out /tmp/net1
-cargo run --release -p rusty-chess-tools --bin nnue-eval -- --net /tmp/net1/net.nnue --check /tmp/net1/eval_check.json
+target/release/braveheart-trainer prepare --shards /path/to/gen=0 --out /tmp/prepared
+target/release/braveheart-trainer train --data /tmp/prepared --net-id net1-l050 --wdl 0.5 --superbatches 40 --out /tmp/net1
+cargo run --release -p braveheart-tools --bin nnue-eval -- --net /tmp/net1/net.nnue --check /tmp/net1/eval_check.json
 ```
 
 An M-series GPU trains this network at about 4.7 million positions a second,
@@ -237,7 +237,7 @@ around here.
 
 ## Scoring an existing net
 
-`rusty-chess-trainer validate --net FILE --data DIR --wdl λ [--positions 4000000]`
+`braveheart-trainer validate --net FILE --data DIR --wdl λ [--positions 4000000]`
 scores any net on a prepared directory's `val.data`, and on as many records
 of `train.data` if it is there. `FILE` is bullet's `raw.bin`, or a quantised
 `net.nnue`, whose weights are dequantised to floats. To rebuild a net's exact

@@ -116,7 +116,7 @@ jobs:
           echo "Baseline:  $BASELINE at ${base:0:7}"
           # Validate the settings here, before an instance is launched.
           [ "$RUNNER" = github ] && conc="$CONCURRENCY" || conc=60
-          cargo build --release --locked -q -p rusty-chess-tools --bin match-report
+          cargo build --release --locked -q -p braveheart-tools --bin match-report
           target/release/match-report args --tc "$TC" --nodes "$NODES" --games "$GAMES" --concurrency "$conc" \
             --hash "$HASH_MB" --openings tests/openings/openings.epd --confidence "$CONFIDENCE" > /dev/null
           [ "$RUNNER" = github ] && extra=(--concurrency "$CONCURRENCY") || extra=()

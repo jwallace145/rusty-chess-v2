@@ -17,9 +17,9 @@ use std::io::BufReader;
 use std::path::Path;
 use std::process::ExitCode;
 
-use rusty_chess_search::telemetry::read_records;
-use rusty_chess_tools::gate::Measured;
-use rusty_chess_tools::history;
+use braveheart_search::telemetry::read_records;
+use braveheart_tools::gate::Measured;
+use braveheart_tools::history;
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {

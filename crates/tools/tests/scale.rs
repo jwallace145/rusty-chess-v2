@@ -1,9 +1,9 @@
 //! `scale`: removing a piece from a FEN, and what the evaluations say a
 //! piece is worth.
 
-use rusty_chess_core::types::Square;
-use rusty_chess_search::nnue::default_network;
-use rusty_chess_tools::scale::{evaluate, piece_values, summarize, without_piece};
+use braveheart_core::types::Square;
+use braveheart_search::nnue::default_network;
+use braveheart_tools::scale::{evaluate, piece_values, summarize, without_piece};
 
 const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -22,7 +22,7 @@ fn openings() -> Vec<String> {
 
 #[test]
 fn removing_a_piece_rewrites_the_placement_and_drops_the_rights() {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     // The queen's knight, a corner rook, a pawn in the middle of a row.
     assert_eq!(
         without_piece(START, Square::B1).as_deref(),
@@ -52,7 +52,7 @@ fn removing_a_piece_rewrites_the_placement_and_drops_the_rights() {
 
 #[test]
 fn the_hand_written_evaluation_reads_its_own_piece_values() {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     // The control: PeSTO's tables are known (a pawn about 80 to 95, a knight
     // 280 to 340, a bishop 300 to 365, a rook 480 to 510, a queen 940 to
     // 1,025, plus or minus each square's bonus), so the measurement must
@@ -73,7 +73,7 @@ fn the_hand_written_evaluation_reads_its_own_piece_values() {
 
 #[test]
 fn the_embedded_net_values_material_in_the_right_order_and_on_its_own_scale() {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let net = default_network();
     let fens = openings();
     let values = piece_values(fens.iter().map(String::as_str), Some(&net));
@@ -96,7 +96,7 @@ fn the_embedded_net_values_material_in_the_right_order_and_on_its_own_scale() {
 
 #[test]
 fn a_piece_is_valued_from_its_owners_side_whoever_is_to_move() {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     // The same position with either side to move: white's extra queen is
     // worth a positive amount both times.
     for fen in [

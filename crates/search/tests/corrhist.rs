@@ -1,10 +1,10 @@
 //! The pawn-structure correction history: its index, its bounds, its update
 //! and the bound rule (`docs/correction-history.md`).
 
-use rusty_chess_core::position::Position;
-use rusty_chess_search::corrhist::{CorrectionHistory, GRAIN, MAX_CORRECTION};
-use rusty_chess_search::search::MATE_BOUND;
-use rusty_chess_search::tt::Bound;
+use braveheart_core::position::Position;
+use braveheart_search::corrhist::{CorrectionHistory, GRAIN, MAX_CORRECTION};
+use braveheart_search::search::MATE_BOUND;
+use braveheart_search::tt::Bound;
 
 const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 /// The start position's pawns under different pieces.
@@ -144,10 +144,10 @@ mod in_search {
     use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
 
-    use rusty_chess_core::position::Position;
-    use rusty_chess_search::board::Board;
-    use rusty_chess_search::nnue::default_network;
-    use rusty_chess_search::search::{Limits, SearchResult, Searcher, is_mate_score};
+    use braveheart_core::position::Position;
+    use braveheart_search::board::Board;
+    use braveheart_search::nnue::default_network;
+    use braveheart_search::search::{Limits, SearchResult, Searcher, is_mate_score};
 
     const QUIET: [&str; 3] = [
         "r1bq1rk1/pp2bppp/2n1pn2/3p4/2PP4/2N1PN2/PP3PPP/R1BQKB1R w KQ - 0 8",

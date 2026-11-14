@@ -1,12 +1,12 @@
 //! Attack tables: leapers, sliders through magic bitboards, and the lines
 //! between squares. Everything is checked against a slow reference.
 
-use rusty_chess_core::attacks::{
+use braveheart_core::attacks::{
     between, bishop_attacks, king_attacks, knight_attacks, line, pawn_attacks, queen_attacks,
     rook_attacks,
 };
-use rusty_chess_core::bitboard::Bitboard;
-use rusty_chess_core::types::{Color, Square};
+use braveheart_core::bitboard::Bitboard;
+use braveheart_core::types::{Color, Square};
 
 fn bb(squares: &[Square]) -> Bitboard {
     squares.iter().fold(Bitboard::EMPTY, |acc, &s| acc.with(s))

@@ -1,7 +1,7 @@
 //! The performance gate: measured telemetry against committed targets.
 
-use rusty_chess_search::telemetry::{BenchRecord, PerftRecord, Record};
-use rusty_chess_tools::gate::{Measured, Targets, evaluate};
+use braveheart_search::telemetry::{BenchRecord, PerftRecord, Record};
+use braveheart_tools::gate::{Measured, Targets, evaluate};
 
 const TARGETS: &str = r#"
 # Minimum bars. Values are per environment because shared CI runners are slower
@@ -40,7 +40,7 @@ fn bench(nps: u64, fh_first: Option<f64>) -> Record {
         nodes: 1_000_000,
         nps,
         elapsed_ms: 500,
-        stats: fh_first.map(|fh| rusty_chess_search::stats::StatsSummary {
+        stats: fh_first.map(|fh| braveheart_search::stats::StatsSummary {
             nodes: 1_000_000,
             qnodes: 300_000,
             qnode_share: 0.23,
@@ -162,7 +162,7 @@ fn targets_only_ratchet_up() {
 }
 
 fn iter(depth: u32, nodes: u64) -> Record {
-    Record::Iter(rusty_chess_search::telemetry::IterRecord {
+    Record::Iter(braveheart_search::telemetry::IterRecord {
         v: 1,
         fen: String::new(),
         depth,
@@ -178,7 +178,7 @@ fn iter(depth: u32, nodes: u64) -> Record {
 }
 
 fn summary() -> Record {
-    Record::Summary(rusty_chess_search::telemetry::SummaryRecord {
+    Record::Summary(braveheart_search::telemetry::SummaryRecord {
         v: 1,
         fen: String::new(),
         depth: 0,

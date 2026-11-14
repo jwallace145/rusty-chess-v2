@@ -4,12 +4,12 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use rusty_chess_core::r#move::{Move, MoveFlag};
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::Square;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::search::{Limits, MATE, Searcher, mate_in};
-use rusty_chess_search::tt::{Bound, TranspositionTable};
+use braveheart_core::r#move::{Move, MoveFlag};
+use braveheart_core::position::Position;
+use braveheart_core::types::Square;
+use braveheart_search::board::Board;
+use braveheart_search::search::{Limits, MATE, Searcher, mate_in};
+use braveheart_search::tt::{Bound, TranspositionTable};
 
 fn mv(from: Square, to: Square) -> Move {
     Move::new(from, to, MoveFlag::Quiet)
@@ -195,7 +195,7 @@ fn search(
     board: &mut Board,
     searcher: &mut Searcher,
     depth: u32,
-) -> rusty_chess_search::search::SearchResult {
+) -> braveheart_search::search::SearchResult {
     searcher.search(
         board,
         &Limits {

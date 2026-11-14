@@ -2,8 +2,8 @@
 //! position, the mirrored position (ranks flipped, colors and side to move
 //! swapped) must evaluate to exactly the same score from the mover's view.
 
-use rusty_chess_core::position::Position;
-use rusty_chess_search::board::Board;
+use braveheart_core::position::Position;
+use braveheart_search::board::Board;
 
 /// The bench positions live in the binary crate, which integration tests
 /// cannot import, so the FENs are read out of the source file's string

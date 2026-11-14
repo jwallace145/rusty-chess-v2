@@ -1,14 +1,26 @@
 <p align="center">
-  <img src="branding/logo.png" alt="rusty-chess logo" width="280"><br>
+  <img src="branding/logo.png" alt="Braveheart logo" width="280"><br>
   <sub>Logo © the artist, used under licence. All rights reserved; not covered by the MIT licence (<a href="branding/LICENSE.md">details</a>).</sub>
 </p>
 
-# rusty-chess-v2
+# Braveheart
 
 A single-threaded UCI chess engine in Rust whose classical search is
 measurably strong before any NNUE work starts. Every change is justified by a
 number: perft for correctness, bench for speed, stats for search efficiency,
 and SPRT for Elo.
+
+**The name.** *Braveheart* is the film about William Wallace, who shares the
+author's surname, and Scotland has its own chess opening: the Scotch
+(1.e4 e5 2.Nf3 Nc6 3.d4), an open, aggressive start. The mascot follows suit:
+a snarling panther with a woad-blue face, a braid and a tartan scarf.
+
+Braveheart was called **rusty-chess-v2** through v0.52.0. The research record
+([docs/research-log.md](docs/research-log.md), [docs/nets.md](docs/nets.md),
+[docs/datasets.md](docs/datasets.md), [CHANGELOG.md](CHANGELOG.md)) keeps the
+old name where it describes what ran, and infrastructure names (S3 buckets,
+the remote-task project, stored data schemas such as `rusty-chess-selfplay/1`)
+keep it too, so existing data and runs stay valid.
 
 The full plan is in [docs/roadmap.md](docs/roadmap.md), and the post-mortem of the
 first attempt that shaped it is [docs/lessons-from-rusty-chess-v1.md](docs/lessons-from-rusty-chess-v1.md).
@@ -21,7 +33,7 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 
 | Path | Contents |
 | --- | --- |
-| `src/` | The `rusty-chess` binary (root package): UCI protocol, `bench` and `perft` subcommands. |
+| `src/` | The `braveheart` binary (root package): UCI protocol, `bench` and `perft` subcommands. |
 | `crates/core` | Board, bitboards, magics, move generation, Zobrist hashing, make/unmake. No dependencies. |
 | `crates/search` | Search, transposition table, move picker, evaluation (the embedded NNUE net, and PeSTO), `SearchStats` counters and the JSON lines telemetry writer. |
 | `crates/tools` | Perft suite runner, bench and stats diffing, SPRT and match reports, `datagen`, the self-play data generator for NNUE ([docs/datagen.md](docs/datagen.md)), `datagen-audit`, which checks a dataset before training ([docs/datagen-runbook.md](docs/datagen-runbook.md)), and `nnue-scale`, which measures what a net values each piece at ([docs/nnue.md](docs/nnue.md#the-evaluations-units)). |
@@ -35,11 +47,11 @@ contributors in [CONTRIBUTING.md](CONTRIBUTING.md) and for coding agents in
 
 ```sh
 cargo build --release
-./target/release/rusty-chess                 # UCI: position, go depth|movetime|wtime.., stop, quit
-./target/release/rusty-chess bench           # signature and NPS over 50 fixed positions
-./target/release/rusty-chess bench --depth 10 --hash 16 --out bench.jsonl
-./target/release/rusty-chess perft --depth 5 --fen "<fen>"   # split by root move
-./target/release/rusty-chess perft --suite tests/perft.epd --out perft.jsonl
+./target/release/braveheart                 # UCI: position, go depth|movetime|wtime.., stop, quit
+./target/release/braveheart bench           # signature and NPS over 50 fixed positions
+./target/release/braveheart bench --depth 10 --hash 16 --out bench.jsonl
+./target/release/braveheart perft --depth 5 --fen "<fen>"   # split by root move
+./target/release/braveheart perft --suite tests/perft.epd --out perft.jsonl
 ```
 
 Local builds target the host CPU (`.cargo/config.toml`); release CI builds a
@@ -51,8 +63,8 @@ Three layers are measured separately because each one fails differently.
 
 | Layer | Command | Output |
 | --- | --- | --- |
-| Move generation speed | `rusty-chess perft --suite tests/perft.epd` | every count in the suite, and perft NPS (bulk counting) |
-| Search speed | `rusty-chess bench` | the node **signature** and NPS |
+| Move generation speed | `braveheart perft --suite tests/perft.epd` | every count in the suite, and perft NPS (bulk counting) |
+| Search speed | `braveheart bench` | the node **signature** and NPS |
 | Search efficiency | `cargo build --release --features stats`, then `bench` | fail-high-first rate, EBF, TT hit rate, qsearch share, cutoffs by move-picker stage |
 | Strength | the `sprt` label on a PR | Elo against the PR's base, timed and at fixed nodes per move (both gate), on standardized runners |
 | Head-to-head | the `Match` workflow, by hand | Elo between any two refs at any time control or node budget, a fixed number of games |

@@ -1,6 +1,6 @@
 //! The perft suite: EPD parsing and the runner, exercised with a fake perft.
 
-use rusty_chess_tools::perft::{Suite, run};
+use braveheart_tools::perft::{Suite, run};
 
 const EPD: &str = "\
 # comment lines and blank lines are skipped

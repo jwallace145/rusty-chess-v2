@@ -2,11 +2,11 @@
 //! worth in material when each side keeps capturing only while it pays.
 //! Used to split captures into good (searched early) and bad (searched last).
 
-use rusty_chess_core::attacks;
-use rusty_chess_core::bitboard::Bitboard;
-use rusty_chess_core::r#move::Move;
-use rusty_chess_core::position::Position;
-use rusty_chess_core::types::{Color, PieceKind};
+use braveheart_core::attacks;
+use braveheart_core::bitboard::Bitboard;
+use braveheart_core::r#move::Move;
+use braveheart_core::position::Position;
+use braveheart_core::types::{Color, PieceKind};
 
 /// Piece values for exchanges, indexed by [`PieceKind`]. The king is worth
 /// more than everything else so it is never worth "losing" in a sequence.

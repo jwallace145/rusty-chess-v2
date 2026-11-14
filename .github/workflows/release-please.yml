@@ -81,13 +81,13 @@ jobs:
         run: cargo build --release --locked --target ${{ matrix.target }}
       - name: Smoke test (the binary prints its version)
         if: matrix.target != 'x86_64-apple-darwin' # cross-compiled on an arm64 runner
-        run: target/${{ matrix.target }}/release/rusty-chess --version
+        run: target/${{ matrix.target }}/release/braveheart --version
       - name: Package
         id: package
         run: |
-          name="rusty-chess-${TAG}-${{ matrix.target }}"
+          name="braveheart-${TAG}-${{ matrix.target }}"
           mkdir -p "dist/$name"
-          cp "target/${{ matrix.target }}/release/rusty-chess" LICENSE README.md "dist/$name/"
+          cp "target/${{ matrix.target }}/release/braveheart" LICENSE README.md "dist/$name/"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
           (cd dist && shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256")
           echo "archive=dist/$name.tar.gz" >> "$GITHUB_OUTPUT"
@@ -128,21 +128,21 @@ jobs:
             cargo build --release --locked
             cargo build --release --locked --features stats --target-dir target/stats
             mkdir -p run
-            target/release/rusty-chess bench --out run/bench.jsonl > run/bench.log
-            target/stats/release/rusty-chess bench --out run/stats.jsonl > run/stats.log
-            target/release/rusty-chess perft --suite tests/perft.epd --out run/perft.jsonl > run/perft.log
+            target/release/braveheart bench --out run/bench.jsonl > run/bench.log
+            target/stats/release/braveheart bench --out run/stats.jsonl > run/stats.log
+            target/release/braveheart perft --suite tests/perft.epd --out run/perft.jsonl > run/perft.log
             sudo apt-get update -qq > /dev/null
             sudo apt-get install -y -qq valgrind > /dev/null
-            cargo run --release --locked -p rusty-chess-tools --bin speed-report -- instructions --bin target/release/rusty-chess --out run/instructions.jsonl
-            cargo run --release --locked -p rusty-chess-tools --bin bench-history -- summary --version "$TAG" --date "$(date -u +%F)" --dir run > run/summary.json
+            cargo run --release --locked -p braveheart-tools --bin speed-report -- instructions --bin target/release/braveheart --out run/instructions.jsonl
+            cargo run --release --locked -p braveheart-tools --bin bench-history -- summary --version "$TAG" --date "$(date -u +%F)" --dir run > run/summary.json
           fi
           ls -l run
       - name: Attach the benchmark data to the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tar -czf "rusty-chess-${TAG}-benchmarks.tar.gz" -C run .
-          gh release upload "$TAG" run/* "rusty-chess-${TAG}-benchmarks.tar.gz" --clobber --repo "${{ github.repository }}"
+          tar -czf "braveheart-${TAG}-benchmarks.tar.gz" -C run .
+          gh release upload "$TAG" run/* "braveheart-${TAG}-benchmarks.tar.gz" --clobber --repo "${{ github.repository }}"
       - name: Add the benchmarks, with deltas against the previous release, to the release notes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -153,7 +153,7 @@ jobs:
           if [ -n "$prev" ] && gh release download "$prev" --repo "${{ github.repository }}" --dir prev --pattern '*.jsonl' 2>/dev/null; then
             args+=(--prev-dir prev --prev-version "$prev")
           fi
-          cargo run --release --locked -p rusty-chess-tools --bin bench-history -- notes "${args[@]}" > bench-notes.md
+          cargo run --release --locked -p braveheart-tools --bin bench-history -- notes "${args[@]}" > bench-notes.md
           gh release view "$TAG" --repo "${{ github.repository }}" --json body --jq .body > notes.md
           { echo; cat bench-notes.md; } >> notes.md
           gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file notes.md

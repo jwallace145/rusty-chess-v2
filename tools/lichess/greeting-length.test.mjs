@@ -38,7 +38,7 @@ test("every greeting fits a chat message with a long version filled in", () => {
 
 test("the hello names the engine, its implementation and its data", () => {
   for (const text of [greetings.hello, greetings.hello_spectators]) {
-    for (const needle of ["Rusty Chess", "Rust", "NNUE", "self-play"]) {
+    for (const needle of ["Braveheart", "Rust", "NNUE", "self-play"]) {
       assert.ok(text.includes(needle), `missing "${needle}" in: ${text}`);
     }
   }

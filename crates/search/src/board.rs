@@ -4,9 +4,9 @@
 //! set, also a stack of NNUE accumulators, one entry per ply, pushed by make
 //! and popped by unmake. Nothing here allocates after construction.
 
-use rusty_chess_core::r#move::{Move, MoveFlag};
-use rusty_chess_core::position::{NullUndo, Position, Undo};
-use rusty_chess_core::types::{Color, PieceKind, Square};
+use braveheart_core::r#move::{Move, MoveFlag};
+use braveheart_core::position::{NullUndo, Position, Undo};
+use braveheart_core::types::{Color, PieceKind, Square};
 
 use std::sync::Arc;
 

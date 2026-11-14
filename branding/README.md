@@ -6,8 +6,11 @@
 > repository's MIT licence, and no rights to it are granted to anyone else.
 > Forks and redistributions must remove it. See [LICENSE.md](LICENSE.md).
 
-The rusty-chess logo was drawn for this project by an artist commissioned by
-the owner. There are two versions of the mark:
+The Braveheart logo was drawn for this project by an artist commissioned by
+the owner. The mascot is a snarling panther in William Wallace's colours: a
+woad-blue face from the battle scenes of *Braveheart*, a braid and a tartan
+scarf. The name joins the film to the Scotch Game, the aggressive opening
+Scotland lends to chess. There are two versions of the mark:
 
 | Mark | File | Use it for |
 | --- | --- | --- |

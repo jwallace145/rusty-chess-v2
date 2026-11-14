@@ -12,13 +12,13 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
-use rusty_chess_core::position::Position;
-use rusty_chess_search::board::Board;
-use rusty_chess_search::nnue::{
+use braveheart_core::position::Position;
+use braveheart_search::board::Board;
+use braveheart_search::nnue::{
     DEFAULT_NET_ID, Network, default_network, network_by_id, retired_net, retired_net_message,
 };
-use rusty_chess_search::search::{Limits, Searcher};
-use rusty_chess_search::telemetry::{
+use braveheart_search::search::{Limits, Searcher};
+use braveheart_search::telemetry::{
     BenchRecord, JsonlWriter, Record, SCHEMA_VERSION, SummaryRecord,
 };
 
@@ -28,7 +28,7 @@ use crate::positions::BENCH_POSITIONS;
 /// Run the bench, printing progress and the summary to `out` and writing JSON
 /// lines to `args.out` if set. Returns the bench record.
 pub fn run<W: Write>(args: &BenchArgs, out: &mut W) -> io::Result<BenchRecord> {
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let mut jsonl = match &args.out {
         Some(path) => Some(JsonlWriter::new(BufWriter::new(File::create(path)?))),
         None => None,

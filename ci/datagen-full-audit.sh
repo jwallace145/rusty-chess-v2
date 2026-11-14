@@ -33,7 +33,7 @@ rm -rf "$out"; mkdir -p "$out/batches" "$out/logs"
 out=$(cd "$out" && pwd)
 
 echo "==> building datagen-audit at $(git -C "$root" rev-parse --short HEAD)"
-(cd "$root" && cargo build --release --locked --quiet -p rusty-chess-tools --bin datagen-audit)
+(cd "$root" && cargo build --release --locked --quiet -p braveheart-tools --bin datagen-audit)
 audit="$root/target/release/datagen-audit"
 status=0
 

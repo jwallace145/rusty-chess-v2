@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Play rusty-chess against other UCI engines locally in EngineBattle
+# Play braveheart against other UCI engines locally in EngineBattle
 # (https://github.com/lepned/EngineBattle), and watch the games live.
 #
-#   tools/engine-battle/eb.sh setup                     # install EngineBattle and two opponents, register them and this tree's rusty-chess
-#   tools/engine-battle/eb.sh add-rusty [--ref REF] [--net NET] [--name NAME]
+#   tools/engine-battle/eb.sh setup                     # install EngineBattle and two opponents, register them and this tree's braveheart
+#   tools/engine-battle/eb.sh add-braveheart [--ref REF] [--net NET] [--name NAME]
 #   tools/engine-battle/eb.sh add-engine NAME PATH [--uci OPTION=VALUE ...]
 #   tools/engine-battle/eb.sh list
 #   tools/engine-battle/eb.sh play --engines A,B[,C...] [--mode match|rr|gauntlet] [--tc 2:00+1 | --nodes N]
@@ -132,47 +132,48 @@ cmd_setup() {
   register stockfish-19 "$engines/stockfish-19"
   register stockfish-19-elo3000 "$engines/stockfish-19" UCI_LimitStrength=true UCI_Elo=3000
   [ -x "$engines/viridithas-20" ] && register viridithas-20 "$engines/viridithas-20"
-  cmd_add_rusty
+  cmd_add_braveheart
   echo
   echo "Ready. Try:  $0 play --engines $last_registered,stockfish-19-elo3000"
 }
 
-cmd_add_rusty() {
+cmd_add_braveheart() {
   local ref="" net="" name=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --ref) ref=$2; shift 2 ;;
       --net) net=$2; shift 2 ;;
       --name) name=$2; shift 2 ;;
-      *) die "add-rusty: unknown argument $1" ;;
+      *) die "add-braveheart: unknown argument $1" ;;
     esac
   done
   need cargo
   mkdir -p "$engines"
   local label src
   if [ -z "$ref" ]; then
-    echo "==> building rusty-chess from this working tree (release)"
+    echo "==> building braveheart from this working tree (release)"
     (cd "$root" && cargo build --release --locked --quiet)
     label="dev-$(git -C "$root" rev-parse --short HEAD)$(git -C "$root" diff --quiet HEAD -- crates src Cargo.toml Cargo.lock || echo "-dirty")"
-    src="$root/target/release/rusty-chess"
+    src="$root/target/release/braveheart"
   else
     git -C "$root" rev-parse --verify --quiet "$ref^{commit}" >/dev/null || die "no such ref: $ref (try git fetch --tags)"
     label=$(echo "$ref" | tr '/' '-')
     local wt="$local_dir/build/$label"
-    echo "==> building rusty-chess $ref (release)"
+    echo "==> building braveheart $ref (release)"
     rm -rf "$wt"; git -C "$root" worktree prune
     git -C "$root" worktree add --quiet --detach "$wt" "$ref"
     (cd "$wt" && CARGO_TARGET_DIR="$local_dir/build/target" cargo build --release --locked --quiet)
     git -C "$root" worktree remove --force "$wt"
-    src="$local_dir/build/target/release/rusty-chess"
+    # Refs from v0.52.0 and earlier build the engine as `rusty-chess`.
+    src=$(ls "$local_dir/build/target/release/braveheart" "$local_dir/build/target/release/rusty-chess" 2>/dev/null | head -1 || true)
   fi
   # A copy per build, so each registered version keeps its own binary.
-  local exe="$engines/rusty-chess-$label"
+  local exe="$engines/braveheart-$label"
   cp "$src" "$exe"
   if [ -n "$net" ]; then
-    register "${name:-rusty-chess-$label-$(basename "$net" .nnue)}" "$exe" "EvalFile=$net"
+    register "${name:-braveheart-$label-$(basename "$net" .nnue)}" "$exe" "EvalFile=$net"
   else
-    register "${name:-rusty-chess-$label}" "$exe"
+    register "${name:-braveheart-$label}" "$exe"
   fi
 }
 
@@ -200,7 +201,7 @@ for f in sorted(glob.glob(f"{sys.argv[1]}/*.json")):
     extra = []
     if o.get("UCI_LimitStrength") is True:
         extra.append(f"UCI_Elo={o.get('UCI_Elo')}")
-    if name.startswith("rusty-chess") and o.get("EvalFile") not in (None, "<default>"):
+    if name.startswith("braveheart") and o.get("EvalFile") not in (None, "<default>"):
         extra.append(f"EvalFile={o['EvalFile']}")
     extra = ", ".join(extra)
     print(f"{name:<48} {d.get('Version', ''):<24} {extra}")
@@ -282,7 +283,7 @@ cmd_gui() {
 
 case "${1:-}" in
   setup) shift; cmd_setup "$@" ;;
-  add-rusty) shift; cmd_add_rusty "$@" ;;
+  add-braveheart) shift; cmd_add_braveheart "$@" ;;
   add-engine) shift; cmd_add_engine "$@" ;;
   list) shift; cmd_list ;;
   play) shift; cmd_play "$@" ;;

@@ -1,7 +1,7 @@
 //! The `stats` feature: counters that exist (and count) only when enabled.
 
-use rusty_chess_search::stat;
-use rusty_chess_search::stats::{SearchStats, Stage, effective_branching_factor};
+use braveheart_search::stat;
+use braveheart_search::stats::{SearchStats, Stage, effective_branching_factor};
 
 #[test]
 fn stats_struct_is_zero_sized_without_the_feature() {

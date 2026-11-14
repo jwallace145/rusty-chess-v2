@@ -1,4 +1,4 @@
-# rusty-chess on Lichess
+# braveheart on Lichess
 
 Play the engine, or watch it play, on Lichess through a bot account. The
 bridge is [lichess-bot](https://github.com/lichess-bot-devs/lichess-bot), the
@@ -11,7 +11,7 @@ itself is unchanged. `run.sh` sets everything up under `lichess/.lichess-bot/`.
    example `rusty-chess-bot`). It must never have played a game; once
    upgraded to a bot it cannot play as a human again.
 2. **Create a token.** Logged in as that account, go to
-   https://lichess.org/account/oauth/token/create?scopes[]=bot:play&description=rusty-chess
+   https://lichess.org/account/oauth/token/create?scopes[]=bot:play&description=braveheart
    and copy the token (it starts with `lip_`). Keep it out of the repo.
 3. **Upgrade the account to a bot** (once):
 
@@ -44,17 +44,17 @@ Delete `lichess/.lichess-bot/` to refetch everything.
 At its first move the bot greets both chat rooms with its name, the release
 it is running and what it is, for example:
 
-> Hi! I'm Rusty Chess v0.46.2: from-scratch Rust alpha-beta + NNUE, trained
+> Hi! I'm Braveheart v0.46.2: from-scratch Rust alpha-beta + NNUE, trained
 > on billions of my own self-play positions, all labelled by me.
 
 The goodbye carries the repository link. The texts are the `greeting` block
-of `config.yml`; `run.sh` fills `__VERSION__` from `rusty-chess --version`
+of `config.yml`; `run.sh` fills `__VERSION__` from `braveheart --version`
 when it copies the config, so the deployed bot's entrypoint
 (jwall-engineering-infra) must do the same substitution. Lichess caps a chat
 message at 140 characters and lichess-bot silently drops a longer one, so
 `npm test` checks every greeting with a 9-character version filled in.
 Anyone in the chat can also type `!name`, which lichess-bot answers with the
-engine's UCI name, `rusty-chess <version>`.
+engine's UCI name, `braveheart <version>`.
 
 ## Pondering
 
@@ -77,7 +77,7 @@ for the middlegame. It picks the best-scoring move among those masters played
 at least 50 times, so its book lines are the same game to game; out of book,
 or with under 20 seconds left, the engine searches as usual.
 
-The book belongs to the bot, not the engine. `rusty-chess` has no book and no
+The book belongs to the bot, not the engine. `braveheart` has no book and no
 book option: SPRTs, the Stockfish ladder and anyone running the binary see the
 bare engine. So the bot's Lichess rating includes the book, and the ladder
 numbers do not.

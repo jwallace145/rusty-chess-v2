@@ -20,8 +20,8 @@
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use rusty_chess_search::nnue::{Network, default_network};
-use rusty_chess_tools::scale::{KINDS, piece_values, summarize};
+use braveheart_search::nnue::{Network, default_network};
+use braveheart_tools::scale::{KINDS, piece_values, summarize};
 
 fn main() -> ExitCode {
     match run() {
@@ -56,7 +56,7 @@ fn run() -> Result<(), String> {
     if pesto && net_path.is_some() {
         return Err("--pesto and --net exclude each other".into());
     }
-    rusty_chess_core::attacks::init();
+    braveheart_core::attacks::init();
     let (net, label) = if pesto {
         (None, "PeSTO".to_string())
     } else if let Some(path) = net_path {
@@ -66,7 +66,7 @@ fn run() -> Result<(), String> {
     } else {
         (
             Some(default_network()),
-            format!("{} (embedded)", rusty_chess_search::nnue::DEFAULT_NET_ID),
+            format!("{} (embedded)", braveheart_search::nnue::DEFAULT_NET_ID),
         )
     };
     let fens_path = fens_path.ok_or("--fens is required")?;
