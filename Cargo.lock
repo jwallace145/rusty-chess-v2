@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "braveheart"
-version = "0.52.0"
+version = "0.53.0"
 dependencies = [
  "braveheart-core",
  "braveheart-search",
@@ -28,11 +28,11 @@ dependencies = [
 
 [[package]]
 name = "braveheart-core"
-version = "0.52.0"
+version = "0.53.0"
 
 [[package]]
 name = "braveheart-search"
-version = "0.52.0"
+version = "0.53.0"
 dependencies = [
  "braveheart-core",
  "serde",
@@ -41,7 +41,7 @@ dependencies = [
 
 [[package]]
 name = "braveheart-tools"
-version = "0.52.0"
+version = "0.53.0"
 dependencies = [
  "braveheart-core",
  "braveheart-search",

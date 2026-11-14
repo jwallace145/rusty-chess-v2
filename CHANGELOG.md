@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/jwallace145/braveheart/compare/v0.52.0...v0.53.0) (2026-11-14)
+
+
+### Features
+
+* rebrand the project as Braveheart ([#262](https://github.com/jwallace145/braveheart/issues/262)) ([7b88b33](https://github.com/jwallace145/braveheart/commit/7b88b337cf9f8da15c16dcd78f369f5969939493))
+
 ## [0.52.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.51.0...v0.52.0) (2026-11-13)
 
 

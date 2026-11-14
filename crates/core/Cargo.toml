@@ -1,6 +1,6 @@
 [package]
 name = "braveheart-core"
-version = "0.52.0"
+version = "0.53.0"
 description = "Board representation, bitboards, move generation and hashing (no dependencies)"
 edition.workspace = true
 rust-version.workspace = true
