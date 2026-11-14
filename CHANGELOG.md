@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.53.0](https://github.com/jwallace145/braveheart/compare/v0.52.0...v0.53.0) (2026-11-14)
+
+
+### Features
+
+* rebrand the project as Braveheart ([#262](https://github.com/jwallace145/braveheart/issues/262)) ([7b88b33](https://github.com/jwallace145/braveheart/commit/7b88b337cf9f8da15c16dcd78f369f5969939493))
+
+### Benchmarks
+
+* bench signature 919,304, instructions per node 4016, search 2.65M NPS, perft 382.84M NPS (pass (63)), fail-high first 87.8%, EBF 1.86, TT hit 55.7%
+* since v0.52.0: fail-high first +0.0 pt, EBF +0.00, instructions per node −0.0%, search NPS +34.6%
+* full history: [docs/benchmarks.md](docs/benchmarks.md)
+
 ## [0.52.0](https://github.com/jwallace145/rusty-chess-v2/compare/v0.51.0...v0.52.0) (2026-11-13)
 
 

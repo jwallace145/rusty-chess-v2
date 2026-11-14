@@ -1,6 +1,6 @@
 [package]
 name = "braveheart-search"
-version = "0.52.0"
+version = "0.53.0"
 description = "Search, transposition table, move picker, evaluation and search telemetry"
 edition.workspace = true
 rust-version.workspace = true
