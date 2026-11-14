@@ -70,6 +70,7 @@ jobs:
         # count is the same on any x86-64 machine, so it compares exactly
         # against the release's recorded count.
         run: |
+          sudo apt-get update -qq > /dev/null
           sudo apt-get install -y -qq valgrind > /dev/null
           cargo run --release --locked -p rusty-chess-tools --bin speed-report -- instructions --bin target/release/rusty-chess --out instructions.jsonl
       - name: Paired speed against the merge base (same runner)
